@@ -1,7 +1,7 @@
 import { env } from '../config/env.js';
 import { ApiError } from '../middleware/errors.js';
 
-type ChatTurn = {
+export type ChatTurn = {
   role: 'user' | 'model';
   content: string;
 };
