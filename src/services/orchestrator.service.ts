@@ -1,5 +1,5 @@
 import { prisma } from '../lib/prisma.js';
-import { generateGeminiResponseWithTools, type ChatTurn } from './ai.service.js';
+import { continueGeminiInteraction, generateGeminiResponseWithTools, type ChatTurn } from './ai.service.js';
 import { createPendingAction } from './confirmation.service.js';
 import { executeTool, getGeminiTools, resolveGeminiTool } from './tools.service.js';
 
@@ -85,36 +85,31 @@ async function getContext(user: UserContext) {
   });
 }
 
-function toolTurns(turns: ChatTurn[], modelParts: Array<Record<string, unknown>>, responses: Array<Record<string, unknown>>): ChatTurn[] {
-  return [
-    ...turns,
-    { role: 'model', content: JSON.stringify(modelParts) },
-    { role: 'user', content: JSON.stringify(responses) }
-  ];
-}
-
 async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string) {
   const tools = getGeminiTools();
-  let history: ChatTurn[] = turns;
   const executed: string[] = [];
   const confirmations: OrchestrationResult['confirmations'] = [];
+  let result = await generateGeminiResponseWithTools(turns, tools, system);
+  let interactionId = result.interactionId;
+
+  if (!interactionId) throw new Error('Gemini did not return an interaction identifier');
 
   for (let iteration = 0; iteration < 4; iteration += 1) {
-    const result = await generateGeminiResponseWithTools(history, tools, system);
     if (!result.functionCalls.length) {
       if (!result.text) throw new Error('AI returned neither text nor a tool call');
       return { ...result, executed, confirmations };
     }
 
-    const modelParts = result.functionCalls.map((call) => ({
-      functionCall: { name: call.name, args: call.args, id: call.id }
-    }));
-    const responses: Array<Record<string, unknown>> = [];
+    const functionResults: Array<{ name: string; callId: string; result: unknown }> = [];
 
     for (const call of result.functionCalls) {
       const tool = resolveGeminiTool(call.name);
       if (!tool) {
-        responses.push({ functionResponse: { name: call.name, response: { success: false, error: 'TOOL_NOT_AVAILABLE' }, id: call.id } });
+        functionResults.push({
+          name: call.name,
+          callId: call.id,
+          result: { success: false, error: 'TOOL_NOT_AVAILABLE' }
+        });
         continue;
       }
 
@@ -126,16 +121,14 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
           arguments: pending.arguments as Record<string, unknown>,
           expiresAt: pending.expiresAt
         });
-        responses.push({
-          functionResponse: {
-            name: call.name,
-            response: {
-              success: false,
-              error: 'CONFIRMATION_REQUIRED',
-              confirmationId: pending.id,
-              expiresAt: pending.expiresAt.toISOString()
-            },
-            id: call.id
+        functionResults.push({
+          name: call.name,
+          callId: call.id,
+          result: {
+            success: false,
+            error: 'CONFIRMATION_REQUIRED',
+            confirmationId: pending.id,
+            expiresAt: pending.expiresAt.toISOString()
           }
         });
         continue;
@@ -148,14 +141,20 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
           confirmed: false
         }, call.args);
         executed.push(tool.name);
-        responses.push({ functionResponse: { name: call.name, response: output, id: call.id } });
+        functionResults.push({ name: call.name, callId: call.id, result: output });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Tool execution failed';
-        responses.push({ functionResponse: { name: call.name, response: { success: false, error: message }, id: call.id } });
+        functionResults.push({
+          name: call.name,
+          callId: call.id,
+          result: { success: false, error: message }
+        });
       }
     }
 
-    history = toolTurns(history, modelParts, responses);
+    result = await continueGeminiInteraction(interactionId, functionResults, tools);
+    interactionId = result.interactionId;
+    if (!interactionId) throw new Error('Gemini continuation did not return an interaction identifier');
   }
 
   throw new Error('MAX tool execution limit reached');
