@@ -5,7 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { ApiError } from '../middleware/errors.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
-import { generateGeminiResponse } from '../services/ai.service.js';
+import { generateGeminiResponse, streamGeminiResponse } from '../services/ai.service.js';
 
 const createConversationSchema = z.object({
   title: z.string().trim().min(1).max(200).optional()
@@ -33,6 +33,13 @@ async function getConversationForUser(id: string, userId: string) {
   }
 
   return conversation;
+}
+
+function turnsFromConversation(messages: Array<{ role: 'USER' | 'ASSISTANT'; content: string }>) {
+  return messages.slice(-40).map((message) => ({
+    role: message.role === 'USER' ? 'user' as const : 'model' as const,
+    content: message.content
+  }));
 }
 
 conversationsRouter.post('/', async (req: AuthenticatedRequest, res, next) => {
@@ -90,20 +97,13 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
     const conversation = await getConversationForUser(req.params.id, user.id);
 
     await prisma.message.create({
-      data: {
-        conversationId: conversation.id,
-        role: 'USER',
-        content: input.content
-      }
+      data: { conversationId: conversation.id, role: 'USER', content: input.content }
     });
 
-    const turns = [...conversation.messages, { role: 'USER' as const, content: input.content }]
-      .filter((message) => message.role === 'USER' || message.role === 'ASSISTANT')
-      .slice(-40)
-      .map((message) => ({
-        role: message.role === 'USER' ? 'user' as const : 'model' as const,
-        content: message.content
-      }));
+    const turns = turnsFromConversation([
+      ...conversation.messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT'),
+      { role: 'USER', content: input.content }
+    ]);
 
     const generated = await generateGeminiResponse(turns);
     const assistantMessage = await prisma.message.create({
@@ -118,6 +118,56 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
 
     res.status(201).json({ data: assistantMessage });
   } catch (error) {
+    next(error);
+  }
+});
+
+conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const input = messageSchema.parse(req.body);
+    const user = await getUser(req);
+    const conversation = await getConversationForUser(req.params.id, user.id);
+
+    await prisma.message.create({
+      data: { conversationId: conversation.id, role: 'USER', content: input.content }
+    });
+
+    const turns = turnsFromConversation([
+      ...conversation.messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT'),
+      { role: 'USER', content: input.content }
+    ]);
+
+    res.status(200);
+    res.setHeader('content-type', 'text/event-stream');
+    res.setHeader('cache-control', 'no-cache, no-transform');
+    res.setHeader('connection', 'keep-alive');
+    res.flushHeaders();
+    res.write('event: response_started\ndata: {}\n\n');
+
+    const generated = await streamGeminiResponse(turns, (text) => {
+      res.write(`event: text_delta\ndata: ${JSON.stringify({ text })}\n\n`);
+    });
+
+    const assistantMessage = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'ASSISTANT',
+        content: generated.text,
+        provider: generated.provider,
+        model: generated.model
+      }
+    });
+
+    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id })}\n\n`);
+    res.end();
+  } catch (error) {
+    if (res.headersSent) {
+      const code = error instanceof ApiError ? error.code : 'AI_STREAM_ERROR';
+      const message = error instanceof Error ? error.message : 'The AI response failed';
+      res.write(`event: response_error\ndata: ${JSON.stringify({ code, message })}\n\n`);
+      res.end();
+      return;
+    }
     next(error);
   }
 });
