@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { homeStatus } from '../services/home.service.js';
+import { listTools } from '../services/tools.service.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 
 export const ecosystemRouter = Router();
@@ -24,6 +25,10 @@ ecosystemRouter.get('/capabilities', (_req, res) => {
       os: { available: false, status: 'not_configured' }
     }
   });
+});
+
+ecosystemRouter.get('/tools', requireAuth, (_req, res) => {
+  res.json({ data: listTools() });
 });
 
 ecosystemRouter.get('/me', requireAuth, (req: AuthenticatedRequest, res) => {
