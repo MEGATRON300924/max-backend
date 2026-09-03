@@ -1,10 +1,13 @@
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../middleware/errors.js';
+import { maxHomeRequest } from './home.service.js';
 import type { GeminiFunctionDeclaration } from './ai.service.js';
 
 type ToolContext = {
   userId: string;
+  authSubject?: string;
+  confirmed?: boolean;
 };
 
 export type MaxTool = {
@@ -21,6 +24,12 @@ const memoryInput = z.object({
   key: z.string().trim().min(1).max(120),
   value: z.string().trim().min(1).max(4000),
   confidence: z.number().min(0).max(1).optional()
+});
+
+const homeInput = z.object({
+  action: z.string().trim().min(1).max(100),
+  targetId: z.string().trim().min(1).max(200).optional(),
+  parameters: z.record(z.unknown()).optional()
 });
 
 const tools: MaxTool[] = [
@@ -69,8 +78,16 @@ const tools: MaxTool[] = [
     requiresConfirmation: true,
     declaration: {
       name: 'home_execute',
-      description: 'Execute an authorized smart-home action through MAX Home after confirmation.',
-      parameters: { type: 'object', properties: { action: { type: 'string' }, target: { type: 'string' } }, required: ['action', 'target'] }
+      description: 'Execute an authorized smart-home action through MAX Home after explicit confirmation.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: { type: 'string', description: 'The requested MAX Home action.' },
+          targetId: { type: 'string', description: 'The authorized device, room, scene, or other target identifier.' },
+          parameters: { type: 'object', description: 'Action-specific parameters.' }
+        },
+        required: ['action']
+      }
     }
   }
 ];
@@ -90,7 +107,9 @@ export function resolveGeminiTool(name: string) {
 export async function executeTool(name: string, context: ToolContext, input: unknown) {
   const tool = tools.find((candidate) => candidate.name === name);
   if (!tool || !tool.enabled) throw new ApiError(503, 'TOOL_NOT_AVAILABLE', `MAX tool ${name} is not available`);
-  if (tool.requiresConfirmation && name !== 'memory.save') throw new ApiError(409, 'TOOL_CONFIRMATION_REQUIRED', `MAX tool ${name} requires confirmation`);
+  if (tool.requiresConfirmation && !context.confirmed) {
+    throw new ApiError(409, 'TOOL_CONFIRMATION_REQUIRED', `MAX tool ${name} requires confirmation`);
+  }
 
   if (name === 'memory.save') {
     const data = memoryInput.parse(input);
@@ -100,6 +119,24 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       update: { value: data.value, confidence: data.confidence, source: 'max-ai' }
     });
     return { success: true, tool: name, memoryId: memory.id };
+  }
+
+  if (name === 'memory.delete') {
+    const data = z.object({ memoryId: z.string().min(1).max(200) }).parse(input);
+    const deleted = await prisma.memory.deleteMany({ where: { id: data.memoryId, userId: context.userId } });
+    if (deleted.count !== 1) throw new ApiError(404, 'MEMORY_NOT_FOUND', 'The requested memory was not found');
+    return { success: true, tool: name, memoryId: data.memoryId };
+  }
+
+  if (name === 'home.execute') {
+    if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'MAX Home requires an authenticated MAX identity');
+    const data = homeInput.parse(input);
+    const result = await maxHomeRequest({
+      path: `/api/v1/users/${encodeURIComponent(context.authSubject)}/actions`,
+      method: 'POST',
+      body: data
+    });
+    return { success: true, tool: name, result };
   }
 
   throw new ApiError(501, 'TOOL_NOT_IMPLEMENTED', `MAX tool ${name} is registered but not implemented`);
