@@ -90,7 +90,7 @@ function toolTurns(turns: ChatTurn[], modelParts: Array<Record<string, unknown>>
 
 async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string) {
   const tools = getGeminiTools();
-  let history = [...turns];
+  let history: ChatTurn[] = [{ role: 'user', content: system }, ...turns];
   const executed: string[] = [];
 
   for (let iteration = 0; iteration < 4; iteration += 1) {
@@ -112,10 +112,9 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
         continue;
       }
 
-      const backendName = tool.name;
       try {
-        const output = await executeTool(backendName, { userId: user.id }, call.args);
-        executed.push(backendName);
+        const output = await executeTool(tool.name, { userId: user.id }, call.args);
+        executed.push(tool.name);
         responses.push({ functionResponse: { name: call.name, response: output, id: call.id } });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Tool execution failed';
