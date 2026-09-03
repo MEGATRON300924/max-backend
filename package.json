@@ -2,7 +2,7 @@
   "name": "max-backend",
   "version": "1.0.0",
   "private": true,
-  "description": "MAX AI Ecosystem Backend foundation",
+  "description": "MAX AI Ecosystem Backend",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",
@@ -18,10 +18,12 @@
     "node": ">=20"
   },
   "dependencies": {
+    "@prisma/client": "^6.16.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^5.1.0",
     "helmet": "^8.1.0",
+    "jose": "^6.1.0",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
     "zod": "^3.25.67"
@@ -30,6 +32,7 @@
     "@types/cors": "^2.8.17",
     "@types/express": "^5.0.1",
     "@types/node": "^22.15.21",
+    "prisma": "^6.16.1",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "vitest": "^3.1.3"
