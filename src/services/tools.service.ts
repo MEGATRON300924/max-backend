@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../middleware/errors.js';
+import type { GeminiFunctionDeclaration } from './ai.service.js';
 
 type ToolContext = {
   userId: string;
@@ -12,6 +13,7 @@ export type MaxTool = {
   description: string;
   enabled: boolean;
   requiresConfirmation: boolean;
+  declaration: GeminiFunctionDeclaration;
 };
 
 const memoryInput = z.object({
@@ -27,68 +29,68 @@ const tools: MaxTool[] = [
     capability: 'memory',
     description: 'Save a durable user memory belonging to the authenticated user.',
     enabled: true,
-    requiresConfirmation: false
+    requiresConfirmation: false,
+    declaration: {
+      name: 'memory_save',
+      description: 'Save a durable memory when the user explicitly asks MAX to remember a preference, fact, interest, routine, or instruction.',
+      parameters: {
+        type: 'object',
+        properties: {
+          type: { type: 'string', enum: ['PREFERENCE', 'FACT', 'INTEREST', 'ROUTINE', 'INSTRUCTION'] },
+          key: { type: 'string', description: 'Short memory key.' },
+          value: { type: 'string', description: 'The information to remember.' },
+          confidence: { type: 'number', minimum: 0, maximum: 1 }
+        },
+        required: ['type', 'key', 'value']
+      }
+    }
   },
   {
     name: 'memory.delete',
     capability: 'memory',
     description: 'Delete a durable user memory belonging to the authenticated user.',
     enabled: true,
-    requiresConfirmation: true
+    requiresConfirmation: true,
+    declaration: {
+      name: 'memory_delete',
+      description: 'Delete a user memory only after explicit confirmation from the user.',
+      parameters: {
+        type: 'object',
+        properties: { memoryId: { type: 'string', description: 'The memory identifier to delete.' } },
+        required: ['memoryId']
+      }
+    }
   },
   {
     name: 'home.execute',
     capability: 'home',
     description: 'Execute an authorized MAX Home action.',
     enabled: Boolean(process.env.MAX_HOME_API_URL),
-    requiresConfirmation: true
-  },
-  {
-    name: 'music.execute',
-    capability: 'music',
-    description: 'Execute an authorized MAX Music action.',
-    enabled: false,
-    requiresConfirmation: false
-  },
-  {
-    name: 'browser.search',
-    capability: 'browser',
-    description: 'Search the web through the MAX Browser capability.',
-    enabled: false,
-    requiresConfirmation: false
-  },
-  {
-    name: 'cloud.files',
-    capability: 'cloud',
-    description: 'Access files through MAX Cloud according to user permissions.',
-    enabled: false,
-    requiresConfirmation: true
-  },
-  {
-    name: 'security.execute',
-    capability: 'security',
-    description: 'Execute an authorized MAX Security action.',
-    enabled: false,
-    requiresConfirmation: true
-  },
-  {
-    name: 'pay.execute',
-    capability: 'pay',
-    description: 'Execute an authorized MAX Pay action.',
-    enabled: false,
-    requiresConfirmation: true
+    requiresConfirmation: true,
+    declaration: {
+      name: 'home_execute',
+      description: 'Execute an authorized smart-home action through MAX Home after confirmation.',
+      parameters: { type: 'object', properties: { action: { type: 'string' }, target: { type: 'string' } }, required: ['action', 'target'] }
+    }
   }
 ];
 
 export function listTools() {
-  return tools.map((tool) => ({ ...tool }));
+  return tools.map(({ declaration, ...tool }) => ({ ...tool }));
+}
+
+export function getGeminiTools() {
+  return tools.filter((tool) => tool.enabled).map((tool) => tool.declaration);
+}
+
+export function resolveGeminiTool(name: string) {
+  return tools.find((tool) => tool.enabled && tool.declaration.name === name);
 }
 
 export async function executeTool(name: string, context: ToolContext, input: unknown) {
   const tool = tools.find((candidate) => candidate.name === name);
-  if (!tool || !tool.enabled) {
-    throw new ApiError(503, 'TOOL_NOT_AVAILABLE', `MAX tool ${name} is not available`);
-  }
+  if (!tool || !tool.enabled) throw new ApiError(503, 'TOOL_NOT_AVAILABLE', `MAX tool ${name} is not available`);
+  if (tool.requiresConfirmation && name !== 'memory.save') throw new ApiError(409, 'TOOL_CONFIRMATION_REQUIRED', `MAX tool ${name} requires confirmation`);
 
   if (name === 'memory.save') {
     const data = memoryInput.parse(input);
