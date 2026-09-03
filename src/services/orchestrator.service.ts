@@ -85,8 +85,12 @@ async function executeExplicitMemorySave(user: UserContext, content: string) {
   const match = content.match(/^\s*(?:remember|save this)\s+(?:that\s+)?(.+?)\s+is\s+(.+?)\s*[.!?]?\s*$/i);
   if (!match) return false;
 
-  const key = match[1].trim().replace(/^(my|the)\s+/i, '');
-  const value = match[2].trim();
+  const keyPart = match[1];
+  const valuePart = match[2];
+  if (!keyPart || !valuePart) return false;
+
+  const key = keyPart.trim().replace(/^(my|the)\s+/i, '');
+  const value = valuePart.trim();
   if (!key || !value) return false;
 
   await executeTool('memory.save', { userId: user.id }, {
