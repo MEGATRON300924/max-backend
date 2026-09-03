@@ -12,6 +12,7 @@ import { conversationsRouter } from './routes/conversations.js';
 import { memoriesRouter } from './routes/memories.js';
 import { homeRouter } from './routes/home.js';
 import { ecosystemRouter } from './routes/ecosystem.js';
+import { confirmationsRouter } from './routes/confirmations.js';
 
 export const app = express();
 
@@ -44,6 +45,7 @@ app.use(`${env.API_PREFIX}/conversations`, conversationsRouter);
 app.use(`${env.API_PREFIX}/memories`, memoriesRouter);
 app.use(`${env.API_PREFIX}/home`, homeRouter);
 app.use(`${env.API_PREFIX}/ecosystem`, ecosystemRouter);
+app.use(`${env.API_PREFIX}/confirmations`, confirmationsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
