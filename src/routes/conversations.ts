@@ -7,13 +7,8 @@ import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 import { orchestrate, orchestrateStream } from '../services/orchestrator.service.js';
 
-const createConversationSchema = z.object({
-  title: z.string().trim().min(1).max(200).optional()
-});
-
-const messageSchema = z.object({
-  content: z.string().trim().min(1).max(20000)
-});
+const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
+const messageSchema = z.object({ content: z.string().trim().min(1).max(20000) });
 
 export const conversationsRouter = Router();
 conversationsRouter.use(requireAuth);
@@ -27,11 +22,7 @@ async function getConversationForUser(id: string, userId: string) {
     where: { id, userId },
     include: { messages: { orderBy: { createdAt: 'asc' } } }
   });
-
-  if (!conversation) {
-    throw new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Conversation not found');
-  }
-
+  if (!conversation) throw new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Conversation not found');
   return conversation;
 }
 
@@ -46,9 +37,7 @@ conversationsRouter.post('/', async (req: AuthenticatedRequest, res, next) => {
   try {
     const input = createConversationSchema.parse(req.body);
     const user = await getUser(req);
-    const conversation = await prisma.conversation.create({
-      data: { userId: user.id, title: input.title }
-    });
+    const conversation = await prisma.conversation.create({ data: { userId: user.id, title: input.title } });
     res.status(201).json({ data: conversation });
   } catch (error) {
     next(error);
@@ -72,8 +61,7 @@ conversationsRouter.get('/', async (req: AuthenticatedRequest, res, next) => {
 conversationsRouter.get('/:id', async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await getUser(req);
-    const conversation = await getConversationForUser(req.params.id, user.id);
-    res.json({ data: conversation });
+    res.json({ data: await getConversationForUser(req.params.id, user.id) });
   } catch (error) {
     next(error);
   }
@@ -96,9 +84,7 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
     const user = await getUser(req);
     const conversation = await getConversationForUser(req.params.id, user.id);
 
-    await prisma.message.create({
-      data: { conversationId: conversation.id, role: 'USER', content: input.content }
-    });
+    await prisma.message.create({ data: { conversationId: conversation.id, role: 'USER', content: input.content } });
 
     const turns = turnsFromConversation([
       ...conversation.messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT'),
@@ -113,11 +99,14 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
         content: generated.text,
         provider: generated.provider,
         model: generated.model,
-        metadata: { intent: generated.intent, tools: generated.tools }
+        metadata: { intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations }
       }
     });
 
-    res.status(201).json({ data: assistantMessage });
+    res.status(201).json({
+      data: assistantMessage,
+      confirmations: generated.confirmations
+    });
   } catch (error) {
     next(error);
   }
@@ -129,9 +118,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
     const user = await getUser(req);
     const conversation = await getConversationForUser(req.params.id, user.id);
 
-    await prisma.message.create({
-      data: { conversationId: conversation.id, role: 'USER', content: input.content }
-    });
+    await prisma.message.create({ data: { conversationId: conversation.id, role: 'USER', content: input.content } });
 
     const turns = turnsFromConversation([
       ...conversation.messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT'),
@@ -156,11 +143,11 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
         content: generated.text,
         provider: generated.provider,
         model: generated.model,
-        metadata: { intent: generated.intent, tools: generated.tools }
+        metadata: { intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations }
       }
     });
 
-    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools })}\n\n`);
+    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations })}\n\n`);
     res.end();
   } catch (error) {
     if (res.headersSent) {
