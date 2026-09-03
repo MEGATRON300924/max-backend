@@ -90,11 +90,11 @@ function toolTurns(turns: ChatTurn[], modelParts: Array<Record<string, unknown>>
 
 async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string) {
   const tools = getGeminiTools();
-  let history: ChatTurn[] = [{ role: 'user', content: system }, ...turns];
+  let history = [...turns];
   const executed: string[] = [];
 
   for (let iteration = 0; iteration < 4; iteration += 1) {
-    const result = await generateGeminiResponseWithTools(history, tools);
+    const result = await generateGeminiResponseWithTools(history, tools, system);
     if (!result.functionCalls.length) {
       if (!result.text) throw new Error('AI returned neither text nor a tool call');
       return { ...result, executed };
@@ -123,10 +123,9 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
     }
 
     history = toolTurns(history, modelParts, responses) as ChatTurn[];
-    if (iteration === 3) throw new Error('MAX tool execution limit reached');
   }
 
-  throw new Error('MAX tool execution failed');
+  throw new Error('MAX tool execution limit reached');
 }
 
 export async function orchestrate(user: UserContext, turns: ChatTurn[], latestContent: string): Promise<OrchestrationResult> {
