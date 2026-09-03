@@ -5,7 +5,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { ApiError } from '../middleware/errors.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
-import { generateGeminiResponse, streamGeminiResponse } from '../services/ai.service.js';
+import { orchestrate, orchestrateStream } from '../services/orchestrator.service.js';
 
 const createConversationSchema = z.object({
   title: z.string().trim().min(1).max(200).optional()
@@ -105,14 +105,15 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
       { role: 'USER', content: input.content }
     ]);
 
-    const generated = await generateGeminiResponse(turns);
+    const generated = await orchestrate(user, turns, input.content);
     const assistantMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
         role: 'ASSISTANT',
         content: generated.text,
         provider: generated.provider,
-        model: generated.model
+        model: generated.model,
+        metadata: { intent: generated.intent, tools: generated.tools }
       }
     });
 
@@ -144,7 +145,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
     res.flushHeaders();
     res.write('event: response_started\ndata: {}\n\n');
 
-    const generated = await streamGeminiResponse(turns, (text) => {
+    const generated = await orchestrateStream(user, turns, input.content, (text) => {
       res.write(`event: text_delta\ndata: ${JSON.stringify({ text })}\n\n`);
     });
 
@@ -154,11 +155,12 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
         role: 'ASSISTANT',
         content: generated.text,
         provider: generated.provider,
-        model: generated.model
+        model: generated.model,
+        metadata: { intent: generated.intent, tools: generated.tools }
       }
     });
 
-    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id })}\n\n`);
+    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools })}\n\n`);
     res.end();
   } catch (error) {
     if (res.headersSent) {
