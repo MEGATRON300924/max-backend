@@ -37,8 +37,9 @@ function assertConfigured() {
   }
 }
 
-function requestBody(turns: ChatTurn[], functions: GeminiFunctionDeclaration[] = []) {
+function requestBody(turns: ChatTurn[], functions: GeminiFunctionDeclaration[] = [], systemInstruction?: string) {
   return JSON.stringify({
+    ...(systemInstruction ? { systemInstruction: { parts: [{ text: systemInstruction }] } } : {}),
     contents: turns.map((turn) => ({ role: turn.role, parts: [{ text: turn.content }] })),
     ...(functions.length ? { tools: [{ functionDeclarations: functions }] } : {})
   });
@@ -61,12 +62,12 @@ export async function generateGeminiResponse(turns: ChatTurn[]) {
   return { text: result.text, provider: 'gemini', model: env.GEMINI_MODEL };
 }
 
-export async function generateGeminiResponseWithTools(turns: ChatTurn[], functions: GeminiFunctionDeclaration[] = []) {
+export async function generateGeminiResponseWithTools(turns: ChatTurn[], functions: GeminiFunctionDeclaration[] = [], systemInstruction?: string) {
   assertConfigured();
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(env.GEMINI_MODEL)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY!)}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: requestBody(turns, functions)
+    body: requestBody(turns, functions, systemInstruction)
   });
   if (!response.ok) throw new ApiError(502, 'AI_PROVIDER_ERROR', 'The MAX AI provider could not complete the request');
   const payload = (await response.json()) as GeminiPayload;
