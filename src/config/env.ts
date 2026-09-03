@@ -12,7 +12,9 @@ const schema = z.object({
   MAX_AUTH_AUDIENCE: z.string().optional(),
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().url().optional(),
-  GEMINI_API_KEY: z.string().optional()
+  GEMINI_API_KEY: z.string().optional(),
+  GEMINI_MODEL: z.string().default('gemini-2.5-flash'),
+  MAX_HOME_API_URL: z.string().url().optional()
 });
 
 const parsed = schema.safeParse(process.env);
