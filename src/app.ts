@@ -7,6 +7,8 @@ import { logger } from './config/logger.js';
 import { correlationMiddleware } from './middleware/correlation.js';
 import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import { healthRouter } from './routes/health.js';
+import { profileRouter } from './routes/profile.js';
+import { conversationsRouter } from './routes/conversations.js';
 
 export const app = express();
 
@@ -34,6 +36,8 @@ app.get('/', (_req, res) => {
 
 app.use('/health', healthRouter);
 app.use(`${env.API_PREFIX}/health`, healthRouter);
+app.use(`${env.API_PREFIX}/profile`, profileRouter);
+app.use(`${env.API_PREFIX}/conversations`, conversationsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
