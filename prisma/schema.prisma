@@ -30,8 +30,11 @@ enum MemoryType {
 enum PendingActionStatus {
   PENDING
   CONFIRMED
+  EXECUTING
+  COMPLETED
   CANCELLED
   EXPIRED
+  FAILED
 }
 
 model EcosystemUser {
@@ -41,7 +44,7 @@ model EcosystemUser {
   displayName      String?         @map("display_name")
   avatarUrl        String?         @map("avatar_url")
   locale           String?
-  timezone         String?
+  timezone         String?         
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   conversations    Conversation[]
@@ -106,7 +109,7 @@ model PendingAction {
   arguments   Json
   status      PendingActionStatus @default(PENDING)
   expiresAt   DateTime           @map("expires_at")
-  createdAt   DateTime           @default(now()) @map("created_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
   confirmedAt DateTime?          @map("confirmed_at")
   user        EcosystemUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
