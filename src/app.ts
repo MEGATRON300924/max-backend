@@ -9,6 +9,9 @@ import { errorHandler, notFoundHandler } from './middleware/errors.js';
 import { healthRouter } from './routes/health.js';
 import { profileRouter } from './routes/profile.js';
 import { conversationsRouter } from './routes/conversations.js';
+import { memoriesRouter } from './routes/memories.js';
+import { homeRouter } from './routes/home.js';
+import { ecosystemRouter } from './routes/ecosystem.js';
 
 export const app = express();
 
@@ -38,6 +41,9 @@ app.use('/health', healthRouter);
 app.use(`${env.API_PREFIX}/health`, healthRouter);
 app.use(`${env.API_PREFIX}/profile`, profileRouter);
 app.use(`${env.API_PREFIX}/conversations`, conversationsRouter);
+app.use(`${env.API_PREFIX}/memories`, memoriesRouter);
+app.use(`${env.API_PREFIX}/home`, homeRouter);
+app.use(`${env.API_PREFIX}/ecosystem`, ecosystemRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
