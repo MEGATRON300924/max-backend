@@ -1,5 +1,6 @@
 import { prisma } from '../lib/prisma.js';
 import { generateGeminiResponse, streamGeminiResponse, type ChatTurn } from './ai.service.js';
+import { executeTool } from './tools.service.js';
 
 type UserContext = {
   id: string;
@@ -80,27 +81,46 @@ async function getContext(user: UserContext) {
   });
 }
 
-function toolsForIntent(intent: string) {
-  if (intent === 'memory' && capabilities.memory) return ['memory'];
-  if (intent === 'home' && capabilities.home) return ['home'];
-  if (intent === 'music' && capabilities.music) return ['music'];
-  if (intent === 'browser' && capabilities.browser) return ['browser'];
-  if (intent === 'cloud' && capabilities.cloud) return ['cloud'];
+async function executeExplicitMemorySave(user: UserContext, content: string) {
+  const match = content.match(/^\s*(?:remember|save this)\s+(?:that\s+)?(.+?)\s+is\s+(.+?)\s*[.!?]?\s*$/i);
+  if (!match) return false;
+
+  const key = match[1].trim().replace(/^(my|the)\s+/i, '');
+  const value = match[2].trim();
+  if (!key || !value) return false;
+
+  await executeTool('memory.save', { userId: user.id }, {
+    type: 'FACT',
+    key,
+    value,
+    confidence: 1
+  });
+  return true;
+}
+
+function toolsForIntent(intent: string, memorySaved: boolean) {
+  if (memorySaved) return ['memory.save'];
+  if (intent === 'home' && capabilities.home) return ['home.execute'];
+  if (intent === 'music' && capabilities.music) return ['music.execute'];
+  if (intent === 'browser' && capabilities.browser) return ['browser.search'];
+  if (intent === 'cloud' && capabilities.cloud) return ['cloud.files'];
   return [];
 }
 
 export async function orchestrate(user: UserContext, turns: ChatTurn[], latestContent: string): Promise<OrchestrationResult> {
   const intent = classifyIntent(latestContent);
+  const memorySaved = intent === 'memory' ? await executeExplicitMemorySave(user, latestContent) : false;
   const memories = await getContext(user);
   const system = buildSystemPrompt(user, memories, intent);
   const generated = await generateGeminiResponse([{ role: 'user', content: system }, ...turns]);
-  return { ...generated, intent, tools: toolsForIntent(intent) };
+  return { ...generated, intent, tools: toolsForIntent(intent, memorySaved) };
 }
 
 export async function orchestrateStream(user: UserContext, turns: ChatTurn[], latestContent: string, onText: (text: string) => void): Promise<OrchestrationResult> {
   const intent = classifyIntent(latestContent);
+  const memorySaved = intent === 'memory' ? await executeExplicitMemorySave(user, latestContent) : false;
   const memories = await getContext(user);
   const system = buildSystemPrompt(user, memories, intent);
   const generated = await streamGeminiResponse([{ role: 'user', content: system }, ...turns], onText);
-  return { ...generated, intent, tools: toolsForIntent(intent) };
+  return { ...generated, intent, tools: toolsForIntent(intent, memorySaved) };
 }
