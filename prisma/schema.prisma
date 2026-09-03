@@ -27,18 +27,26 @@ enum MemoryType {
   INSTRUCTION
 }
 
+enum PendingActionStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  EXPIRED
+}
+
 model EcosystemUser {
-  id               String         @id @default(uuid()) @db.Uuid
-  authSubject      String         @unique @map("auth_subject")
+  id               String          @id @default(uuid()) @db.Uuid
+  authSubject      String          @unique @map("auth_subject")
   email            String?
-  displayName      String?        @map("display_name")
-  avatarUrl        String?        @map("avatar_url")
+  displayName      String?         @map("display_name")
+  avatarUrl        String?         @map("avatar_url")
   locale           String?
   timezone         String?
-  createdAt        DateTime       @default(now()) @map("created_at")
-  updatedAt        DateTime       @updatedAt @map("updated_at")
+  createdAt        DateTime        @default(now()) @map("created_at")
+  updatedAt        DateTime        @updatedAt @map("updated_at")
   conversations    Conversation[]
   memories         Memory[]
+  pendingActions   PendingAction[]
 
   @@index([email])
   @@map("ecosystem_users")
@@ -89,4 +97,19 @@ model Memory {
   @@unique([userId, type, key])
   @@index([userId, type])
   @@map("memories")
+}
+
+model PendingAction {
+  id          String             @id @default(uuid()) @db.Uuid
+  userId      String             @map("user_id") @db.Uuid
+  toolName    String             @map("tool_name")
+  arguments   Json
+  status      PendingActionStatus @default(PENDING)
+  expiresAt   DateTime           @map("expires_at")
+  createdAt   DateTime           @default(now()) @map("created_at")
+  confirmedAt DateTime?          @map("confirmed_at")
+  user        EcosystemUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, expiresAt])
+  @@map("pending_actions")
 }
