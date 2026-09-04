@@ -50,6 +50,7 @@ model EcosystemUser {
   conversations    Conversation[]
   memories         Memory[]
   pendingActions   PendingAction[]
+  auditEvents      AuditEvent[]
 
   @@index([email])
   @@map("ecosystem_users")
@@ -114,11 +115,30 @@ model PendingAction {
   status         PendingActionStatus @default(PENDING)
   expiresAt      DateTime            @map("expires_at")
   createdAt      DateTime            @default(now()) @map("created_at")
-  confirmedAt    DateTime?           @map("confirmed_at")
+  confirmedAt    DateTime?            @map("confirmed_at")
   user           EcosystemUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([userId, status, expiresAt])
   @@index([conversationId, status])
   @@map("pending_actions")
+}
+
+model AuditEvent {
+  id             String         @id @default(uuid()) @db.Uuid
+  userId         String?        @map("user_id") @db.Uuid
+  correlationId  String?        @map("correlation_id")
+  eventType      String         @map("event_type")
+  action         String
+  resourceType   String?        @map("resource_type")
+  resourceId     String?        @map("resource_id")
+  status         String
+  metadata       Json?
+  createdAt      DateTime       @default(now()) @map("created_at")
+  user           EcosystemUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([eventType, createdAt])
+  @@index([correlationId])
+  @@map("audit_events")
 }
