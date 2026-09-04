@@ -1,9 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 import { cancelPendingAction, confirmPendingAction, executeConfirmedAction, getPendingAction } from '../services/confirmation.service.js';
+import { continueAfterConfirmation } from '../services/orchestrator.service.js';
 
 const idSchema = z.object({ id: z.string().uuid() });
 
@@ -36,8 +38,34 @@ confirmationsRouter.post('/:id/execute', async (req: AuthenticatedRequest, res, 
   try {
     const { id } = idSchema.parse(req.params);
     const user = await resolveEcosystemUser(req.auth!);
-    const result = await executeConfirmedAction(user.id, user.authSubject, id);
-    res.json({ data: result });
+    const execution = await executeConfirmedAction(user.id, user.authSubject, id);
+    const response = await continueAfterConfirmation(user, execution.action, execution.result);
+    const assistantMessage = await prisma.message.create({
+      data: {
+        conversationId: execution.action.conversationId,
+        role: 'ASSISTANT',
+        content: response.text,
+        provider: response.provider,
+        model: response.model,
+        metadata: {
+          intent: response.intent,
+          tools: response.tools,
+          confirmations: response.confirmations,
+          interactionId: response.interactionId,
+          confirmationId: execution.action.id
+        }
+      }
+    });
+
+    res.json({
+      data: {
+        actionId: execution.action.id,
+        status: execution.action.status,
+        result: execution.result,
+        message: assistantMessage
+      },
+      confirmations: response.confirmations
+    });
   } catch (error) {
     next(error);
   }
