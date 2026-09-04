@@ -91,7 +91,7 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
       { role: 'USER', content: input.content }
     ]);
 
-    const generated = await orchestrate(user, turns, input.content);
+    const generated = await orchestrate(user, conversation.id, turns, input.content);
     const assistantMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -99,14 +99,16 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
         content: generated.text,
         provider: generated.provider,
         model: generated.model,
-        metadata: { intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations }
+        metadata: {
+          intent: generated.intent,
+          tools: generated.tools,
+          confirmations: generated.confirmations,
+          interactionId: generated.interactionId
+        }
       }
     });
 
-    res.status(201).json({
-      data: assistantMessage,
-      confirmations: generated.confirmations
-    });
+    res.status(201).json({ data: assistantMessage, confirmations: generated.confirmations });
   } catch (error) {
     next(error);
   }
@@ -132,7 +134,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
     res.flushHeaders();
     res.write('event: response_started\ndata: {}\n\n');
 
-    const generated = await orchestrateStream(user, turns, input.content, (text) => {
+    const generated = await orchestrateStream(user, conversation.id, turns, input.content, (text) => {
       res.write(`event: text_delta\ndata: ${JSON.stringify({ text })}\n\n`);
     });
 
@@ -143,11 +145,16 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
         content: generated.text,
         provider: generated.provider,
         model: generated.model,
-        metadata: { intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations }
+        metadata: {
+          intent: generated.intent,
+          tools: generated.tools,
+          confirmations: generated.confirmations,
+          interactionId: generated.interactionId
+        }
       }
     });
 
-    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations })}\n\n`);
+    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations, interactionId: generated.interactionId })}\n\n`);
     res.end();
   } catch (error) {
     if (res.headersSent) {
