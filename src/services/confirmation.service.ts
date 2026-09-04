@@ -6,6 +6,10 @@ const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
 const actionSelect = {
   id: true,
+  userId: true,
+  conversationId: true,
+  interactionId: true,
+  callId: true,
   toolName: true,
   arguments: true,
   status: true,
@@ -14,10 +18,29 @@ const actionSelect = {
   confirmedAt: true
 } as const;
 
-export async function createPendingAction(userId: string, toolName: string, argumentsValue: Record<string, unknown>) {
+type PendingActionContext = {
+  conversationId: string;
+  interactionId: string;
+  callId: string;
+};
+
+export async function createPendingAction(
+  userId: string,
+  toolName: string,
+  argumentsValue: Record<string, unknown>,
+  context: PendingActionContext
+) {
   const expiresAt = new Date(Date.now() + DEFAULT_TTL_MS);
   return prisma.pendingAction.create({
-    data: { userId, toolName, arguments: argumentsValue, expiresAt },
+    data: {
+      userId,
+      conversationId: context.conversationId,
+      interactionId: context.interactionId,
+      callId: context.callId,
+      toolName,
+      arguments: argumentsValue,
+      expiresAt
+    },
     select: actionSelect
   });
 }
@@ -25,7 +48,7 @@ export async function createPendingAction(userId: string, toolName: string, argu
 export async function getPendingAction(userId: string, actionId: string) {
   const action = await prisma.pendingAction.findFirst({
     where: { id: actionId, userId },
-    select: { ...actionSelect, userId: true }
+    select: actionSelect
   });
 
   if (!action) throw new ApiError(404, 'CONFIRMATION_NOT_FOUND', 'Confirmation request was not found');
@@ -45,11 +68,16 @@ export async function confirmPendingAction(userId: string, actionId: string) {
     throw new ApiError(409, 'CONFIRMATION_NOT_PENDING', 'Confirmation request is no longer pending');
   }
 
-  return prisma.pendingAction.update({
-    where: { id: action.id },
-    data: { status: 'CONFIRMED', confirmedAt: new Date() },
-    select: actionSelect
+  const confirmed = await prisma.pendingAction.updateMany({
+    where: { id: action.id, userId, status: 'PENDING' },
+    data: { status: 'CONFIRMED', confirmedAt: new Date() }
   });
+
+  if (confirmed.count !== 1) {
+    throw new ApiError(409, 'CONFIRMATION_NOT_PENDING', 'Confirmation request is no longer pending');
+  }
+
+  return prisma.pendingAction.findUniqueOrThrow({ where: { id: action.id }, select: actionSelect });
 }
 
 export async function executeConfirmedAction(userId: string, authSubject: string, actionId: string) {
@@ -75,12 +103,13 @@ export async function executeConfirmedAction(userId: string, authSubject: string
       confirmed: true
     }, action.arguments);
 
-    await prisma.pendingAction.update({
+    const completed = await prisma.pendingAction.update({
       where: { id: action.id },
-      data: { status: 'COMPLETED' }
+      data: { status: 'COMPLETED' },
+      select: actionSelect
     });
 
-    return { actionId: action.id, status: 'COMPLETED', result };
+    return { action: completed, result };
   } catch (error) {
     await prisma.pendingAction.update({
       where: { id: action.id },
@@ -97,9 +126,14 @@ export async function cancelPendingAction(userId: string, actionId: string) {
     throw new ApiError(409, 'CONFIRMATION_NOT_PENDING', 'Confirmation request is no longer pending');
   }
 
-  return prisma.pendingAction.update({
-    where: { id: action.id },
-    data: { status: 'CANCELLED' },
-    select: { id: true, status: true }
+  const cancelled = await prisma.pendingAction.updateMany({
+    where: { id: action.id, userId, status: 'PENDING' },
+    data: { status: 'CANCELLED' }
   });
+
+  if (cancelled.count !== 1) {
+    throw new ApiError(409, 'CONFIRMATION_NOT_PENDING', 'Confirmation request is no longer pending');
+  }
+
+  return { id: action.id, status: 'CANCELLED' as const };
 }
