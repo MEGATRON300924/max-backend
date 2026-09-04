@@ -11,13 +11,21 @@ type UserContext = {
   authSubject?: string;
 };
 
+type Confirmation = {
+  id: string;
+  toolName: string;
+  arguments: Record<string, unknown>;
+  expiresAt: Date;
+};
+
 type OrchestrationResult = {
   text: string;
   provider: string;
   model: string;
   intent: string;
   tools: string[];
-  confirmations: Array<{ id: string; toolName: string; arguments: Record<string, unknown>; expiresAt: Date }>;
+  confirmations: Confirmation[];
+  interactionId: string | null;
 };
 
 const capabilities = {
@@ -53,6 +61,15 @@ function unavailableCapability(intent: string) {
   return null;
 }
 
+async function getContext(user: UserContext) {
+  return prisma.memory.findMany({
+    where: { userId: user.id },
+    orderBy: { updatedAt: 'desc' },
+    take: 50,
+    select: { type: true, key: true, value: true }
+  });
+}
+
 function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; key: string; value: string }>, intent: string) {
   const memoryText = memories.length
     ? memories.map((memory) => `- ${memory.type.toLowerCase()}: ${memory.key} = ${memory.value}`).join('\n')
@@ -76,19 +93,10 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
   ].filter(Boolean).join('\n');
 }
 
-async function getContext(user: UserContext) {
-  return prisma.memory.findMany({
-    where: { userId: user.id },
-    orderBy: { updatedAt: 'desc' },
-    take: 50,
-    select: { type: true, key: true, value: true }
-  });
-}
-
-async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string) {
+async function runToolLoop(user: UserContext, conversationId: string, turns: ChatTurn[], system: string) {
   const tools = getGeminiTools();
   const executed: string[] = [];
-  const confirmations: OrchestrationResult['confirmations'] = [];
+  const confirmations: Confirmation[] = [];
   let result = await generateGeminiResponseWithTools(turns, tools, system);
   let interactionId = result.interactionId;
 
@@ -97,7 +105,7 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
   for (let iteration = 0; iteration < 4; iteration += 1) {
     if (!result.functionCalls.length) {
       if (!result.text) throw new Error('AI returned neither text nor a tool call');
-      return { ...result, executed, confirmations };
+      return { ...result, executed, confirmations, interactionId };
     }
 
     const functionResults: Array<{ name: string; callId: string; result: unknown }> = [];
@@ -105,16 +113,16 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
     for (const call of result.functionCalls) {
       const tool = resolveGeminiTool(call.name);
       if (!tool) {
-        functionResults.push({
-          name: call.name,
-          callId: call.id,
-          result: { success: false, error: 'TOOL_NOT_AVAILABLE' }
-        });
+        functionResults.push({ name: call.name, callId: call.id, result: { success: false, error: 'TOOL_NOT_AVAILABLE' } });
         continue;
       }
 
       if (tool.requiresConfirmation) {
-        const pending = await createPendingAction(user.id, tool.name, call.args);
+        const pending = await createPendingAction(user.id, tool.name, call.args, {
+          conversationId,
+          interactionId,
+          callId: call.id
+        });
         confirmations.push({
           id: pending.id,
           toolName: pending.toolName,
@@ -144,15 +152,11 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
         functionResults.push({ name: call.name, callId: call.id, result: output });
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Tool execution failed';
-        functionResults.push({
-          name: call.name,
-          callId: call.id,
-          result: { success: false, error: message }
-        });
+        functionResults.push({ name: call.name, callId: call.id, result: { success: false, error: message } });
       }
     }
 
-    result = await continueGeminiInteraction(interactionId, functionResults, tools);
+    result = await continueGeminiInteraction(interactionId, functionResults, tools, system);
     interactionId = result.interactionId;
     if (!interactionId) throw new Error('Gemini continuation did not return an interaction identifier');
   }
@@ -160,23 +164,56 @@ async function runToolLoop(user: UserContext, turns: ChatTurn[], system: string)
   throw new Error('MAX tool execution limit reached');
 }
 
-export async function orchestrate(user: UserContext, turns: ChatTurn[], latestContent: string): Promise<OrchestrationResult> {
+export async function orchestrate(user: UserContext, conversationId: string, turns: ChatTurn[], latestContent: string): Promise<OrchestrationResult> {
   const intent = classifyIntent(latestContent);
   const memories = await getContext(user);
   const system = buildSystemPrompt(user, memories, intent);
-  const generated = await runToolLoop(user, turns, system);
+  const generated = await runToolLoop(user, conversationId, turns, system);
   return {
     text: generated.text,
     provider: generated.provider,
     model: generated.model,
     intent,
     tools: generated.executed,
-    confirmations: generated.confirmations
+    confirmations: generated.confirmations,
+    interactionId: generated.interactionId
   };
 }
 
-export async function orchestrateStream(user: UserContext, turns: ChatTurn[], latestContent: string, onText: (text: string) => void): Promise<OrchestrationResult> {
-  const result = await orchestrate(user, turns, latestContent);
+export async function continueAfterConfirmation(
+  user: UserContext,
+  action: { conversationId: string; interactionId: string; callId: string; toolName: string },
+  result: unknown
+): Promise<OrchestrationResult> {
+  const memories = await getContext(user);
+  const intent = action.toolName.startsWith('home.') ? 'home' : 'memory';
+  const system = buildSystemPrompt(user, memories, intent);
+  const functionName = action.toolName === 'memory.delete' ? 'memory_delete' : 'home_execute';
+  const continued = await continueGeminiInteraction(
+    action.interactionId,
+    [{ name: functionName, callId: action.callId, result }],
+    getGeminiTools(),
+    system
+  );
+
+  if (continued.functionCalls.length) {
+    throw new Error('MAX requested another action after confirmation');
+  }
+  if (!continued.text) throw new Error('AI returned no response after confirmation');
+
+  return {
+    text: continued.text,
+    provider: continued.provider,
+    model: continued.model,
+    intent,
+    tools: [action.toolName],
+    confirmations: [],
+    interactionId: continued.interactionId
+  };
+}
+
+export async function orchestrateStream(user: UserContext, conversationId: string, turns: ChatTurn[], latestContent: string, onText: (text: string) => void): Promise<OrchestrationResult> {
+  const result = await orchestrate(user, conversationId, turns, latestContent);
   onText(result.text);
   return result;
 }
