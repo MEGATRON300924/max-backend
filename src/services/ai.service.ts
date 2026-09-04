@@ -75,18 +75,20 @@ function extract(payload: InteractionPayload) {
   return { text, functionCalls };
 }
 
+function functionTools(functions: GeminiFunctionDeclaration[]) {
+  return functions.map((functionDeclaration) => ({
+    type: 'function',
+    ...functionDeclaration
+  }));
+}
+
 function requestBody(turns: ChatTurn[], functions: GeminiFunctionDeclaration[], systemInstruction?: string) {
-  return JSON.stringify({
+  return {
     model: env.GEMINI_MODEL,
     input: interactionInput(turns),
     ...(systemInstruction ? { system_instruction: systemInstruction } : {}),
-    ...(functions.length ? {
-      tools: functions.map((functionDeclaration) => ({
-        type: 'function',
-        ...functionDeclaration
-      }))
-    } : {})
-  });
+    ...(functions.length ? { tools: functionTools(functions) } : {})
+  };
 }
 
 async function postInteraction(body: Record<string, unknown>) {
@@ -115,7 +117,7 @@ export async function generateGeminiResponse(turns: ChatTurn[]) {
 }
 
 export async function generateGeminiResponseWithTools(turns: ChatTurn[], functions: GeminiFunctionDeclaration[] = [], systemInstruction?: string) {
-  const payload = await postInteraction(JSON.parse(requestBody(turns, functions, systemInstruction)) as Record<string, unknown>);
+  const payload = await postInteraction(requestBody(turns, functions, systemInstruction));
   const extracted = extract(payload);
   return {
     ...extracted,
@@ -125,7 +127,12 @@ export async function generateGeminiResponseWithTools(turns: ChatTurn[], functio
   };
 }
 
-export async function continueGeminiInteraction(interactionId: string, functionResults: FunctionResult[], functions: GeminiFunctionDeclaration[] = []) {
+export async function continueGeminiInteraction(
+  interactionId: string,
+  functionResults: FunctionResult[],
+  functions: GeminiFunctionDeclaration[] = [],
+  systemInstruction?: string
+) {
   const payload = await postInteraction({
     model: env.GEMINI_MODEL,
     previous_interaction_id: interactionId,
@@ -135,12 +142,8 @@ export async function continueGeminiInteraction(interactionId: string, functionR
       call_id: item.callId,
       result: [{ type: 'text', text: JSON.stringify(item.result) }]
     })),
-    ...(functions.length ? {
-      tools: functions.map((functionDeclaration) => ({
-        type: 'function',
-        ...functionDeclaration
-      }))
-    } : {})
+    ...(systemInstruction ? { system_instruction: systemInstruction } : {}),
+    ...(functions.length ? { tools: functionTools(functions) } : {})
   });
   const extracted = extract(payload);
   return {
