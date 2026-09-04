@@ -24,5 +24,20 @@ if (!parsed.success) {
   process.exit(1);
 }
 
-export const env = parsed.data;
+const config = parsed.data;
+
+if (config.NODE_ENV === 'production') {
+  const missing = [
+    ['MAX_AUTH_JWKS_URL', config.MAX_AUTH_JWKS_URL],
+    ['MAX_AUTH_ISSUER', config.MAX_AUTH_ISSUER],
+    ['MAX_AUTH_AUDIENCE', config.MAX_AUTH_AUDIENCE]
+  ].filter(([, value]) => !value).map(([name]) => name);
+
+  if (missing.length > 0) {
+    console.error('Invalid production authentication configuration', { missing });
+    process.exit(1);
+  }
+}
+
+export const env = config;
 export const corsOrigins = env.CORS_ORIGINS.split(',').map((origin) => origin.trim()).filter(Boolean);
