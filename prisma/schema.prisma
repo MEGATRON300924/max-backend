@@ -44,7 +44,7 @@ model EcosystemUser {
   displayName      String?         @map("display_name")
   avatarUrl        String?         @map("avatar_url")
   locale           String?
-  timezone         String?         
+  timezone         String?
   createdAt        DateTime        @default(now()) @map("created_at")
   updatedAt        DateTime        @updatedAt @map("updated_at")
   conversations    Conversation[]
@@ -64,6 +64,7 @@ model Conversation {
   updatedAt   DateTime            @updatedAt @map("updated_at")
   user        EcosystemUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages    Message[]
+  pendingActions PendingAction[]
 
   @@index([userId, updatedAt])
   @@index([userId, status, updatedAt])
@@ -103,16 +104,21 @@ model Memory {
 }
 
 model PendingAction {
-  id          String             @id @default(uuid()) @db.Uuid
-  userId      String             @map("user_id") @db.Uuid
-  toolName    String             @map("tool_name")
-  arguments   Json
-  status      PendingActionStatus @default(PENDING)
-  expiresAt   DateTime           @map("expires_at")
-  createdAt   DateTime            @default(now()) @map("created_at")
-  confirmedAt DateTime?          @map("confirmed_at")
-  user        EcosystemUser      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id             String              @id @default(uuid()) @db.Uuid
+  userId         String              @map("user_id") @db.Uuid
+  conversationId String              @map("conversation_id") @db.Uuid
+  interactionId  String              @map("interaction_id")
+  callId         String              @map("call_id")
+  toolName       String              @map("tool_name")
+  arguments      Json
+  status         PendingActionStatus @default(PENDING)
+  expiresAt      DateTime            @map("expires_at")
+  createdAt      DateTime            @default(now()) @map("created_at")
+  confirmedAt    DateTime?           @map("confirmed_at")
+  user           EcosystemUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   Conversation        @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([userId, status, expiresAt])
+  @@index([conversationId, status])
   @@map("pending_actions")
 }
