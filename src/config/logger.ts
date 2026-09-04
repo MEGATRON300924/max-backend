@@ -8,12 +8,20 @@ export const logger = pino({
     paths: [
       'req.headers.authorization',
       'req.headers.cookie',
+      'req.headers.set-cookie',
+      'req.headers.x-api-key',
+      'authorization',
+      'cookie',
+      'set-cookie',
       'accessToken',
       'refreshToken',
       'password',
       'token',
       'secret',
-      'apiKey'
+      'apiKey',
+      'api_key',
+      'clientSecret',
+      'client_secret'
     ],
     censor: '[REDACTED]'
   }
