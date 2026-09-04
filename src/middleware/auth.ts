@@ -35,16 +35,19 @@ function principalFromPayload(payload: JWTPayload): AuthPrincipal {
 export async function requireAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
   try {
     const authorization = req.header('authorization');
-    if (!authorization?.startsWith('Bearer ')) {
+    if (!authorization || !/^Bearer\s+/i.test(authorization)) {
       throw new ApiError(401, 'AUTH_REQUIRED', 'A MAX Auth access token is required');
     }
 
-    const token = authorization.slice(7).trim();
+    const token = authorization.replace(/^Bearer\s+/i, '').trim();
     if (!token) {
       throw new ApiError(401, 'AUTH_REQUIRED', 'A MAX Auth access token is required');
     }
 
-    const options: Parameters<typeof jwtVerify>[2] = {};
+    const options: Parameters<typeof jwtVerify>[2] = {
+      requiredClaims: ['sub', 'exp']
+    };
+
     if (env.MAX_AUTH_ISSUER) options.issuer = env.MAX_AUTH_ISSUER;
     if (env.MAX_AUTH_AUDIENCE) options.audience = env.MAX_AUTH_AUDIENCE;
 
