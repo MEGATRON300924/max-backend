@@ -14,7 +14,9 @@ export const conversationsRouter = Router();
 conversationsRouter.use(requireAuth);
 
 async function getUser(req: AuthenticatedRequest) {
-  return resolveEcosystemUser(req.auth!);
+  const user = await resolveEcosystemUser(req.auth!);
+  const authorization = req.header('authorization');
+  return { ...user, authAccessToken: authorization?.replace(/^Bearer\\s+/i, '').trim() };
 }
 
 async function getConversationForUser(id: string, userId: string) {
