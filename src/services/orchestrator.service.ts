@@ -17,6 +17,7 @@ type Confirmation = {
   toolName: string;
   arguments: Record<string, unknown>;
   expiresAt: Date;
+  confirmationSummary: string | null;
 };
 
 type OrchestrationResult = {
@@ -124,7 +125,8 @@ async function processToolCalls(
         id: pending.id,
         toolName: pending.toolName,
         arguments: pending.arguments as Record<string, unknown>,
-        expiresAt: pending.expiresAt
+        expiresAt: pending.expiresAt,
+        confirmationSummary: pending.confirmationSummary ?? null
       });
       functionResults.push({
         name: call.name,
