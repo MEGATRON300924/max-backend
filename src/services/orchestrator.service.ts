@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { continueGeminiInteraction, generateGeminiResponseWithTools, streamGeminiInteraction, streamGeminiResponseWithTools, type ChatTurn } from './ai.service.js';
 import { createPendingAction } from './confirmation.service.js';
-import { executeTool, getGeminiTools, resolveGeminiTool } from './tools.service.js';
+import { executeTool, getGeminiTools, resolveGeminiTool, validateToolInput } from './tools.service.js';
 
 type UserContext = {
   id: string;
@@ -87,6 +87,12 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'Never claim an action was completed unless the backend returned a successful tool result.',
     'Never invent devices, homes, accounts, files, purchases, payments, integrations, or tool results.',
     'Sensitive actions such as home control and memory deletion require explicit confirmation and must never be bypassed.',
+    'Calendar rules: calendar.list and calendar.events are read-only. calendar.create, calendar.update, and calendar.delete always require confirmation.',
+    'For today, tomorrow, yesterday, this week, or next week, use the calendar_events range field so the backend resolves the boundaries in the authenticated user timezone.',
+    'For custom calendar times, use ISO-8601 timestamps. When creating or changing an event, use the authenticated user timezone unless the user explicitly gives another timezone.',
+    'Never invent a calendar, event ID, date, time, duration, attendee, or location. For update/delete, find the existing event first with calendar_events and use its returned eventId.',
+    'When moving an existing event, preserve its duration and unchanged fields. If the requested change is ambiguous, ask a focused clarification question instead of guessing.',
+    'For event creation, do not guess an end time from a start time unless the user explicitly provides a duration or a known routine supplies it.'
     unavailable ? `The requested capability is currently unavailable: ${unavailable}` : '',
     unavailable ? 'Explain the unavailable capability briefly and do not imply that it was executed.' : '',
     'Only use memories belonging to the authenticated user.',
@@ -116,7 +122,8 @@ async function processToolCalls(
     }
 
     if (tool.requiresConfirmation) {
-      const pending = await createPendingAction(user.id, tool.name, call.args, {
+      const validatedArgs = validateToolInput(tool.name, call.args) as Record<string, unknown>;
+      const pending = await createPendingAction(user.id, tool.name, validatedArgs, {
         conversationId,
         interactionId,
         callId: call.id
@@ -146,6 +153,7 @@ async function processToolCalls(
         userId: user.id,
         authSubject: user.authSubject,
         authAccessToken: user.authAccessToken,
+        timezone: user.timezone,
         confirmed: false
       }, call.args);
       executed.push(tool.name);
