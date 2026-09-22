@@ -9,6 +9,7 @@ type UserContext = {
   locale: string | null;
   timezone: string | null;
   authSubject?: string;
+  authAccessToken?: string;
 };
 
 type Confirmation = {
@@ -35,6 +36,7 @@ const capabilities = {
   cloud: false,
   browser: false,
   voice: false,
+  calendar: true,
   connect: false,
   store: false,
   studio: false,
@@ -47,6 +49,7 @@ function classifyIntent(content: string) {
   const value = content.toLowerCase();
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
   if (/\b(turn on|turn off|switch on|switch off|dim|brighten|set .* thermostat|lock|unlock|open|close)\b/.test(value)) return 'home';
+  if (/\b(calendar|schedule|scheduled|appointment|meeting|meetings|event|events|agenda|availability)\b/.test(value)) return 'calendar';
   if (/\b(play|pause|skip|music|song|playlist|album|artist)\b/.test(value)) return 'music';
   if (/\b(search|look up|latest|news|what happened today|browse the web)\b/.test(value)) return 'browser';
   if (/\b(upload|download|file|files|storage|cloud)\b/.test(value)) return 'cloud';
@@ -55,6 +58,7 @@ function classifyIntent(content: string) {
 
 function unavailableCapability(intent: string) {
   if (intent === 'home' && !capabilities.home) return 'MAX Home is not configured for this backend.';
+  if (intent === 'calendar' && !capabilities.calendar) return 'Google Calendar is not configured for this backend.';
   if (intent === 'music' && !capabilities.music) return 'MAX Music is not configured for this backend.';
   if (intent === 'browser' && !capabilities.browser) return 'MAX Browser is not configured for this backend.';
   if (intent === 'cloud' && !capabilities.cloud) return 'MAX Cloud is not configured for this backend.';
@@ -139,6 +143,7 @@ async function processToolCalls(
       const output = await executeTool(tool.name, {
         userId: user.id,
         authSubject: user.authSubject,
+        authAccessToken: user.authAccessToken,
         confirmed: false
       }, call.args);
       executed.push(tool.name);
@@ -198,9 +203,9 @@ export async function continueAfterConfirmation(
   result: unknown
 ): Promise<OrchestrationResult> {
   const memories = await getContext(user);
-  const intent = action.toolName.startsWith('home.') ? 'home' : 'memory';
+  const intent = action.toolName.startsWith('home.') ? 'home' : action.toolName.startsWith('calendar.') ? 'calendar' : 'memory';
   const system = buildSystemPrompt(user, memories, intent);
-  const functionName = action.toolName === 'memory.delete' ? 'memory_delete' : 'home_execute';
+  const functionName = action.toolName === 'memory.delete' ? 'memory_delete' : action.toolName === 'home.execute' ? 'home_execute' : action.toolName.replace('.', '_');
   const continued = await continueGeminiInteraction(
     action.interactionId,
     [{ name: functionName, callId: action.callId, result }],
