@@ -14,7 +14,8 @@ const schema = z.object({
   REDIS_URL: z.string().url().optional(),
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-3.7-flash'),
-  MAX_HOME_API_URL: z.string().url().optional()
+  MAX_HOME_API_URL: z.string().url().optional(),
+  MAX_AUTH_API_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1')
 });
 
 const parsed = schema.safeParse(process.env);
