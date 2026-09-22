@@ -127,7 +127,7 @@ async function processToolCalls(
       if (tool.name === 'calendar.update' || tool.name === 'calendar.delete') {
         const eventId = typeof validatedArgs.eventId === 'string' ? validatedArgs.eventId : '';
         const calendarId = typeof validatedArgs.calendarId === 'string' ? validatedArgs.calendarId : undefined;
-        const existing = await getGoogleCalendarEventForConfirmation(user.id, {
+        const existing = await getGoogleCalendarEventForConfirmation({
           userId: user.id,
           authAccessToken: user.authAccessToken,
           timezone: user.timezone
