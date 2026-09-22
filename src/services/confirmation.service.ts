@@ -25,6 +25,35 @@ type PendingActionContext = {
   callId: string;
 };
 
+function formatDateTime(value: unknown) {
+  if (typeof value !== 'string') return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en', {
+    dateStyle: 'medium',
+    timeStyle: 'short'
+  }).format(date);
+}
+
+function formatConfirmationSummary(toolName: string, args: Record<string, unknown>) {
+  if (!toolName.startsWith('calendar.')) return null;
+  const event = typeof args.event === 'object' && args.event !== null ? args.event as Record<string, unknown> : {};
+  const summary = typeof event.summary === 'string' ? event.summary : 'this event';
+  if (toolName === 'calendar.create') {
+    const start = typeof event.start === 'object' && event.start !== null ? (event.start as Record<string, unknown>).dateTime : null;
+    const end = typeof event.end === 'object' && event.end !== null ? (event.end as Record<string, unknown>).dateTime : null;
+    const when = start ? ` on ${formatDateTime(start)}${end ? `–${formatDateTime(end)}` : ''}` : '';
+    return `Create “${summary}”${when}`;
+  }
+  if (toolName === 'calendar.update') {
+    const eventId = typeof args.eventId === 'string' ? args.eventId : 'the selected event';
+    const changes = Object.keys(event).filter((key) => key !== 'id').join(', ');
+    return `Update “${summary}” (${eventId})${changes ? `: ${changes}` : ''}`;
+  }
+  if (toolName === 'calendar.delete') return `Delete “${summary}”`;
+  return null;
+}
+
 export async function createPendingAction(
   userId: string,
   toolName: string,
@@ -55,7 +84,7 @@ export async function createPendingAction(
     metadata: { toolName, conversationId: context.conversationId }
   });
 
-  return action;
+  return { ...action, confirmationSummary: formatConfirmationSummary(toolName, argumentsValue) };
 }
 
 export async function getPendingAction(userId: string, actionId: string) {
@@ -80,7 +109,10 @@ export async function getPendingAction(userId: string, actionId: string) {
     throw new ApiError(410, 'CONFIRMATION_EXPIRED', 'Confirmation request has expired');
   }
 
-  return action;
+  return {
+    ...action,
+    confirmationSummary: formatConfirmationSummary(action.toolName, action.arguments as Record<string, unknown>)
+  };
 }
 
 export async function confirmPendingAction(userId: string, actionId: string) {
@@ -109,7 +141,10 @@ export async function confirmPendingAction(userId: string, actionId: string) {
     status: 'CONFIRMED',
     metadata: { toolName: action.toolName }
   });
-  return result;
+  return {
+    ...result,
+    confirmationSummary: formatConfirmationSummary(result.toolName, result.arguments as Record<string, unknown>)
+  };
 }
 
 export async function executeConfirmedAction(userId: string, authSubject: string, actionId: string, authAccessToken?: string) {
