@@ -47,18 +47,22 @@ function formatDateTime(value: unknown) {
 function formatConfirmationSummary(toolName: string, args: Record<string, unknown>) {
   if (!toolName.startsWith('calendar.')) return null;
   const event = typeof args.event === 'object' && args.event !== null ? args.event as Record<string, unknown> : {};
-  const summary = typeof event.summary === 'string' ? event.summary : 'this event';
-  const eventTimeZone = typeof (event.start as any)?.timeZone === 'string' ? (event.start as any).timeZone : undefined;
+  const context = typeof args.confirmationContext === 'object' && args.confirmationContext !== null ? args.confirmationContext as Record<string, unknown> : {};
+  const summary = typeof context.summary === 'string' ? context.summary : typeof event.summary === 'string' ? event.summary : 'this event';
+  const contextStart = typeof context.start === 'object' && context.start !== null ? context.start as Record<string, unknown> : null;
+  const contextEnd = typeof context.end === 'object' && context.end !== null ? context.end as Record<string, unknown> : null;
+  const eventTimeZone = typeof contextStart?.timeZone === 'string' ? contextStart.timeZone : typeof (event.start as any)?.timeZone === 'string' ? (event.start as any).timeZone : undefined;
   if (toolName === 'calendar.create') {
-    const start = typeof event.start === 'object' && event.start !== null ? (event.start as Record<string, unknown>).dateTime : null;
-    const end = typeof event.end === 'object' && event.end !== null ? (event.end as Record<string, unknown>).dateTime : null;
+    const start = contextStart?.dateTime ?? (typeof event.start === 'object' && event.start !== null ? (event.start as Record<string, unknown>).dateTime : null);
+    const end = contextEnd?.dateTime ?? (typeof event.end === 'object' && event.end !== null ? (event.end as Record<string, unknown>).dateTime : null);
     const when = start ? ` on ${confirmationTime(start, eventTimeZone)}${end ? `–${confirmationTime(end, eventTimeZone)}` : ''}` : '';
     return `Create “${summary}”${when}`;
   }
   if (toolName === 'calendar.update') {
     const eventId = typeof args.eventId === 'string' ? args.eventId : 'the selected event';
     const changes = Object.keys(event).filter((key) => key !== 'id').join(', ');
-    return `Update “${summary}”${changes ? `: ${changes}` : ''}${eventId !== 'the selected event' ? ` [${eventId}]` : ''}`;
+    const when = start ? ` (${confirmationTime(start, eventTimeZone)}${end ? `–${confirmationTime(end, eventTimeZone)}` : ''})` : '';
+    return `Update “${summary}”${when}${changes ? `: ${changes}` : ''}`;
   }
   if (toolName === 'calendar.delete') return `Delete “${summary}”`;
   return null;
