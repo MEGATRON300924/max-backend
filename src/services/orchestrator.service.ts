@@ -92,7 +92,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'For custom calendar times, use ISO-8601 timestamps. When creating or changing an event, use the authenticated user timezone unless the user explicitly gives another timezone.',
     'Never invent a calendar, event ID, date, time, duration, attendee, or location. For update/delete, find the existing event first with calendar_events and use its returned eventId.',
     'When moving an existing event, preserve its duration and unchanged fields. If the requested change is ambiguous, ask a focused clarification question instead of guessing.',
-    'For event creation, do not guess an end time from a start time unless the user explicitly provides a duration or a known routine supplies it.'
+    'For event creation, do not guess an end time from a start time unless the user explicitly provides a duration or a known routine supplies it.',
     unavailable ? `The requested capability is currently unavailable: ${unavailable}` : '',
     unavailable ? 'Explain the unavailable capability briefly and do not imply that it was executed.' : '',
     'Only use memories belonging to the authenticated user.',
