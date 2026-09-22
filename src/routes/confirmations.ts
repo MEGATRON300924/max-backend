@@ -38,8 +38,10 @@ confirmationsRouter.post('/:id/execute', async (req: AuthenticatedRequest, res, 
   try {
     const { id } = idSchema.parse(req.params);
     const user = await resolveEcosystemUser(req.auth!);
-    const execution = await executeConfirmedAction(user.id, user.authSubject, id);
-    const response = await continueAfterConfirmation(user, execution.action, execution.result);
+    const authorization = req.header('authorization');
+    const authAccessToken = authorization?.replace(/^Bearer\s+/i, '').trim();
+    const execution = await executeConfirmedAction(user.id, user.authSubject, id, authAccessToken);
+    const response = await continueAfterConfirmation({ ...user, authAccessToken }, execution.action, execution.result);
     const assistantMessage = await prisma.message.create({
       data: {
         conversationId: execution.action.conversationId,
