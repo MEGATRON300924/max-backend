@@ -1,7 +1,7 @@
 import { prisma } from '../lib/prisma.js';
 import { continueGeminiInteraction, generateGeminiResponseWithTools, streamGeminiInteraction, streamGeminiResponseWithTools, type ChatTurn } from './ai.service.js';
 import { createPendingAction } from './confirmation.service.js';
-import { executeTool, getGeminiTools, resolveGeminiTool, validateToolInput } from './tools.service.js';
+import { executeTool, getGeminiTools, getGoogleCalendarEventForConfirmation, resolveGeminiTool, validateToolInput } from './tools.service.js';
 
 type UserContext = {
   id: string;
@@ -123,7 +123,26 @@ async function processToolCalls(
 
     if (tool.requiresConfirmation) {
       const validatedArgs = validateToolInput(tool.name, call.args) as Record<string, unknown>;
-      const pending = await createPendingAction(user.id, tool.name, validatedArgs, {
+      let pendingArgs = validatedArgs;
+      if (tool.name === 'calendar.update' || tool.name === 'calendar.delete') {
+        const eventId = typeof validatedArgs.eventId === 'string' ? validatedArgs.eventId : '';
+        const calendarId = typeof validatedArgs.calendarId === 'string' ? validatedArgs.calendarId : undefined;
+        const existing = await getGoogleCalendarEventForConfirmation(user.id, {
+          userId: user.id,
+          authAccessToken: user.authAccessToken,
+          timezone: user.timezone
+        }, eventId, calendarId);
+        const event = existing?.data ?? existing;
+        pendingArgs = {
+          ...validatedArgs,
+          confirmationContext: {
+            summary: typeof event?.summary === 'string' ? event.summary : 'this event',
+            start: event?.start ?? null,
+            end: event?.end ?? null
+          }
+        };
+      }
+      const pending = await createPendingAction(user.id, tool.name, pendingArgs, {
         conversationId,
         interactionId,
         callId: call.id
