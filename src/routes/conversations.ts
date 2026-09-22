@@ -16,7 +16,7 @@ conversationsRouter.use(requireAuth);
 async function getUser(req: AuthenticatedRequest) {
   const user = await resolveEcosystemUser(req.auth!);
   const authorization = req.header('authorization');
-  return { ...user, authAccessToken: authorization?.replace(/^Bearer\\s+/i, '').trim() };
+  return { ...user, authAccessToken: authorization?.replace(/^Bearer\s+/i, '').trim() };
 }
 
 async function getConversationForUser(id: string, userId: string) {
@@ -134,10 +134,16 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
     res.setHeader('cache-control', 'no-cache, no-transform');
     res.setHeader('connection', 'keep-alive');
     res.flushHeaders();
-    res.write('event: response_started\ndata: {}\n\n');
+    res.write('event: response_started
+data: {}
+
+');
 
     const generated = await orchestrateStream(user, conversation.id, turns, input.content, (text) => {
-      res.write(`event: text_delta\ndata: ${JSON.stringify({ text })}\n\n`);
+      res.write(`event: text_delta
+data: ${JSON.stringify({ text })}
+
+`);
     });
 
     const assistantMessage = await prisma.message.create({
@@ -156,13 +162,19 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
       }
     });
 
-    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations, interactionId: generated.interactionId })}\n\n`);
+    res.write(`event: response_completed
+data: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations, interactionId: generated.interactionId })}
+
+`);
     res.end();
   } catch (error) {
     if (res.headersSent) {
       const code = error instanceof ApiError ? error.code : 'AI_STREAM_ERROR';
       const message = error instanceof Error ? error.message : 'The AI response failed';
-      res.write(`event: response_error\ndata: ${JSON.stringify({ code, message })}\n\n`);
+      res.write(`event: response_error
+data: ${JSON.stringify({ code, message })}
+
+`);
       res.end();
       return;
     }
