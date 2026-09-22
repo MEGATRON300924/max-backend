@@ -5,6 +5,15 @@ import { recordAuditEvent } from './audit.service.js';
 
 const DEFAULT_TTL_MS = 5 * 60 * 1000;
 
+function confirmationTime(value: unknown, timeZone?: string) {
+  if (typeof value !== 'string') return null;
+  const hasOffset = /[zZ]|[+-]\\d{2}:?\\d{2}$/.test(value);
+  if (!hasOffset) return value.replace('T', ' ') + (timeZone ? ` (${timeZone})` : '');
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat('en', { dateStyle: 'medium', timeStyle: 'short', timeZone }).format(date);
+}
+
 const actionSelect = {
   id: true,
   userId: true,
@@ -39,16 +48,17 @@ function formatConfirmationSummary(toolName: string, args: Record<string, unknow
   if (!toolName.startsWith('calendar.')) return null;
   const event = typeof args.event === 'object' && args.event !== null ? args.event as Record<string, unknown> : {};
   const summary = typeof event.summary === 'string' ? event.summary : 'this event';
+  const eventTimeZone = typeof (event.start as any)?.timeZone === 'string' ? (event.start as any).timeZone : undefined;
   if (toolName === 'calendar.create') {
     const start = typeof event.start === 'object' && event.start !== null ? (event.start as Record<string, unknown>).dateTime : null;
     const end = typeof event.end === 'object' && event.end !== null ? (event.end as Record<string, unknown>).dateTime : null;
-    const when = start ? ` on ${formatDateTime(start)}${end ? `–${formatDateTime(end)}` : ''}` : '';
+    const when = start ? ` on ${confirmationTime(start, eventTimeZone)}${end ? `–${confirmationTime(end, eventTimeZone)}` : ''}` : '';
     return `Create “${summary}”${when}`;
   }
   if (toolName === 'calendar.update') {
     const eventId = typeof args.eventId === 'string' ? args.eventId : 'the selected event';
     const changes = Object.keys(event).filter((key) => key !== 'id').join(', ');
-    return `Update “${summary}” (${eventId})${changes ? `: ${changes}` : ''}`;
+    return `Update “${summary}”${changes ? `: ${changes}` : ''}${eventId !== 'the selected event' ? ` [${eventId}]` : ''}`;
   }
   if (toolName === 'calendar.delete') return `Delete “${summary}”`;
   return null;
