@@ -221,7 +221,7 @@ async function maxAuthCalendarRequest(path: string, context: ToolContext, init: 
   return body?.data ?? body;
 }
 
-export async function getGoogleCalendarEventForConfirmation(userId: string, context: ToolContext, eventId: string, calendarId?: string) {
+export async function getGoogleCalendarEventForConfirmation(context: ToolContext, eventId: string, calendarId?: string) {
   return maxAuthCalendarRequest('/events/' + encodeURIComponent(eventId) + (calendarId ? '?calendarId=' + encodeURIComponent(calendarId) : ''), context);
 }
 
