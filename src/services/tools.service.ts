@@ -11,6 +11,7 @@ type ToolContext = {
   authSubject?: string;
   confirmed?: boolean;
   authAccessToken?: string;
+  timezone?: string | null;
 };
 
 export type MaxTool = {
@@ -40,19 +41,25 @@ const calendarInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   timeMin: z.string().trim().max(100).optional(),
   timeMax: z.string().trim().max(100).optional(),
+  range: z.enum(['today', 'tomorrow', 'yesterday', 'this_week', 'next_week']).optional(),
   maxResults: z.number().int().min(1).max(250).optional(),
   pageToken: z.string().trim().max(2000).optional()
 }).refine((data) => !data.timeMin || !data.timeMax || data.timeMin <= data.timeMax, {
   message: 'timeMin must be earlier than or equal to timeMax'
+}).refine((data) => !data.range || (!data.timeMin && !data.timeMax), {
+  message: 'Use range instead of timeMin/timeMax'
 });
 
 const calendarDateTime = z.object({
   dateTime: z.string().trim().min(1).max(100),
   timeZone: z.string().trim().min(1).max(100).optional()
 }).superRefine((value, ctx) => {
-  const parsed = new Date(value.dateTime);
-  if (Number.isNaN(parsed.getTime())) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'dateTime must be a valid ISO-8601 date/time' });
+  const iso = /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}(?::\\d{2}(?:\\.\\d{1,3})?)?(?:Z|[+-]\\d{2}:?\\d{2})?$/;
+  if (!iso.test(value.dateTime)) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'dateTime must be an ISO-8601 date/time' });
+  }
+  if (!/[zZ]|[+-]\\d{2}:?\\d{2}$/.test(value.dateTime) && !value.timeZone) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'A local dateTime must include an IANA timeZone' });
   }
 });
 
@@ -86,9 +93,9 @@ const calendarCreateInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   event: calendarEventResource
 }).superRefine((value, ctx) => {
-  const start = new Date(value.event.start.dateTime).getTime();
-  const end = new Date(value.event.end.dateTime).getTime();
-  if (Number.isFinite(start) && Number.isFinite(end) && end <= start) {
+  const start = parseCalendarDateTime(value.event.start);
+  const end = parseCalendarDateTime(value.event.end);
+  if (start !== null && end !== null && end <= start) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['event', 'end', 'dateTime'], message: 'Event end must be after event start' });
   }
 });
@@ -105,6 +112,103 @@ const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   eventId: z.string().trim().min(1).max(500)
 });
+
+function getTimezoneParts(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(date);
+  return Object.fromEntries(parts.filter((part) => part.type !== 'literal').map((part) => [part.type, part.value]));
+}
+
+function timezoneOffsetMs(date: Date, timeZone: string) {
+  const parts = getTimezoneParts(date, timeZone);
+  const asUtc = Date.UTC(Number(parts.year), Number(parts.month) - 1, Number(parts.day), Number(parts.hour), Number(parts.minute), Number(parts.second));
+  return asUtc - date.getTime();
+}
+
+function parseCalendarDateTime(value: { dateTime: string; timeZone?: string }) {
+  if (/[zZ]|[+-]\\d{2}:?\\d{2}$/.test(value.dateTime)) {
+    const timestamp = Date.parse(value.dateTime);
+    return Number.isFinite(timestamp) ? timestamp : null;
+  }
+  if (!value.timeZone) return null;
+  const match = value.dateTime.match(/^(\\d{4})-(\\d{2})-(\\d{2})T(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.(\\d{1,3}))?)?$/);
+  if (!match) return null;
+  const [, year, month, day, hour, minute, second = '00', fraction = '0'] = match;
+  const localAsUtc = Date.UTC(Number(year), Number(month) - 1, Number(day), Number(hour), Number(minute), Number(second), Number(fraction.padEnd(3, '0')));
+  const firstGuess = new Date(localAsUtc);
+  const offset = timezoneOffsetMs(firstGuess, value.timeZone);
+  const adjusted = new Date(localAsUtc - offset);
+  const secondOffset = timezoneOffsetMs(adjusted, value.timeZone);
+  return localAsUtc - secondOffset;
+}
+
+function isValidTimeZone(timeZone: string) {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone }).format();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function normalizeCalendarEvent(event: Record<string, any>, timezone?: string | null) {
+  const fallback = timezone || 'UTC';
+  if (!isValidTimeZone(fallback)) throw new ApiError(400, 'INVALID_TIMEZONE', 'The user timezone is invalid');
+  const normalized = { ...event };
+  for (const key of ['start', 'end']) {
+    if (normalized[key] && typeof normalized[key] === 'object') {
+      normalized[key] = {
+        ...normalized[key],
+        ...(normalized[key].timeZone ? {} : { timeZone: fallback })
+      };
+    }
+  }
+  const start = normalized.start;
+  const end = normalized.end;
+  const startMs = start ? parseCalendarDateTime(start) : null;
+  const endMs = end ? parseCalendarDateTime(end) : null;
+  if (startMs !== null && endMs !== null && endMs <= startMs) {
+    throw new ApiError(400, 'CALENDAR_TIME_ORDER_INVALID', 'Event end must be after event start');
+  }
+  return normalized;
+}
+
+function getLocalDateParts(timeZone: string, date = new Date()) {
+  const parts = getTimezoneParts(date, timeZone);
+  return { year: Number(parts.year), month: Number(parts.month), day: Number(parts.day) };
+}
+
+function shiftDate(date: { year: number; month: number; day: number }, days: number) {
+  const shifted = new Date(Date.UTC(date.year, date.month - 1, date.day + days));
+  return { year: shifted.getUTCFullYear(), month: shifted.getUTCMonth() + 1, day: shifted.getUTCDate() };
+}
+
+function localBoundaryIso(date: { year: number; month: number; day: number }, timeZone: string, endOfDay = false) {
+  const local = `${date.year.toString().padStart(4, '0')}-${date.month.toString().padStart(2, '0')}-${date.day.toString().padStart(2, '0')}T${endOfDay ? '23:59:59' : '00:00:00'}`;
+  const timestamp = parseCalendarDateTime({ dateTime: local, timeZone });
+  if (timestamp === null) throw new ApiError(400, 'INVALID_TIMEZONE', 'Unable to resolve the calendar timezone');
+  return new Date(timestamp).toISOString();
+}
+
+function resolveCalendarRange(range: z.infer<typeof calendarInput>['range'], timezone?: string | null) {
+  if (!range) return null;
+  const timeZone = timezone || 'UTC';
+  if (!isValidTimeZone(timeZone)) throw new ApiError(400, 'INVALID_TIMEZONE', 'The user timezone is invalid');
+  const today = getLocalDateParts(timeZone);
+  const startOffset = range === 'tomorrow' ? 1 : range === 'yesterday' ? -1 : range === 'next_week' ? 7 - ((new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay() + 6) % 7) : range === 'this_week' ? -((new Date(Date.UTC(today.year, today.month - 1, today.day)).getUTCDay() + 6) % 7) : 0;
+  const start = shiftDate(today, startOffset);
+  const days = range === 'next_week' || range === 'this_week' ? 6 : 0;
+  const end = shiftDate(start, days);
+  return { timeMin: localBoundaryIso(start, timeZone), timeMax: localBoundaryIso(end, timeZone, true) };
+}
 
 async function maxAuthCalendarRequest(path: string, context: ToolContext, init: RequestInit = {}) {
   if (!context.authAccessToken) throw new ApiError(401, 'AUTH_TOKEN_REQUIRED', 'A MAX Auth access token is required for Google Calendar');
@@ -124,7 +228,7 @@ const tools: MaxTool[] = [
   },
   {
     name: 'calendar.events', capability: 'calendar', description: 'Read events from the authenticated user\'s Google Calendar.', enabled: true, requiresConfirmation: false,
-    declaration: { name: 'calendar_events', description: 'List Google Calendar events. For requests like today, tomorrow, or this week, provide ISO timeMin and timeMax boundaries in the user timezone. Use calendarId only when the user names a specific calendar.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, timeMin: { type: 'string' }, timeMax: { type: 'string' }, maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
+    declaration: { name: 'calendar_events', description: 'List Google Calendar events. For today, tomorrow, yesterday, this week, or next week, use range so MAX resolves the exact boundaries in the user timezone. Use explicit timeMin/timeMax for custom ranges. Use calendarId only when the user names a specific calendar.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, timeMin: { type: 'string' }, timeMax: { type: 'string' }, range: { type: 'string', enum: ['today', 'tomorrow', 'yesterday', 'this_week', 'next_week'] }, maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
   },
   {
     name: 'calendar.create', capability: 'calendar', description: 'Create a Google Calendar event.', enabled: true, requiresConfirmation: true,
@@ -240,14 +344,16 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     } else if (name === 'calendar.events') {
       const data = validateToolInput(name, input) as z.infer<typeof calendarInput>;
       const params = new URLSearchParams();
-      for (const [key, value] of Object.entries(data)) if (value !== undefined && key !== 'calendarId') params.set(key, String(value));
+      const resolvedRange = resolveCalendarRange(data.range, context.timezone);
+      const eventQuery = resolvedRange ? { ...data, ...resolvedRange } : data;
+      for (const [key, value] of Object.entries(eventQuery)) if (value !== undefined && key !== 'calendarId' && key !== 'range') params.set(key, String(value));
       result = { success: true, tool: name, events: await maxAuthCalendarRequest('/events?' + params.toString() + (data.calendarId ? '&calendarId=' + encodeURIComponent(data.calendarId) : ''), context) };
     } else if (name === 'calendar.create') {
       const data = validateToolInput(name, input) as z.infer<typeof calendarCreateInput>;
-      result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events' + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
+      result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events' + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalizeCalendarEvent(data.event as Record<string, any>, context.timezone)) }) };
     } else if (name === 'calendar.update') {
       const data = validateToolInput(name, input) as z.infer<typeof calendarUpdateInput>;
-      result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
+      result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalizeCalendarEvent(data.event as Record<string, any>, context.timezone)) }) };
     } else if (name === 'calendar.delete') {
       const data = validateToolInput(name, input) as z.infer<typeof calendarDeleteInput>;
       result = { success: true, tool: name, result: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'DELETE' }) };
