@@ -221,6 +221,10 @@ async function maxAuthCalendarRequest(path: string, context: ToolContext, init: 
   return body?.data ?? body;
 }
 
+export async function getGoogleCalendarEventForConfirmation(userId: string, context: ToolContext, eventId: string, calendarId?: string) {
+  return maxAuthCalendarRequest('/events/' + encodeURIComponent(eventId) + (calendarId ? '?calendarId=' + encodeURIComponent(calendarId) : ''), context);
+}
+
 const tools: MaxTool[] = [
   {
     name: 'calendar.list', capability: 'calendar', description: 'Read the authenticated user\'s Google calendars.', enabled: true, requiresConfirmation: false,
