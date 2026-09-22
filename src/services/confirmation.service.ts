@@ -59,8 +59,9 @@ function formatConfirmationSummary(toolName: string, args: Record<string, unknow
     return `Create “${summary}”${when}`;
   }
   if (toolName === 'calendar.update') {
-    const eventId = typeof args.eventId === 'string' ? args.eventId : 'the selected event';
     const changes = Object.keys(event).filter((key) => key !== 'id').join(', ');
+    const start = contextStart?.dateTime ?? null;
+    const end = contextEnd?.dateTime ?? null;
     const when = start ? ` (${confirmationTime(start, eventTimeZone)}${end ? `–${confirmationTime(end, eventTimeZone)}` : ''})` : '';
     return `Update “${summary}”${when}${changes ? `: ${changes}` : ''}`;
   }
