@@ -133,12 +133,13 @@ async function processToolCalls(
           timezone: user.timezone
         }, eventId, calendarId);
         const event = existing?.data ?? existing;
+        const eventRecord = event && typeof event === 'object' ? event as Record<string, unknown> : {};
         pendingArgs = {
           ...validatedArgs,
           confirmationContext: {
-            summary: typeof event?.summary === 'string' ? event.summary : 'this event',
-            start: event?.start ?? null,
-            end: event?.end ?? null
+            summary: typeof eventRecord.summary === 'string' ? eventRecord.summary : 'this event',
+            start: eventRecord.start ?? null,
+            end: eventRecord.end ?? null
           }
         };
       }
