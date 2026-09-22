@@ -4,11 +4,13 @@ import { ApiError } from '../middleware/errors.js';
 import { maxHomeRequest } from './home.service.js';
 import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
+import { env } from '../config/env.js';
 
 type ToolContext = {
   userId: string;
   authSubject?: string;
   confirmed?: boolean;
+  authAccessToken?: string;
 };
 
 export type MaxTool = {
@@ -33,7 +35,54 @@ const homeInput = z.object({
   parameters: z.record(z.unknown()).optional()
 });
 
+
+const calendarInput = z.object({
+  calendarId: z.string().trim().min(1).max(500).optional(),
+  timeMin: z.string().trim().max(100).optional(),
+  timeMax: z.string().trim().max(100).optional(),
+  maxResults: z.number().int().min(1).max(250).optional(),
+  pageToken: z.string().trim().max(2000).optional()
+});
+
+const calendarEventInput = z.object({
+  calendarId: z.string().trim().min(1).max(500).optional(),
+  eventId: z.string().trim().min(1).max(500).optional(),
+  event: z.record(z.unknown()).optional()
+});
+
+async function maxAuthCalendarRequest(path: string, context: ToolContext, init: RequestInit = {}) {
+  if (!context.authAccessToken) throw new ApiError(401, 'AUTH_TOKEN_REQUIRED', 'A MAX Auth access token is required for Google Calendar');
+  const response = await fetch(env.MAX_AUTH_API_URL + '/connected-accounts/google/calendar' + path, {
+    ...init,
+    headers: { ...(init.headers || {}), Authorization: 'Bearer ' + context.authAccessToken, Accept: 'application/json' }
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) throw new ApiError(response.status, body?.error?.code || body?.code || 'GOOGLE_CALENDAR_ERROR', body?.error?.message || body?.message || 'Google Calendar request failed');
+  return body?.data ?? body;
+}
+
 const tools: MaxTool[] = [
+  {
+    name: 'calendar.list', capability: 'calendar', description: 'Read the authenticated user\'s Google calendars.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'calendar_list', description: 'List the user\'s connected Google calendars.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'calendar.events', capability: 'calendar', description: 'Read events from the authenticated user\'s Google Calendar.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'calendar_events', description: 'List Google Calendar events. Use ISO timestamps for timeMin and timeMax when supplied.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, timeMin: { type: 'string' }, timeMax: { type: 'string' }, maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
+  },
+  {
+    name: 'calendar.create', capability: 'calendar', description: 'Create a Google Calendar event.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'calendar_create', description: 'Create a Google Calendar event after explicit user confirmation.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, event: { type: 'object', description: 'Google Calendar event resource.' } }, required: ['event'] } }
+  },
+  {
+    name: 'calendar.update', capability: 'calendar', description: 'Update a Google Calendar event.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'calendar_update', description: 'Update a Google Calendar event after explicit user confirmation.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, eventId: { type: 'string' }, event: { type: 'object' } }, required: ['eventId', 'event'] } }
+  },
+  {
+    name: 'calendar.delete', capability: 'calendar', description: 'Delete a Google Calendar event.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'calendar_delete', description: 'Delete a Google Calendar event after explicit user confirmation.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, eventId: { type: 'string' } }, required: ['eventId'] } }
+  },
+
   {
     name: 'memory.save',
     capability: 'memory',
@@ -122,7 +171,25 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'memory.save') {
+    if (name === 'calendar.list') {
+      result = { success: true, tool: name, calendars: await maxAuthCalendarRequest('', context) };
+    } else if (name === 'calendar.events') {
+      const data = calendarInput.parse(input);
+      const params = new URLSearchParams();
+      for (const [key, value] of Object.entries(data)) if (value !== undefined && key !== 'calendarId') params.set(key, String(value));
+      result = { success: true, tool: name, events: await maxAuthCalendarRequest('/events?' + params.toString() + (data.calendarId ? '&calendarId=' + encodeURIComponent(data.calendarId) : ''), context) };
+    } else if (name === 'calendar.create') {
+      const data = calendarEventInput.parse(input);
+      result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events' + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
+    } else if (name === 'calendar.update') {
+      const data = calendarEventInput.parse(input);
+      if (!data.eventId || !data.event) throw new ApiError(400, 'CALENDAR_INPUT_INVALID', 'eventId and event are required');
+      result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
+    } else if (name === 'calendar.delete') {
+      const data = calendarEventInput.parse(input);
+      if (!data.eventId) throw new ApiError(400, 'CALENDAR_INPUT_INVALID', 'eventId is required');
+      result = { success: true, tool: name, result: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'DELETE' }) };
+    } else if (name === 'memory.save') {
       const data = memoryInput.parse(input);
       const memory = await prisma.memory.upsert({
         where: { userId_type_key: { userId: context.userId, type: data.type, key: data.key } },
