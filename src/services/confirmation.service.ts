@@ -112,7 +112,7 @@ export async function confirmPendingAction(userId: string, actionId: string) {
   return result;
 }
 
-export async function executeConfirmedAction(userId: string, authSubject: string, actionId: string) {
+export async function executeConfirmedAction(userId: string, authSubject: string, actionId: string, authAccessToken?: string) {
   const action = await getPendingAction(userId, actionId);
 
   if (action.status !== 'CONFIRMED') {
@@ -143,6 +143,7 @@ export async function executeConfirmedAction(userId: string, authSubject: string
     const result = await executeTool(action.toolName, {
       userId,
       authSubject,
+      authAccessToken,
       confirmed: true
     }, action.arguments);
 
