@@ -42,12 +42,57 @@ const calendarInput = z.object({
   timeMax: z.string().trim().max(100).optional(),
   maxResults: z.number().int().min(1).max(250).optional(),
   pageToken: z.string().trim().max(2000).optional()
+}).refine((data) => !data.timeMin || !data.timeMax || data.timeMin <= data.timeMax, {
+  message: 'timeMin must be earlier than or equal to timeMax'
 });
 
-const calendarEventInput = z.object({
+const calendarDateTime = z.object({
+  dateTime: z.string().trim().min(1).max(100),
+  timeZone: z.string().trim().min(1).max(100).optional()
+});
+
+const calendarAttendee = z.object({
+  email: z.string().trim().email().max(320),
+  displayName: z.string().trim().max(200).optional(),
+  optional: z.boolean().optional()
+});
+
+const calendarEventResource = z.object({
+  summary: z.string().trim().min(1).max(500),
+  description: z.string().trim().max(10000).optional(),
+  location: z.string().trim().max(1000).optional(),
+  start: calendarDateTime,
+  end: calendarDateTime,
+  attendees: z.array(calendarAttendee).max(100).optional(),
+  recurrence: z.array(z.string().trim().min(1).max(1000)).max(20).optional(),
+  reminders: z.object({
+    useDefault: z.boolean().optional(),
+    overrides: z.array(z.object({
+      method: z.enum(['email', 'popup']),
+      minutes: z.number().int().min(0).max(40320)
+    })).max(10).optional()
+  }).optional(),
+  colorId: z.string().trim().max(50).optional(),
+  visibility: z.enum(['default', 'public', 'private', 'confidential']).optional(),
+  status: z.enum(['confirmed', 'tentative']).optional()
+});
+
+const calendarCreateInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
-  eventId: z.string().trim().min(1).max(500).optional(),
-  event: z.record(z.unknown()).optional()
+  event: calendarEventResource
+});
+
+const calendarUpdateInput = z.object({
+  calendarId: z.string().trim().min(1).max(500).optional(),
+  eventId: z.string().trim().min(1).max(500),
+  event: calendarEventResource.partial().refine((event) => Object.keys(event).length > 0, {
+    message: 'At least one event field must be supplied'
+  })
+});
+
+const calendarDeleteInput = z.object({
+  calendarId: z.string().trim().min(1).max(500).optional(),
+  eventId: z.string().trim().min(1).max(500)
 });
 
 async function maxAuthCalendarRequest(path: string, context: ToolContext, init: RequestInit = {}) {
@@ -68,19 +113,19 @@ const tools: MaxTool[] = [
   },
   {
     name: 'calendar.events', capability: 'calendar', description: 'Read events from the authenticated user\'s Google Calendar.', enabled: true, requiresConfirmation: false,
-    declaration: { name: 'calendar_events', description: 'List Google Calendar events. Use ISO timestamps for timeMin and timeMax when supplied.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, timeMin: { type: 'string' }, timeMax: { type: 'string' }, maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
+    declaration: { name: 'calendar_events', description: 'List Google Calendar events. For requests like today, tomorrow, or this week, provide ISO timeMin and timeMax boundaries in the user timezone. Use calendarId only when the user names a specific calendar.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, timeMin: { type: 'string' }, timeMax: { type: 'string' }, maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
   },
   {
     name: 'calendar.create', capability: 'calendar', description: 'Create a Google Calendar event.', enabled: true, requiresConfirmation: true,
-    declaration: { name: 'calendar_create', description: 'Create a Google Calendar event after explicit user confirmation.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, event: { type: 'object', description: 'Google Calendar event resource.' } }, required: ['event'] } }
+    declaration: { name: 'calendar_create', description: 'Create a Google Calendar event after explicit user confirmation. Always provide summary, start.dateTime, and end.dateTime. Use an IANA time zone such as Africa/Lagos when the user gives local times. Do not invent missing times; ask the user when a required detail is missing.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, event: { type: 'object', description: 'Event resource. Required fields: summary, start {dateTime,timeZone}, end {dateTime,timeZone}. Optional: description, location, attendees [{email,displayName,optional}], recurrence, reminders, colorId, visibility, status.' } }, required: ['event'] } }
   },
   {
     name: 'calendar.update', capability: 'calendar', description: 'Update a Google Calendar event.', enabled: true, requiresConfirmation: true,
-    declaration: { name: 'calendar_update', description: 'Update a Google Calendar event after explicit user confirmation.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, eventId: { type: 'string' }, event: { type: 'object' } }, required: ['eventId', 'event'] } }
+    declaration: { name: 'calendar_update', description: 'Update an existing Google Calendar event after explicit user confirmation. eventId is required and event must contain only the fields being changed. Preserve existing fields by sending partial changes. Never invent an eventId; get it from calendar_events.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, eventId: { type: 'string' }, event: { type: 'object' } }, required: ['eventId', 'event'] } }
   },
   {
     name: 'calendar.delete', capability: 'calendar', description: 'Delete a Google Calendar event.', enabled: true, requiresConfirmation: true,
-    declaration: { name: 'calendar_delete', description: 'Delete a Google Calendar event after explicit user confirmation.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, eventId: { type: 'string' } }, required: ['eventId'] } }
+    declaration: { name: 'calendar_delete', description: 'Delete an existing Google Calendar event after explicit user confirmation. eventId is required and must come from a calendar_events result. Never guess an eventId.', parameters: { type: 'object', properties: { calendarId: { type: 'string' }, eventId: { type: 'string' } }, required: ['eventId'] } }
   },
 
   {
@@ -179,15 +224,13 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       for (const [key, value] of Object.entries(data)) if (value !== undefined && key !== 'calendarId') params.set(key, String(value));
       result = { success: true, tool: name, events: await maxAuthCalendarRequest('/events?' + params.toString() + (data.calendarId ? '&calendarId=' + encodeURIComponent(data.calendarId) : ''), context) };
     } else if (name === 'calendar.create') {
-      const data = calendarEventInput.parse(input);
+      const data = calendarCreateInput.parse(input);
       result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events' + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
     } else if (name === 'calendar.update') {
-      const data = calendarEventInput.parse(input);
-      if (!data.eventId || !data.event) throw new ApiError(400, 'CALENDAR_INPUT_INVALID', 'eventId and event are required');
+      const data = calendarUpdateInput.parse(input);
       result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
     } else if (name === 'calendar.delete') {
-      const data = calendarEventInput.parse(input);
-      if (!data.eventId) throw new ApiError(400, 'CALENDAR_INPUT_INVALID', 'eventId is required');
+      const data = calendarDeleteInput.parse(input);
       result = { success: true, tool: name, result: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'DELETE' }) };
     } else if (name === 'memory.save') {
       const data = memoryInput.parse(input);
