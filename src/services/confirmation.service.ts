@@ -157,7 +157,7 @@ export async function confirmPendingAction(userId: string, actionId: string) {
   };
 }
 
-export async function executeConfirmedAction(userId: string, authSubject: string, actionId: string, authAccessToken?: string) {
+export async function executeConfirmedAction(userId: string, authSubject: string, actionId: string, authAccessToken?: string, timezone?: string | null) {
   const action = await getPendingAction(userId, actionId);
 
   if (action.status !== 'CONFIRMED') {
@@ -189,6 +189,7 @@ export async function executeConfirmedAction(userId: string, authSubject: string
       userId,
       authSubject,
       authAccessToken,
+      timezone,
       confirmed: true
     }, action.arguments);
 
