@@ -40,7 +40,7 @@ confirmationsRouter.post('/:id/execute', async (req: AuthenticatedRequest, res, 
     const user = await resolveEcosystemUser(req.auth!);
     const authorization = req.header('authorization');
     const authAccessToken = authorization?.replace(/^Bearer\s+/i, '').trim();
-    const execution = await executeConfirmedAction(user.id, user.authSubject, id, authAccessToken);
+    const execution = await executeConfirmedAction(user.id, user.authSubject, id, authAccessToken, user.timezone);
     const response = await continueAfterConfirmation({ ...user, authAccessToken }, execution.action, execution.result);
     const assistantMessage = await prisma.message.create({
       data: {
