@@ -49,6 +49,11 @@ const calendarInput = z.object({
 const calendarDateTime = z.object({
   dateTime: z.string().trim().min(1).max(100),
   timeZone: z.string().trim().min(1).max(100).optional()
+}).superRefine((value, ctx) => {
+  const parsed = new Date(value.dateTime);
+  if (Number.isNaN(parsed.getTime())) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'dateTime must be a valid ISO-8601 date/time' });
+  }
 });
 
 const calendarAttendee = z.object({
@@ -80,6 +85,12 @@ const calendarEventResource = z.object({
 const calendarCreateInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   event: calendarEventResource
+}).superRefine((value, ctx) => {
+  const start = new Date(value.event.start.dateTime).getTime();
+  const end = new Date(value.event.end.dateTime).getTime();
+  if (Number.isFinite(start) && Number.isFinite(end) && end <= start) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['event', 'end', 'dateTime'], message: 'Event end must be after event start' });
+  }
 });
 
 const calendarUpdateInput = z.object({
@@ -199,6 +210,14 @@ export function resolveGeminiTool(name: string) {
   return tools.find((tool) => tool.enabled && tool.declaration.name === name);
 }
 
+export function validateToolInput(name: string, input: unknown) {
+  if (name === 'calendar.events') return calendarInput.parse(input);
+  if (name === 'calendar.create') return calendarCreateInput.parse(input);
+  if (name === 'calendar.update') return calendarUpdateInput.parse(input);
+  if (name === 'calendar.delete') return calendarDeleteInput.parse(input);
+  return input;
+}
+
 export async function executeTool(name: string, context: ToolContext, input: unknown) {
   const startedAt = Date.now();
   const tool = tools.find((candidate) => candidate.name === name);
@@ -219,18 +238,18 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     if (name === 'calendar.list') {
       result = { success: true, tool: name, calendars: await maxAuthCalendarRequest('', context) };
     } else if (name === 'calendar.events') {
-      const data = calendarInput.parse(input);
+      const data = validateToolInput(name, input) as z.infer<typeof calendarInput>;
       const params = new URLSearchParams();
       for (const [key, value] of Object.entries(data)) if (value !== undefined && key !== 'calendarId') params.set(key, String(value));
       result = { success: true, tool: name, events: await maxAuthCalendarRequest('/events?' + params.toString() + (data.calendarId ? '&calendarId=' + encodeURIComponent(data.calendarId) : ''), context) };
     } else if (name === 'calendar.create') {
-      const data = calendarCreateInput.parse(input);
+      const data = validateToolInput(name, input) as z.infer<typeof calendarCreateInput>;
       result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events' + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
     } else if (name === 'calendar.update') {
-      const data = calendarUpdateInput.parse(input);
+      const data = validateToolInput(name, input) as z.infer<typeof calendarUpdateInput>;
       result = { success: true, tool: name, event: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data.event) }) };
     } else if (name === 'calendar.delete') {
-      const data = calendarDeleteInput.parse(input);
+      const data = validateToolInput(name, input) as z.infer<typeof calendarDeleteInput>;
       result = { success: true, tool: name, result: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'DELETE' }) };
     } else if (name === 'memory.save') {
       const data = memoryInput.parse(input);
