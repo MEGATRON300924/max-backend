@@ -223,14 +223,11 @@ function resolveCalendarRange(range: z.infer<typeof calendarInput>['range'], tim
 }
 
 async function maxAuthCalendarRequest(path: string, context: ToolContext, init: RequestInit = {}) {
-  if (!context.authAccessToken) throw new ApiError(401, 'AUTH_TOKEN_REQUIRED', 'A MAX Auth access token is required for Google Calendar');
-  const response = await fetch(env.MAX_AUTH_API_URL + '/connected-accounts/google/calendar' + path, {
-    ...init,
-    headers: { ...(init.headers || {}), Authorization: 'Bearer ' + context.authAccessToken, Accept: 'application/json' }
+  return maxAuthGoogleRequest(context.userId, '/calendar' + path, {
+    method: init.method,
+    body: init.body ? JSON.parse(String(init.body)) : undefined,
+    query: undefined
   });
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new ApiError(response.status, body?.error?.code || body?.code || 'GOOGLE_CALENDAR_ERROR', body?.error?.message || body?.message || 'Google Calendar request failed');
-  return body?.data ?? body;
 }
 
 export async function getGoogleCalendarEventForConfirmation(context: ToolContext, eventId: string, calendarId?: string) {
