@@ -38,6 +38,7 @@ const capabilities = {
   browser: false,
   voice: false,
   calendar: true,
+  google: true,
   connect: false,
   store: false,
   studio: false,
@@ -51,6 +52,7 @@ function classifyIntent(content: string) {
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
   if (/\b(turn on|turn off|switch on|switch off|dim|brighten|set .* thermostat|lock|unlock|open|close)\b/.test(value)) return 'home';
   if (/\b(calendar|schedule|scheduled|appointment|meeting|meetings|event|events|agenda|availability)\b/.test(value)) return 'calendar';
+  if (/\b(gmail|email|mail|inbox|drive|document|doc|spreadsheet|sheet|slides|presentation|task|tasks|contact|contacts|youtube|subscription|subscriptions|video)\b/.test(value)) return 'google';
   if (/\b(play|pause|skip|music|song|playlist|album|artist)\b/.test(value)) return 'music';
   if (/\b(search|look up|latest|news|what happened today|browse the web)\b/.test(value)) return 'browser';
   if (/\b(upload|download|file|files|storage|cloud)\b/.test(value)) return 'cloud';
@@ -60,6 +62,7 @@ function classifyIntent(content: string) {
 function unavailableCapability(intent: string) {
   if (intent === 'home' && !capabilities.home) return 'MAX Home is not configured for this backend.';
   if (intent === 'calendar' && !capabilities.calendar) return 'Google Calendar is not configured for this backend.';
+  if (intent === 'google' && !capabilities.google) return 'Google services are not configured for this backend.';
   if (intent === 'music' && !capabilities.music) return 'MAX Music is not configured for this backend.';
   if (intent === 'browser' && !capabilities.browser) return 'MAX Browser is not configured for this backend.';
   if (intent === 'cloud' && !capabilities.cloud) return 'MAX Cloud is not configured for this backend.';
@@ -88,6 +91,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'Never invent devices, homes, accounts, files, purchases, payments, integrations, or tool results.',
     'Sensitive actions such as home control and memory deletion require explicit confirmation and must never be bypassed.',
     'Calendar rules: calendar.list and calendar.events are read-only. calendar.create, calendar.update, and calendar.delete always require confirmation.',
+    'Google rules: Drive, Docs, Sheets, Slides, Gmail, and Tasks write/delete actions require explicit confirmation. Read operations may use the connected Google account. Never claim Google data exists until the corresponding tool returns it.',
     'For today, tomorrow, yesterday, this week, or next week, use the calendar_events range field so the backend resolves the boundaries in the authenticated user timezone.',
     'For custom calendar times, use ISO-8601 timestamps. When creating or changing an event, use the authenticated user timezone unless the user explicitly gives another timezone.',
     'Never invent a calendar, event ID, date, time, duration, attendee, or location. For update/delete, find the existing event first with calendar_events and use its returned eventId.',
