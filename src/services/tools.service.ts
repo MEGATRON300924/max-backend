@@ -124,7 +124,7 @@ const googleSheetWriteInput = z.object({ spreadsheetId: z.string().trim().min(1)
 const spotifyTimeRange = z.enum(['short_term', 'medium_term', 'long_term']).optional();
 const spotifyTopInput = z.object({ timeRange: spotifyTimeRange, limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).max(1000).optional() });
 const spotifyRecentlyPlayedInput = z.object({ limit: z.number().int().min(1).max(50).optional() });
-const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() }).refine((data) => Boolean(data.context_uri || data.uris), { message: 'Provide context_uri or uris when specifying a playback target' });
+const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
 const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   eventId: z.string().trim().min(1).max(500)
