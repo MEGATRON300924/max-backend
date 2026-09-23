@@ -6,6 +6,7 @@ import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
 import { maxAuthGoogleRequest } from './max-auth-google.service.js';
+import { maxAuthSpotifyRequest } from './max-auth-spotify.service.js';
 
 type ToolContext = {
   userId: string;
@@ -120,6 +121,10 @@ const googleWriteInput = z.record(z.unknown());
 const googleGmailSendInput = z.object({ raw: z.string().min(1).max(1000000) });
 const googleGmailModifyInput = z.object({ messageId: z.string().trim().min(1).max(500), addLabelIds: z.array(z.string().max(100)).max(50).optional(), removeLabelIds: z.array(z.string().max(100)).max(50).optional() });
 const googleSheetWriteInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().trim().min(1).max(1000), values: z.array(z.array(z.unknown())).max(10000), valueInputOption: z.string().max(100).optional() });
+const spotifyTimeRange = z.enum(['short_term', 'medium_term', 'long_term']).optional();
+const spotifyTopInput = z.object({ timeRange: spotifyTimeRange, limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).max(1000).optional() });
+const spotifyRecentlyPlayedInput = z.object({ limit: z.number().int().min(1).max(50).optional() });
+const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() }).refine((data) => Boolean(data.context_uri || data.uris), { message: 'Provide context_uri or uris when specifying a playback target' });
 const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   eventId: z.string().trim().min(1).max(500)
@@ -328,6 +333,44 @@ const tools: MaxTool[] = [
     declaration: { name: 'google_youtube_search', description: 'Search YouTube for videos, channels, or playlists.', parameters: { type: 'object', properties: { q: { type: 'string' }, type: { type: 'string', enum: ['video','channel','playlist'] }, maxResults: { type: 'number' }, pageToken: { type: 'string' } }, required: ['q'] } }
   },
 
+
+  {
+    name: 'spotify.me', capability: 'music', description: 'Read the connected Spotify profile.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'spotify_me', description: 'Get the connected Spotify profile.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'spotify.top.artists', capability: 'music', description: 'Read the user\'s top Spotify artists.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'spotify_top_artists', description: 'Get the user\'s top Spotify artists. Use short_term, medium_term, or long_term when a time range is specified.', parameters: { type: 'object', properties: { timeRange: { type: 'string', enum: ['short_term','medium_term','long_term'] }, limit: { type: 'number' }, offset: { type: 'number' } } } }
+  },
+  {
+    name: 'spotify.top.tracks', capability: 'music', description: 'Read the user\'s top Spotify tracks.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'spotify_top_tracks', description: 'Get the user\'s top Spotify tracks.', parameters: { type: 'object', properties: { timeRange: { type: 'string', enum: ['short_term','medium_term','long_term'] }, limit: { type: 'number' }, offset: { type: 'number' } } } }
+  },
+  {
+    name: 'spotify.recently-played', capability: 'music', description: 'Read the user\'s recently played Spotify tracks.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'spotify_recently_played', description: 'Get recently played Spotify tracks.', parameters: { type: 'object', properties: { limit: { type: 'number' } } } }
+  },
+  {
+    name: 'spotify.player', capability: 'music', description: 'Read the current Spotify playback state.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'spotify_player', description: 'Get the current Spotify playback state.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'spotify.play', capability: 'music', description: 'Start Spotify playback.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'spotify_play', description: 'Start Spotify playback after explicit confirmation. Optionally provide a context_uri or track uris.', parameters: { type: 'object', properties: { context_uri: { type: 'string' }, uris: { type: 'array' }, device_id: { type: 'string' }, offset: { type: 'object' }, position_ms: { type: 'number' } } } }
+  },
+  {
+    name: 'spotify.pause', capability: 'music', description: 'Pause Spotify playback.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'spotify_pause', description: 'Pause Spotify playback after explicit confirmation.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'spotify.next', capability: 'music', description: 'Skip to the next Spotify track.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'spotify_next', description: 'Skip to the next Spotify track after explicit confirmation.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'spotify.previous', capability: 'music', description: 'Go to the previous Spotify track.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'spotify_previous', description: 'Go to the previous Spotify track after explicit confirmation.', parameters: { type: 'object', properties: {} } }
+  },
+
   {
     name: 'calendar.list', capability: 'calendar', description: 'Read the authenticated user\'s Google calendars.', enabled: true, requiresConfirmation: false,
     declaration: { name: 'calendar_list', description: 'List the user\'s connected Google calendars.', parameters: { type: 'object', properties: {} } }
@@ -436,6 +479,9 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'google.youtube.search') return googleYouTubeSearchInput.parse(input);
   if (name === 'google.sheets.get') return googleSheetInput.parse(input);
   if (name === 'google.sheets.update') return googleSheetWriteInput.parse(input);
+  if (name === 'spotify.top.artists' || name === 'spotify.top.tracks') return spotifyTopInput.parse(input);
+  if (name === 'spotify.recently-played') return spotifyRecentlyPlayedInput.parse(input);
+  if (name === 'spotify.play') return spotifyPlayInput.parse(input);
   return input;
 }
 
@@ -523,6 +569,28 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     } else if (name === 'google.youtube.search') {
       const data = validateToolInput(name, input) as z.infer<typeof googleYouTubeSearchInput>;
       result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/search', { query: data })) as object };
+    } else if (name === 'spotify.me') {
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/me')) as object };
+    } else if (name === 'spotify.top.artists') {
+      const data = validateToolInput(name, input) as z.infer<typeof spotifyTopInput>;
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/top/artists', { query: data })) as object };
+    } else if (name === 'spotify.top.tracks') {
+      const data = validateToolInput(name, input) as z.infer<typeof spotifyTopInput>;
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/top/tracks', { query: data })) as object };
+    } else if (name === 'spotify.recently-played') {
+      const data = validateToolInput(name, input) as z.infer<typeof spotifyRecentlyPlayedInput>;
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/recently-played', { query: data })) as object };
+    } else if (name === 'spotify.player') {
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/player')) as object };
+    } else if (name === 'spotify.play') {
+      const data = validateToolInput(name, input) as z.infer<typeof spotifyPlayInput>;
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/player/play', { method: 'PUT', body: data })) as object };
+    } else if (name === 'spotify.pause') {
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/player/pause', { method: 'PUT' })) as object };
+    } else if (name === 'spotify.next') {
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/player/next', { method: 'POST' })) as object };
+    } else if (name === 'spotify.previous') {
+      result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/player/previous', { method: 'POST' })) as object };
     } else if (name === 'calendar.list') {
       result = { success: true, tool: name, calendars: await maxAuthCalendarRequest('', context) };
     } else if (name === 'calendar.events') {
