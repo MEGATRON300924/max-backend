@@ -5,6 +5,7 @@ import { maxHomeRequest } from './home.service.js';
 import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
+import { maxAuthGoogleRequest } from './max-auth-google.service.js';
 
 type ToolContext = {
   userId: string;
@@ -108,6 +109,17 @@ const calendarUpdateInput = z.object({
   })
 });
 
+const googleIdInput = z.object({ id: z.string().trim().min(1).max(500) });
+const googleDriveListInput = z.object({ q: z.string().max(2000).optional(), pageSize: z.number().int().min(1).max(100).optional(), pageToken: z.string().max(2000).optional(), orderBy: z.string().max(500).optional() });
+const googleGmailListInput = z.object({ q: z.string().max(2000).optional(), maxResults: z.number().int().min(1).max(100).optional(), pageToken: z.string().max(2000).optional() });
+const googleTasksInput = z.object({ taskListId: z.string().max(500).optional() });
+const googleYouTubeSearchInput = z.object({ q: z.string().trim().min(1).max(500), type: z.enum(['video','channel','playlist']).optional(), maxResults: z.number().int().min(1).max(50).optional(), pageToken: z.string().max(2000).optional() });
+const googleContactsInput = z.object({ pageSize: z.number().int().min(1).max(1000).optional() });
+const googleSheetInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().max(1000).optional() });
+const googleWriteInput = z.record(z.unknown());
+const googleGmailSendInput = z.object({ raw: z.string().min(1).max(1000000) });
+const googleGmailModifyInput = z.object({ messageId: z.string().trim().min(1).max(500), addLabelIds: z.array(z.string().max(100)).max(50).optional(), removeLabelIds: z.array(z.string().max(100)).max(50).optional() });
+const googleSheetWriteInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().trim().min(1).max(1000), values: z.array(z.array(z.unknown())).max(10000), valueInputOption: z.string().max(100).optional() });
 const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   eventId: z.string().trim().min(1).max(500)
@@ -227,6 +239,99 @@ export async function getGoogleCalendarEventForConfirmation(context: ToolContext
 
 const tools: MaxTool[] = [
   {
+    name: 'google.drive.list', capability: 'google.drive', description: 'Read files the user has authorized MAX to access in Google Drive.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_drive_list', description: 'List the user-authorized Google Drive files. Use q for targeted searches.', parameters: { type: 'object', properties: { q: { type: 'string' }, pageSize: { type: 'number' }, pageToken: { type: 'string' }, orderBy: { type: 'string' } } } }
+  },
+  {
+    name: 'google.drive.get', capability: 'google.drive', description: 'Read a specific Google Drive file.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_drive_get', description: 'Get a Google Drive file by file ID.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } }
+  },
+  {
+    name: 'google.drive.create', capability: 'google.drive', description: 'Create a Google Drive file.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_drive_create', description: 'Create a Google Drive file after confirmation. Pass the Drive file resource fields supported by MAX Auth.', parameters: { type: 'object', properties: { name: { type: 'string' }, mimeType: { type: 'string' }, parents: { type: 'array' }, content: { type: 'string' } }, required: ['name'] } }
+  },
+  {
+    name: 'google.drive.update', capability: 'google.drive', description: 'Update a Google Drive file.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_drive_update', description: 'Update a Google Drive file after confirmation.', parameters: { type: 'object', properties: { id: { type: 'string' }, patch: { type: 'object' } }, required: ['id','patch'] } }
+  },
+  {
+    name: 'google.drive.delete', capability: 'google.drive', description: 'Delete a Google Drive file.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_drive_delete', description: 'Delete a Google Drive file after confirmation.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } }
+  },
+  {
+    name: 'google.docs.get', capability: 'google.docs', description: 'Read a Google Doc.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_docs_get', description: 'Get a Google Doc by document ID.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } }
+  },
+  {
+    name: 'google.docs.update', capability: 'google.docs', description: 'Update a Google Doc.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_docs_update', description: 'Apply Google Docs batch update requests after confirmation.', parameters: { type: 'object', properties: { id: { type: 'string' }, requests: { type: 'array' } }, required: ['id','requests'] } }
+  },
+  {
+    name: 'google.sheets.get', capability: 'google.sheets', description: 'Read a Google Sheet.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_sheets_get', description: 'Get Google Sheets spreadsheet data.', parameters: { type: 'object', properties: { spreadsheetId: { type: 'string' }, range: { type: 'string' } }, required: ['spreadsheetId'] } }
+  },
+  {
+    name: 'google.sheets.update', capability: 'google.sheets', description: 'Update a Google Sheet.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_sheets_update', description: 'Write values to a Google Sheet after confirmation.', parameters: { type: 'object', properties: { spreadsheetId: { type: 'string' }, range: { type: 'string' }, values: { type: 'array' }, valueInputOption: { type: 'string' } }, required: ['spreadsheetId','range','values'] } }
+  },
+  {
+    name: 'google.slides.get', capability: 'google.slides', description: 'Read a Google Slides presentation.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_slides_get', description: 'Get a Google Slides presentation.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } }
+  },
+  {
+    name: 'google.slides.update', capability: 'google.slides', description: 'Update a Google Slides presentation.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_slides_update', description: 'Apply Google Slides batch update requests after confirmation.', parameters: { type: 'object', properties: { id: { type: 'string' }, requests: { type: 'array' } }, required: ['id','requests'] } }
+  },
+  {
+    name: 'google.gmail.list', capability: 'google.gmail', description: 'Search the user-authorized Gmail mailbox.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_gmail_list', description: 'Search Gmail using Gmail search syntax.', parameters: { type: 'object', properties: { q: { type: 'string' }, maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
+  },
+  {
+    name: 'google.gmail.get', capability: 'google.gmail', description: 'Read a Gmail message.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_gmail_get', description: 'Get a Gmail message by ID.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } }
+  },
+  {
+    name: 'google.gmail.send', capability: 'google.gmail', description: 'Send an email through Gmail.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_gmail_send', description: 'Send a Gmail message after explicit confirmation. raw must be a base64url-encoded RFC 2822 message.', parameters: { type: 'object', properties: { raw: { type: 'string' } }, required: ['raw'] } }
+  },
+  {
+    name: 'google.gmail.modify', capability: 'google.gmail', description: 'Modify Gmail labels.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_gmail_modify', description: 'Add or remove Gmail labels after confirmation.', parameters: { type: 'object', properties: { messageId: { type: 'string' }, addLabelIds: { type: 'array' }, removeLabelIds: { type: 'array' } }, required: ['messageId'] } }
+  },
+  {
+    name: 'google.tasks.list', capability: 'google.tasks', description: 'List Google Tasks.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_tasks_list', description: 'List tasks from the user task list.', parameters: { type: 'object', properties: { taskListId: { type: 'string' } } } }
+  },
+  {
+    name: 'google.tasks.create', capability: 'google.tasks', description: 'Create a Google Task.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_tasks_create', description: 'Create a Google Task after confirmation.', parameters: { type: 'object', properties: { taskListId: { type: 'string' }, title: { type: 'string' }, notes: { type: 'string' }, due: { type: 'string' } }, required: ['title'] } }
+  },
+  {
+    name: 'google.tasks.update', capability: 'google.tasks', description: 'Update a Google Task.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_tasks_update', description: 'Update a Google Task after confirmation.', parameters: { type: 'object', properties: { taskId: { type: 'string' }, taskListId: { type: 'string' }, patch: { type: 'object' } }, required: ['taskId','patch'] } }
+  },
+  {
+    name: 'google.tasks.delete', capability: 'google.tasks', description: 'Delete a Google Task.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'google_tasks_delete', description: 'Delete a Google Task after confirmation.', parameters: { type: 'object', properties: { taskId: { type: 'string' }, taskListId: { type: 'string' } }, required: ['taskId'] } }
+  },
+  {
+    name: 'google.contacts.list', capability: 'google.contacts', description: 'Read Google Contacts.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_contacts_list', description: 'List the user Google Contacts.', parameters: { type: 'object', properties: { pageSize: { type: 'number' } } } }
+  },
+  {
+    name: 'google.youtube.channels', capability: 'google.youtube', description: 'Read the user YouTube channel.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_youtube_channels', description: 'Get the authenticated user YouTube channel.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'google.youtube.subscriptions', capability: 'google.youtube', description: 'Read YouTube subscriptions.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_youtube_subscriptions', description: 'List the authenticated user YouTube subscriptions.', parameters: { type: 'object', properties: { maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
+  },
+  {
+    name: 'google.youtube.search', capability: 'google.youtube', description: 'Search YouTube.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_youtube_search', description: 'Search YouTube for videos, channels, or playlists.', parameters: { type: 'object', properties: { q: { type: 'string' }, type: { type: 'string', enum: ['video','channel','playlist'] }, maxResults: { type: 'number' }, pageToken: { type: 'string' } }, required: ['q'] } }
+  },
+
+  {
     name: 'calendar.list', capability: 'calendar', description: 'Read the authenticated user\'s Google calendars.', enabled: true, requiresConfirmation: false,
     declaration: { name: 'calendar_list', description: 'List the user\'s connected Google calendars.', parameters: { type: 'object', properties: {} } }
   },
@@ -323,6 +428,17 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'calendar.create') return calendarCreateInput.parse(input);
   if (name === 'calendar.update') return calendarUpdateInput.parse(input);
   if (name === 'calendar.delete') return calendarDeleteInput.parse(input);
+  if (name === 'google.drive.list') return googleDriveListInput.parse(input);
+  if (name === 'google.drive.get' || name === 'google.drive.delete' || name === 'google.docs.get' || name === 'google.slides.get') return googleIdInput.parse(input);
+  if (name === 'google.gmail.list') return googleGmailListInput.parse(input);
+  if (name === 'google.gmail.get') return googleIdInput.parse(input);
+  if (name === 'google.gmail.send') return googleGmailSendInput.parse(input);
+  if (name === 'google.gmail.modify') return googleGmailModifyInput.parse(input);
+  if (name === 'google.tasks.list') return googleTasksInput.parse(input);
+  if (name === 'google.contacts.list') return googleContactsInput.parse(input);
+  if (name === 'google.youtube.search') return googleYouTubeSearchInput.parse(input);
+  if (name === 'google.sheets.get') return googleSheetInput.parse(input);
+  if (name === 'google.sheets.update') return googleSheetWriteInput.parse(input);
   return input;
 }
 
@@ -343,7 +459,74 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'calendar.list') {
+    if (name === 'google.drive.list') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleDriveListInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/drive/files', { query: data })) as object };
+    } else if (name === 'google.drive.get') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleIdInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/drive/files/' + encodeURIComponent(data.id))) as object };
+    } else if (name === 'google.drive.create') {
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/drive/files', { method: 'POST', body: input })) as object };
+    } else if (name === 'google.drive.update') {
+      const data = input as { id: string; patch: unknown };
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/drive/files/' + encodeURIComponent(data.id), { method: 'PATCH', body: data.patch })) as object };
+    } else if (name === 'google.drive.delete') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleIdInput>;
+      result = { success: true, tool: name, result: await maxAuthGoogleRequest(context.userId, '/drive/files/' + encodeURIComponent(data.id), { method: 'DELETE' }) };
+    } else if (name === 'google.docs.get') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleIdInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/docs/' + encodeURIComponent(data.id))) as object };
+    } else if (name === 'google.docs.update') {
+      const data = input as { id: string; requests: unknown[] };
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/docs/' + encodeURIComponent(data.id) + '/batchUpdate', { method: 'POST', body: { requests: data.requests } })) as object };
+    } else if (name === 'google.sheets.get') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleSheetInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/sheets/' + encodeURIComponent(data.spreadsheetId), { query: { range: data.range } })) as object };
+    } else if (name === 'google.sheets.update') {
+      const data = googleSheetWriteInput.parse(input) as z.infer<typeof googleSheetWriteInput>;
+      result = { success: true, tool: name, result: await maxAuthGoogleRequest(context.userId, '/sheets/' + encodeURIComponent(String(data.spreadsheetId)) + '/values', { method: 'PUT', body: data }) };
+    } else if (name === 'google.slides.get') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleIdInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/slides/' + encodeURIComponent(data.id))) as object };
+    } else if (name === 'google.slides.update') {
+      const data = input as { id: string; requests: unknown[] };
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/slides/' + encodeURIComponent(data.id) + '/batchUpdate', { method: 'POST', body: { requests: data.requests } })) as object };
+    } else if (name === 'google.gmail.list') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleGmailListInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/gmail/messages', { query: data })) as object };
+    } else if (name === 'google.gmail.get') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleIdInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/gmail/messages/' + encodeURIComponent(data.id))) as object };
+    } else if (name === 'google.gmail.send') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleGmailSendInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/gmail/messages/send', { method: 'POST', body: data })) as object };
+    } else if (name === 'google.gmail.modify') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleGmailModifyInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/gmail/messages/' + encodeURIComponent(data.messageId) + '/modify', { method: 'POST', body: data })) as object };
+    } else if (name === 'google.tasks.list') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleTasksInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/tasks', { query: data })) as object };
+    } else if (name === 'google.tasks.create') {
+      const data = input as Record<string, unknown>;
+      const { taskListId, ...task } = data;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/tasks', { method: 'POST', query: { taskListId: String(taskListId ?? '@default') }, body: task })) as object };
+    } else if (name === 'google.tasks.update') {
+      const data = input as { taskId: string; taskListId?: string; patch: unknown };
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/tasks/' + encodeURIComponent(data.taskId), { method: 'PATCH', query: { taskListId: data.taskListId ?? '@default' }, body: data.patch })) as object };
+    } else if (name === 'google.tasks.delete') {
+      const data = input as { taskId: string; taskListId?: string };
+      result = { success: true, tool: name, result: await maxAuthGoogleRequest(context.userId, '/tasks/' + encodeURIComponent(data.taskId), { method: 'DELETE', query: { taskListId: data.taskListId ?? '@default' } }) };
+    } else if (name === 'google.contacts.list') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleContactsInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/contacts', { query: data })) as object };
+    } else if (name === 'google.youtube.channels') {
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/channels')) as object };
+    } else if (name === 'google.youtube.subscriptions') {
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/subscriptions', { query: input as Record<string, string> })) as object };
+    } else if (name === 'google.youtube.search') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleYouTubeSearchInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/search', { query: data })) as object };
+    } else if (name === 'calendar.list') {
       result = { success: true, tool: name, calendars: await maxAuthCalendarRequest('', context) };
     } else if (name === 'calendar.events') {
       const data = validateToolInput(name, input) as z.infer<typeof calendarInput>;
