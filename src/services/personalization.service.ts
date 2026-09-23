@@ -21,17 +21,20 @@ type PersonalizationSnapshot = {
   connectedAccounts?: Array<{ provider: string; connected: boolean; scopes?: string[] }>;
 };
 
-async function maxAuthRequest<T = unknown>(userId: string, path: string): Promise<T> {
+async function maxAuthRequest<T = unknown>(userId: string, path: string, init: RequestInit = {}): Promise<T> {
   if (!env.MAX_AUTH_SERVICE_TOKEN) {
     throw new ApiError(503, 'MAX_AUTH_SERVICE_NOT_CONFIGURED', 'MAX Auth service integration is not configured');
   }
 
   const url = env.MAX_AUTH_INTERNAL_URL.replace(/\/$/, '') + path;
   const response = await fetch(url, {
+    ...init,
     headers: {
       Accept: 'application/json',
+      'Content-Type': 'application/json',
       'X-MAX-Auth-Service-Token': env.MAX_AUTH_SERVICE_TOKEN,
-      'X-MAX-User-Id': userId
+      'X-MAX-User-Id': userId,
+      ...(init.headers ?? {})
     }
   });
   const body = await response.json().catch(() => ({}));
@@ -39,6 +42,17 @@ async function maxAuthRequest<T = unknown>(userId: string, path: string): Promis
     throw new ApiError(response.status, body?.error?.code || body?.code || 'MAX_AUTH_PERSONALIZATION_ERROR', body?.error?.message || body?.message || 'MAX Auth personalization request failed');
   }
   return (body?.data ?? body) as T;
+}
+
+async function persistServiceSignals(userId: string, provider: string, signals: Record<string, unknown>) {
+  try {
+    await maxAuthRequest(userId, '/users/' + encodeURIComponent(userId) + '/personalization/services/' + encodeURIComponent(provider), {
+      method: 'PATCH',
+      body: JSON.stringify(signals)
+    });
+  } catch {
+    // Personalization persistence is best-effort and must never block the user's request.
+  }
 }
 
 function connected(snapshot: PersonalizationSnapshot, provider: string) {
@@ -81,6 +95,12 @@ export async function getPersonalizationContext(userId: string, intent: string) 
           location: event.location ?? null
         }))
       };
+      void persistServiceSignals(userId, 'GOOGLE', {
+        calendar: {
+          upcomingEventCount: events.length,
+          lastSyncedAt: new Date().toISOString()
+        }
+      });
     } catch {
       context.googleCalendar = null;
     }
@@ -99,6 +119,12 @@ export async function getPersonalizationContext(userId: string, intent: string) 
           description: item.snippet?.description ?? null
         }))
       };
+      void persistServiceSignals(userId, 'GOOGLE', {
+        youtube: {
+          subscribedChannels: items.slice(0, 15).map((item: any) => item.snippet?.title).filter(Boolean),
+          lastSyncedAt: new Date().toISOString()
+        }
+      });
     } catch {
       context.youtube = null;
     }
@@ -117,6 +143,14 @@ export async function getPersonalizationContext(userId: string, intent: string) 
       recentlyPlayed: recent.status === 'fulfilled' ? recent.value : null,
       player: player.status === 'fulfilled' ? player.value : null
     };
+
+    if (topArtists.status === 'fulfilled') {
+      const artists = (topArtists.value as any)?.items ?? [];
+      void persistServiceSignals(userId, 'SPOTIFY', {
+        topArtists: artists.slice(0, 10).map((artist: any) => artist?.name).filter(Boolean),
+        lastSyncedAt: new Date().toISOString()
+      });
+    }
   }
 
   return context;
