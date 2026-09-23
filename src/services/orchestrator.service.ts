@@ -279,7 +279,8 @@ export async function orchestrateStream(
 ): Promise<OrchestrationResult> {
   const intent = classifyIntent(latestContent);
   const memories = await getContext(user);
-  const system = buildSystemPrompt(user, memories, intent);
+  const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
+  const system = buildSystemPrompt(user, memories, intent, personalization);
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
