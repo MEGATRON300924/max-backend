@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 import { ApiError } from '../middleware/errors.js';
 import { maxAuthSpotifyRequest } from './max-auth-spotify.service.js';
+import { maxAuthGoogleRequest } from './max-auth-google.service.js';
 
 type PersonalizationSnapshot = {
   version?: number;
@@ -56,6 +57,23 @@ export async function getPersonalizationContext(userId: string, intent: string) 
       scopes: account.scopes ?? []
     }))
   };
+
+  if ((intent === 'calendar' || intent === 'google') && connected(base, 'GOOGLE')) {
+    const now = new Date();
+    const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    try {
+      context.googleCalendar = await maxAuthGoogleRequest(userId, '/calendar/events', {
+        query: {
+          calendarId: 'primary',
+          timeMin: now.toISOString(),
+          timeMax: timeMax.toISOString(),
+          maxResults: 25
+        }
+      });
+    } catch {
+      context.googleCalendar = null;
+    }
+  }
 
   if (intent === 'music' && connected(base, 'SPOTIFY')) {
     const [topArtists, topTracks, recent, player] = await Promise.allSettled([
