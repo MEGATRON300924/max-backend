@@ -62,7 +62,7 @@ export async function getPersonalizationContext(userId: string, intent: string) 
     const now = new Date();
     const timeMax = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     try {
-      context.googleCalendar = await maxAuthGoogleRequest(userId, '/calendar/events', {
+      const calendar = await maxAuthGoogleRequest<any>(userId, '/calendar/events', {
         query: {
           calendarId: 'primary',
           timeMin: now.toISOString(),
@@ -70,8 +70,37 @@ export async function getPersonalizationContext(userId: string, intent: string) 
           maxResults: 25
         }
       });
+      const events = Array.isArray(calendar?.events?.items) ? calendar.events.items : Array.isArray(calendar?.items) ? calendar.items : [];
+      context.googleCalendar = {
+        events: events.map((event: any) => ({
+          id: event.id ?? null,
+          summary: event.summary ?? null,
+          start: event.start ?? null,
+          end: event.end ?? null,
+          status: event.status ?? null,
+          location: event.location ?? null
+        }))
+      };
     } catch {
       context.googleCalendar = null;
+    }
+  }
+
+  if (intent === 'google' && connected(base, 'GOOGLE')) {
+    try {
+      const subscriptions = await maxAuthGoogleRequest<any>(userId, '/youtube/subscriptions', {
+        query: { maxResults: 15 }
+      });
+      const items = Array.isArray(subscriptions?.subscriptions?.items) ? subscriptions.subscriptions.items : Array.isArray(subscriptions?.items) ? subscriptions.items : [];
+      context.youtube = {
+        subscriptions: items.map((item: any) => ({
+          channelId: item.snippet?.resourceId?.channelId ?? null,
+          title: item.snippet?.title ?? null,
+          description: item.snippet?.description ?? null
+        }))
+      };
+    } catch {
+      context.youtube = null;
     }
   }
 
