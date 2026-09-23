@@ -94,7 +94,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'Sensitive actions such as home control and memory deletion require explicit confirmation and must never be bypassed.',
     'Calendar rules: calendar.list and calendar.events are read-only. calendar.create, calendar.update, and calendar.delete always require confirmation.',
     'Google rules: Drive, Docs, Sheets, Slides, Gmail, and Tasks write/delete actions require explicit confirmation. Read operations may use the connected Google account. Never claim Google data exists until the corresponding tool returns it.',
-    'Spotify rules: profile, top artists, top tracks, recently played, and current playback are read-only. Spotify play, pause, next, and previous actions require explicit confirmation. Never claim playback changed until the Spotify tool returns success.'
+    'Spotify rules: profile, top artists, top tracks, recently played, and current playback are read-only. Spotify play, pause, next, and previous actions require explicit confirmation. Never claim playback changed until the Spotify tool returns success.',
     'For today, tomorrow, yesterday, this week, or next week, use the calendar_events range field so the backend resolves the boundaries in the authenticated user timezone.',
     'For custom calendar times, use ISO-8601 timestamps. When creating or changing an event, use the authenticated user timezone unless the user explicitly gives another timezone.',
     'Never invent a calendar, event ID, date, time, duration, attendee, or location. For update/delete, find the existing event first with calendar_events and use its returned eventId.',
@@ -244,7 +244,8 @@ export async function continueAfterConfirmation(
 ): Promise<OrchestrationResult> {
   const memories = await getContext(user);
   const intent = action.toolName.startsWith('home.') ? 'home' : action.toolName.startsWith('calendar.') ? 'calendar' : action.toolName.startsWith('spotify.') ? 'music' : action.toolName.startsWith('google.') ? 'google' : 'memory';
-  const system = buildSystemPrompt(user, memories, intent);
+  const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
+  const system = buildSystemPrompt(user, memories, intent, personalization);
   const functionName = action.toolName === 'memory.delete' ? 'memory_delete' : action.toolName === 'home.execute' ? 'home_execute' : action.toolName.replace('.', '_');
   const continued = await continueGeminiInteraction(
     action.interactionId,
