@@ -17,6 +17,14 @@ function queryString(query?: RequestOptions['query']) {
   return value ? '?' + value : '';
 }
 
+export async function maxAuthSpotifySavedTracks<T = unknown>(userId: string, query: Record<string, string | number | undefined> = {}) {
+  return maxAuthSpotifyRequest<T>(userId, '/saved' + queryString(query));
+}
+
+export async function maxAuthSpotifyPlaylists<T = unknown>(userId: string, query: Record<string, string | number | undefined> = {}) {
+  return maxAuthSpotifyRequest<T>(userId, '/playlists' + queryString(query));
+}
+
 export async function maxAuthSpotifyRequest<T = unknown>(userId: string, path: string, options: RequestOptions = {}): Promise<T> {
   if (!env.MAX_AUTH_SERVICE_TOKEN) {
     throw new ApiError(503, 'MAX_AUTH_SERVICE_NOT_CONFIGURED', 'MAX Auth service integration is not configured');
