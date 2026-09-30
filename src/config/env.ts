@@ -25,8 +25,12 @@ const schema = z.object({
   ELEVENLABS_STT_MODEL: z.string().default('scribe_v2'),
   ELEVENLABS_STT_LANGUAGE: z.string().optional(),
   ELEVENLABS_MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
+  MAX_CLOUD_PROVIDER: z.enum(['local', 'mediafire']).default('mediafire'),
   MAX_CLOUD_STORAGE_PATH: z.string().default('./storage/max-cloud'),
   MAX_CLOUD_FILE_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
+  MEDIAFIRE_API_URL: z.string().url().default('https://www.mediafire.com/api/1.5'),
+  MEDIAFIRE_SESSION_TOKEN: z.string().optional(),
+  MEDIAFIRE_ROOT_FOLDER_KEY: z.string().optional(),
   MAX_STORE_API_URL: z.string().url().optional(),
   MAX_PAY_CHECKOUT_URL: z.string().url().optional()
 });
