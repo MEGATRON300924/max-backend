@@ -22,6 +22,7 @@ import { payRouter } from './routes/pay.js';
 import { storeRouter } from './routes/store.js';
 import { studioRouter } from './routes/studio.js';
 import { osRouter } from './routes/os.js';
+import { tvRouter } from './routes/tv.js';
 
 export const app = express();
 
@@ -64,6 +65,7 @@ app.use(`${env.API_PREFIX}/pay`, payRouter);
 app.use(`${env.API_PREFIX}/store`, storeRouter);
 app.use(`${env.API_PREFIX}/studio`, studioRouter);
 app.use(`${env.API_PREFIX}/os`, osRouter);
+app.use(`${env.API_PREFIX}/tv`, tvRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
