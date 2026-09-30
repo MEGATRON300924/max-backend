@@ -23,6 +23,13 @@ import { storeRouter } from './routes/store.js';
 import { studioRouter } from './routes/studio.js';
 import { osRouter } from './routes/os.js';
 import { tvRouter } from './routes/tv.js';
+import { devicesRouter } from './routes/devices.js';
+import { eventsRouter } from './routes/events.js';
+import { mediaRouter } from './routes/media.js';
+import { tvDeviceRouter } from './routes/tv-device.js';
+import { profilesRouter } from './routes/profiles.js';
+import { visionRouter } from './routes/vision.js';
+import { homeEventsRouter } from './routes/home-events.js';
 
 export const app = express();
 
@@ -66,6 +73,13 @@ app.use(`${env.API_PREFIX}/store`, storeRouter);
 app.use(`${env.API_PREFIX}/studio`, studioRouter);
 app.use(`${env.API_PREFIX}/os`, osRouter);
 app.use(`${env.API_PREFIX}/tv`, tvRouter);
+app.use(`${env.API_PREFIX}/devices`, devicesRouter);
+app.use(`${env.API_PREFIX}/events`, eventsRouter);
+app.use(`${env.API_PREFIX}/media`, mediaRouter);
+app.use(`${env.API_PREFIX}/tv/device`, tvDeviceRouter);
+app.use(`${env.API_PREFIX}/profiles`, profilesRouter);
+app.use(`${env.API_PREFIX}/vision`, visionRouter);
+app.use(`${env.API_PREFIX}/home/events`, homeEventsRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
