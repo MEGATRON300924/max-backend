@@ -142,20 +142,19 @@ export async function getPersonalizationContext(userId: string, intent: string) 
       maxAuthSpotifyRequest(userId, '/recently-played', { query: { limit: 10 } }),
       maxAuthSpotifyRequest(userId, '/player')
     ]);
-    context.spotify = {
-      topArtists: topArtists.status === 'fulfilled' ? topArtists.value : null,
-      topTracks: topTracks.status === 'fulfilled' ? topTracks.value : null,
-      recentlyPlayed: recent.status === 'fulfilled' ? recent.value : null,
-      player: player.status === 'fulfilled' ? player.value : null
-    };
+    const topArtistsData = topArtists.status === 'fulfilled' ? topArtists.value : null;
+    const topTracksData = topTracks.status === 'fulfilled' ? topTracks.value : null;
+    const recentData = recent.status === 'fulfilled' ? recent.value : null;
+    const playerData = player.status === 'fulfilled' ? player.value : null;
+    context.spotify = { topArtists: topArtistsData, topTracks: topTracksData, recentlyPlayed: recentData, player: playerData };
 
     if (topArtists.status === 'fulfilled') {
-      const artists = (topArtists.value as any)?.items ?? [];
+      const artists = (topArtistsData as any)?.items ?? [];
       void persistServiceSignals(userId, 'SPOTIFY', {
         topArtists: artists.slice(0, 10).map((artist: any) => artist?.name).filter(Boolean),
-        topTracks: ((topTracks.value as any)?.items ?? []).slice(0, 10).map((track: any) => track?.name).filter(Boolean),
-        recentlyPlayed: ((recent.value as any)?.items ?? []).slice(0, 10).map((item: any) => item?.track?.name).filter(Boolean),
-        currentlyPlaying: (player.value as any)?.item?.name ?? null,
+        topTracks: ((topTracksData as any)?.items ?? []).slice(0, 10).map((track: any) => track?.name).filter(Boolean),
+        recentlyPlayed: ((recentData as any)?.items ?? []).slice(0, 10).map((item: any) => item?.track?.name).filter(Boolean),
+        currentlyPlaying: (playerData as any)?.item?.name ?? null,
         lastSyncedAt: new Date().toISOString()
       });
     }
