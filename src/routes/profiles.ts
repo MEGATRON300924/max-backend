@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
-import { prisma } from '../lib/prisma.js';
+import { prisma, Prisma } from '../lib/prisma.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 
 const router = Router();
@@ -25,7 +25,7 @@ router.post('/', async (req: AuthenticatedRequest, res, next) => {
       permissions: z.record(z.unknown()).optional(),
       settings: z.record(z.unknown()).optional()
     }).parse(req.body);
-    const profile = await prisma.profile.create({ data: { ...body, userId: user.id } });
+    const profile = await prisma.profile.create({ data: { ...body, userId: user.id, permissions: body.permissions as Prisma.InputJsonValue | undefined, settings: body.settings as Prisma.InputJsonValue | undefined } });
     res.status(201).json({ data: profile });
   } catch (error) { next(error); }
 });
@@ -40,7 +40,7 @@ router.patch('/:id', async (req: AuthenticatedRequest, res, next) => {
       permissions: z.record(z.unknown()).optional(),
       settings: z.record(z.unknown()).optional()
     }).parse(req.body);
-    const result = await prisma.profile.updateMany({ where: { id, userId: user.id }, data: body });
+    const result = await prisma.profile.updateMany({ where: { id, userId: user.id }, data: { ...body, permissions: body.permissions as Prisma.InputJsonValue | undefined, settings: body.settings as Prisma.InputJsonValue | undefined } });
     if (!result.count) return res.status(404).json({ error: { code: 'PROFILE_NOT_FOUND', message: 'Profile not found' } });
     res.json({ data: await prisma.profile.findUnique({ where: { id } }) });
   } catch (error) { next(error); }
