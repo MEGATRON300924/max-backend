@@ -7,6 +7,9 @@ import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
 import { maxAuthGoogleRequest } from './max-auth-google.service.js';
 import { maxAuthSpotifyRequest, maxAuthSpotifySavedTracks, maxAuthSpotifyPlaylists } from './max-auth-spotify.service.js';
+import { searchWeb, openWeb } from './browser.service.js';
+import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cloud.service.js';
+import { storeService } from './store.service.js';
 
 type ToolContext = {
   userId: string;
@@ -126,6 +129,12 @@ const spotifyTimeRange = z.enum(['short_term', 'medium_term', 'long_term']).opti
 const spotifyTopInput = z.object({ timeRange: spotifyTimeRange, limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).max(1000).optional() });
 const spotifyRecentlyPlayedInput = z.object({ limit: z.number().int().min(1).max(50).optional() });
 const spotifyPageInput = z.object({ limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).max(10000).optional() });
+const browserSearchInput = z.object({ query: z.string().trim().min(1).max(1000), maxResults: z.number().int().min(1).max(10).optional() });
+const browserOpenInput = z.object({ url: z.string().url(), prompt: z.string().trim().max(4000).optional() });
+const cloudUploadInput = z.object({ filename: z.string().min(1).max(255), mimeType: z.string().max(255).default('application/octet-stream'), contentBase64: z.string().min(1).max(40_000_000) });
+const cloudFileInput = z.object({ id: z.string().uuid() });
+const storeSearchInput = z.object({ q: z.string().max(300).optional(), category: z.string().max(100).optional(), page: z.number().int().min(1).max(1000).optional(), limit: z.number().int().min(1).max(100).optional() });
+const storeProductInput = z.object({ slug: z.string().min(1).max(300) });
 const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
 const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
@@ -448,6 +457,38 @@ const tools: MaxTool[] = [
     }
   },
   {
+    name: 'browser.search', capability: 'browser.search', description: 'Search the public web using Gemini Google Search grounding.', enabled: Boolean(env.GEMINI_API_KEY), requiresConfirmation: false,
+    declaration: { name: 'browser_search', description: 'Search the public web for current information and return grounded sources.', parameters: { type: 'object', properties: { query: { type: 'string' }, maxResults: { type: 'number' } }, required: ['query'] } }
+  },
+  {
+    name: 'browser.open', capability: 'browser.open', description: 'Read and analyze a public web URL using Gemini URL Context.', enabled: Boolean(env.GEMINI_API_KEY), requiresConfirmation: false,
+    declaration: { name: 'browser_open', description: 'Open and analyze a public web page.', parameters: { type: 'object', properties: { url: { type: 'string' }, prompt: { type: 'string' } }, required: ['url'] } }
+  },
+  {
+    name: 'cloud.list', capability: 'cloud', description: 'List files in the user MAX Cloud storage.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'cloud_list', description: 'List files stored in MAX Cloud.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'cloud.usage', capability: 'cloud', description: 'Show MAX Cloud storage usage.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'cloud_usage', description: 'Show MAX Cloud storage usage and file count.', parameters: { type: 'object', properties: {} } }
+  },
+  {
+    name: 'cloud.upload', capability: 'cloud', description: 'Upload a file to MAX Cloud.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'cloud_upload', description: 'Upload a base64-encoded file to MAX Cloud when the user asks MAX to store it.', parameters: { type: 'object', properties: { filename: { type: 'string' }, mimeType: { type: 'string' }, contentBase64: { type: 'string' } }, required: ['filename','contentBase64'] } }
+  },
+  {
+    name: 'cloud.delete', capability: 'cloud', description: 'Delete a MAX Cloud file.', enabled: true, requiresConfirmation: true,
+    declaration: { name: 'cloud_delete', description: 'Delete a MAX Cloud file after explicit confirmation.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } }
+  },
+  {
+    name: 'store.search', capability: 'store', description: 'Search products in TTFL Store.', enabled: Boolean(env.MAX_STORE_API_URL), requiresConfirmation: false,
+    declaration: { name: 'store_search', description: 'Search products available through MAX Store.', parameters: { type: 'object', properties: { q: { type: 'string' }, category: { type: 'string' }, page: { type: 'number' }, limit: { type: 'number' } } } }
+  },
+  {
+    name: 'store.product', capability: 'store', description: 'Read a TTFL Store product.', enabled: Boolean(env.MAX_STORE_API_URL), requiresConfirmation: false,
+    declaration: { name: 'store_product', description: 'Get a TTFL Store product by slug.', parameters: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] } }
+  },
+  {
     name: 'home.execute',
     capability: 'home',
     description: 'Execute an authorized MAX Home action.',
@@ -502,6 +543,12 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'spotify.recently-played') return spotifyRecentlyPlayedInput.parse(input);
   if (name === 'spotify.saved-tracks' || name === 'spotify.playlists') return spotifyPageInput.parse(input);
   if (name === 'spotify.play') return spotifyPlayInput.parse(input);
+  if (name === 'browser.search') return browserSearchInput.parse(input);
+  if (name === 'browser.open') return browserOpenInput.parse(input);
+  if (name === 'cloud.upload') return cloudUploadInput.parse(input);
+  if (name === 'cloud.delete') return cloudFileInput.parse(input);
+  if (name === 'store.search') return storeSearchInput.parse(input);
+  if (name === 'store.product') return storeProductInput.parse(input);
   return input;
 }
 
@@ -522,7 +569,30 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'google.drive.list') {
+    if (name === 'browser.search') {
+      const data = validateToolInput(name, input) as z.infer<typeof browserSearchInput>;
+      result = { success: true, tool: name, ...(await searchWeb(data.query, data)) };
+    } else if (name === 'browser.open') {
+      const data = validateToolInput(name, input) as z.infer<typeof browserOpenInput>;
+      result = { success: true, tool: name, ...(await openWeb(data.url, data.prompt)) };
+    } else if (name === 'cloud.list') {
+      result = { success: true, tool: name, files: await listCloudFiles(context.userId) };
+    } else if (name === 'cloud.usage') {
+      result = { success: true, tool: name, usage: await cloudUsage(context.userId) };
+    } else if (name === 'cloud.upload') {
+      const data = validateToolInput(name, input) as z.infer<typeof cloudUploadInput>;
+      result = { success: true, tool: name, file: await saveCloudFile(context.userId, undefined, { originalName: data.filename, mimeType: data.mimeType, content: Buffer.from(data.contentBase64, 'base64') }) };
+    } else if (name === 'cloud.delete') {
+      const data = validateToolInput(name, input) as z.infer<typeof cloudFileInput>;
+      await deleteCloudFile(context.userId, data.id);
+      result = { success: true, tool: name, deleted: true, fileId: data.id };
+    } else if (name === 'store.search') {
+      const data = validateToolInput(name, input) as z.infer<typeof storeSearchInput>;
+      result = { success: true, tool: name, ...(await storeService.search(data)) };
+    } else if (name === 'store.product') {
+      const data = validateToolInput(name, input) as z.infer<typeof storeProductInput>;
+      result = { success: true, tool: name, ...(await storeService.product(data.slug)) };
+    } else if (name === 'google.drive.list') {
       const data = validateToolInput(name, input) as z.infer<typeof googleDriveListInput>;
       result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/drive/files', { query: data })) as object };
     } else if (name === 'google.drive.get') {
