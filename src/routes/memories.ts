@@ -47,8 +47,9 @@ memoriesRouter.put('/', async (req: AuthenticatedRequest, res, next) => {
 
 memoriesRouter.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
   try {
+    const id = z.string().uuid().parse(req.params.id);
     const user = await resolveEcosystemUser(req.auth!);
-    const result = await prisma.memory.deleteMany({ where: { id: req.params.id, userId: user.id } });
+    const result = await prisma.memory.deleteMany({ where: { id, userId: user.id } });
     if (result.count === 0) {
       res.status(404).json({ success: false, error: { code: 'MEMORY_NOT_FOUND', message: 'Memory not found' } });
       return;
