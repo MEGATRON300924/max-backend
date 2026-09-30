@@ -224,6 +224,7 @@ model Device {
   user           EcosystemUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
   sessions       DeviceSession[]
   events         MaxEvent[]      @relation("DeviceEvents")
+  mediaStates    MediaState[]
 
   @@index([userId, deviceType])
   @@index([homeId, roomId])
