@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma.js';
+import { prisma, Prisma } from '../lib/prisma.js';
 import { ApiError } from '../middleware/errors.js';
 
 export type MaxEventInput = {
@@ -15,7 +15,7 @@ export type MaxEventInput = {
 };
 
 export async function createEvent(input: MaxEventInput) {
-  return prisma.maxEvent.create({ data: input });
+  return prisma.maxEvent.create({ data: input as Prisma.MaxEventUncheckedCreateInput });
 }
 
 export async function listEvents(userId: string, after?: Date, limit = 50) {
@@ -59,7 +59,7 @@ export async function listEventsForDevice(userId: string, deviceId: string, afte
           ...(device.homeId ? [{ homeId: device.homeId }] : []),
           ...(device.roomId ? [{ roomId: device.roomId }] : [])
         ] },
-        ...(after ? { createdAt: { gt: after } } : {})
+        ...(after ? [{ createdAt: { gt: after } }] : [])
       ]
     },
     orderBy: { createdAt: 'asc' },
