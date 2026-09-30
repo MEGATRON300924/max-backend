@@ -11,6 +11,7 @@ import { searchWeb, openWeb } from './browser.service.js';
 import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cloud.service.js';
 import { storeService } from './store.service.js';
 import { generateStudioAsset } from './studio.service.js';
+import { tvSearch, tvAssistant } from './tv.service.js';
 
 type ToolContext = {
   userId: string;
@@ -136,6 +137,8 @@ const browserOpenInput = z.object({ url: z.string().url(), prompt: z.string().tr
 const cloudUploadInput = z.object({ filename: z.string().min(1).max(255), mimeType: z.string().max(255).default('application/octet-stream'), contentBase64: z.string().min(1).max(40_000_000) });
 const cloudFileInput = z.object({ id: z.string().uuid() });
 const storeSearchInput = z.object({ q: z.string().max(300).optional(), category: z.string().max(100).optional(), page: z.number().int().min(1).max(1000).optional(), limit: z.number().int().min(1).max(100).optional() });
+const tvSearchInput = z.object({ query: z.string().trim().min(1).max(1000) });
+const tvAssistantInput = z.object({ request: z.string().trim().min(1).max(10000), context: z.record(z.unknown()).optional() });
 const studioInput = z.object({ prompt: z.string().trim().min(1).max(20000), type: z.enum(['text','code','prompt']).default('text'), context: z.string().max(20000).optional() });
 const storeProductInput = z.object({ slug: z.string().min(1).max(300) });
 const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
@@ -460,6 +463,14 @@ const tools: MaxTool[] = [
     }
   },
   {
+    name: 'tv.search', capability: 'tv', description: 'Search movies, shows and TV content for MAX TV.', enabled: Boolean(env.GEMINI_API_KEY), requiresConfirmation: false,
+    declaration: { name: 'tv_search', description: 'Search for movies, shows, channels and TV content.', parameters: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } }
+  },
+  {
+    name: 'tv.assistant', capability: 'tv', description: 'Answer TV-focused questions with MAX TV context.', enabled: Boolean(env.GEMINI_API_KEY), requiresConfirmation: false,
+    declaration: { name: 'tv_assistant', description: 'Help the user with TV, movie, show, gaming and media questions.', parameters: { type: 'object', properties: { request: { type: 'string' }, context: { type: 'object' } }, required: ['request'] } }
+  },
+  {
     name: 'studio.generate', capability: 'studio', description: 'Generate content or code with MAX Studio.', enabled: Boolean(env.GEMINI_API_KEY), requiresConfirmation: false,
     declaration: { name: 'studio_generate', description: 'Generate content, code, or a reusable prompt with MAX Studio.', parameters: { type: 'object', properties: { prompt: { type: 'string' }, type: { type: 'string', enum: ['text','code','prompt'] }, context: { type: 'string' } }, required: ['prompt'] } }
   },
@@ -550,6 +561,8 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'spotify.recently-played') return spotifyRecentlyPlayedInput.parse(input);
   if (name === 'spotify.saved-tracks' || name === 'spotify.playlists') return spotifyPageInput.parse(input);
   if (name === 'spotify.play') return spotifyPlayInput.parse(input);
+  if (name === 'tv.search') return tvSearchInput.parse(input);
+  if (name === 'tv.assistant') return tvAssistantInput.parse(input);
   if (name === 'studio.generate') return studioInput.parse(input);
   if (name === 'browser.search') return browserSearchInput.parse(input);
   if (name === 'browser.open') return browserOpenInput.parse(input);
@@ -577,7 +590,13 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'studio.generate') {
+    if (name === 'tv.search') {
+      const data = validateToolInput(name, input) as z.infer<typeof tvSearchInput>;
+      result = { success: true, tool: name, ...(await tvSearch(data.query)) };
+    } else if (name === 'tv.assistant') {
+      const data = validateToolInput(name, input) as z.infer<typeof tvAssistantInput>;
+      result = { success: true, tool: name, ...(await tvAssistant(data.request, data.context)) };
+    } else if (name === 'studio.generate') {
       const data = validateToolInput(name, input) as z.infer<typeof studioInput>;
       result = { success: true, tool: name, ...(await generateStudioAsset(data)) };
     } else if (name === 'browser.search') {
