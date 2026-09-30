@@ -27,7 +27,9 @@ export async function transcribeWithElevenLabs(audio: Buffer, mimeType = 'audio/
   const form = new FormData();
   form.append('model_id', env.ELEVENLABS_STT_MODEL);
   if (env.ELEVENLABS_STT_LANGUAGE) form.append('language_code', env.ELEVENLABS_STT_LANGUAGE);
-  form.append('file', new Blob([audio], { type: mimeType }), 'max-voice.webm');
+  const audioBuffer = new ArrayBuffer(audio.byteLength);
+  new Uint8Array(audioBuffer).set(audio);
+  form.append('file', new Blob([audioBuffer], { type: mimeType }), 'max-voice.webm');
   const response = await fetch('https://api.elevenlabs.io/v1/speech-to-text', { method: 'POST', headers: { 'xi-api-key': apiKey }, body: form });
   if (!response.ok) throw new ApiError(502, 'VOICE_STT_PROVIDER_ERROR', providerError(await response.text().catch(() => '')) || 'ElevenLabs speech recognition failed');
   const body = await response.json() as { text?: string; language_code?: string; language_probability?: number };
