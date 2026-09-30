@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { homeStatus } from '../services/home.service.js';
 import { listTools } from '../services/tools.service.js';
 import { voiceStatus } from '../services/voice.service.js';
+import { env } from '../config/env.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 
 export const ecosystemRouter = Router();
@@ -15,15 +16,15 @@ ecosystemRouter.get('/capabilities', (_req, res) => {
       memory: { available: true, persistent: true },
       home: homeStatus(),
       music: { available: true, status: 'spotify_via_max_auth' },
-      cloud: { available: false, status: 'not_configured' },
-      browser: { available: false, status: 'not_configured' },
+      cloud: { available: true, status: 'local_storage', quotas: { free: '100MB', plus: '5GB', pro: '50GB', business: '250GB', enterprise: '1TB' } },
+      browser: { available: true, status: 'gemini_google_search_and_url_context' },
       voice: voiceStatus(),
-      connect: { available: false, status: 'not_configured' },
-      store: { available: false, status: 'not_configured' },
-      studio: { available: false, status: 'not_configured' },
-      security: { available: false, status: 'not_configured' },
-      pay: { available: false, status: 'not_configured' },
-      os: { available: false, status: 'not_configured' }
+      connect: { available: true, status: 'max_auth' },
+      store: { available: Boolean(env.MAX_STORE_API_URL), status: env.MAX_STORE_API_URL ? 'ttfl_store' : 'not_configured' },
+      studio: { available: true, status: 'gemini_generation' },
+      security: { available: true, status: 'max_auth' },
+      pay: { available: true, status: 'max_auth_entitlements' },
+      os: { available: true, status: 'ecosystem_api' }
     }
   });
 });
