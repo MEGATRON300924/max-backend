@@ -25,8 +25,9 @@ function safeStoragePath(storageKey: string) {
   if (resolved !== root() && !resolved.startsWith(root() + path.sep)) throw new ApiError(400, 'CLOUD_PATH_INVALID', 'Invalid cloud storage path');
   return resolved;
 }
-function quotaFor(tier?: string | null) {
-  return tierQuota[String(tier || 'FREE').toUpperCase()] ?? tierQuota.FREE;
+function quotaFor(tier?: string | null): number {
+  const value = tierQuota[String(tier || 'FREE').toUpperCase()];
+  return value ?? 100 * 1024 * 1024;
 }
 
 export async function cloudUsage(userId: string) {
@@ -47,7 +48,7 @@ export async function saveCloudFile(userId: string, tier: string | null | undefi
   if (!input.content.length) throw new ApiError(400, 'CLOUD_EMPTY_FILE', 'The uploaded file is empty');
   if (input.content.length > env.MAX_CLOUD_FILE_BYTES) throw new ApiError(413, 'CLOUD_FILE_TOO_LARGE', 'The uploaded file exceeds the MAX Cloud file limit');
   const usage = await cloudUsage(userId);
-  const quota = quotaFor(tier) ?? tierQuota.FREE;
+  const quota = quotaFor(tier);
   if (usage.bytes + input.content.length > quota) throw new ApiError(413, 'CLOUD_QUOTA_EXCEEDED', 'Your MAX Cloud storage quota has been reached');
   const id = crypto.randomUUID();
   const name = safeName(input.originalName);
