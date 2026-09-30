@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
-import { createEvent, listEvents } from '../services/event.service.js';
+import { assertDeviceForUser, createEvent, listEvents } from '../services/event.service.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 
 const router = Router();
@@ -30,6 +30,7 @@ router.post('/', async (req: AuthenticatedRequest, res, next) => {
       targetType: z.string().max(50).optional(),
       targetId: z.string().max(200).optional()
     }).parse(req.body);
+    if (body.deviceId) await assertDeviceForUser(user.id, body.deviceId);
     const event = await createEvent({ ...body, userId: user.id });
     res.status(201).json({ data: event });
   } catch (error) { next(error); }
