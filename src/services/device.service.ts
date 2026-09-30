@@ -1,4 +1,4 @@
-import { prisma } from '../lib/prisma.js';
+import { prisma, Prisma } from '../lib/prisma.js';
 import { ApiError } from '../middleware/errors.js';
 import type { AuthPrincipal } from '../types/auth.js';
 
@@ -42,7 +42,7 @@ export async function registerDevice(principal: AuthPrincipal, input: DeviceRegi
           model: input.model,
           osVersion: input.osVersion,
           appVersion: input.appVersion,
-          capabilities: input.capabilities,
+          capabilities: input.capabilities as Prisma.InputJsonValue | undefined,
           timezone: input.timezone,
           language: input.language,
           homeId: input.homeId,
