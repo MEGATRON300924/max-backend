@@ -28,8 +28,7 @@ function principalFromPayload(payload: JWTPayload): AuthPrincipal {
     email: typeof payload.email === 'string' ? payload.email : undefined,
     username: typeof payload.username === 'string' ? payload.username : undefined,
     tier: typeof payload.tier === 'string' ? payload.tier : undefined,
-    name: typeof payload.displayName === 'string' ? payload.displayName : undefined,
-    name: typeof payload.name === 'string' ? payload.name : undefined,
+    name: typeof payload.displayName === 'string' ? payload.displayName : (typeof payload.name === 'string' ? payload.name : undefined),
     picture: typeof payload.picture === 'string' ? payload.picture : undefined,
     claims: payload as Record<string, unknown>
   };
