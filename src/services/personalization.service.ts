@@ -59,9 +59,13 @@ function connected(snapshot: PersonalizationSnapshot, provider: string) {
   return Boolean(snapshot.connectedAccounts?.some((account) => account.provider.toLowerCase() === provider.toLowerCase() && account.connected));
 }
 
-export async function getPersonalizationContext(userId: string, intent: string) {
+export async function getMaxAuthPersonalizationSnapshot(userId: string) {
   const snapshot = await maxAuthRequest<{ snapshot: PersonalizationSnapshot }>(userId, '/users/' + encodeURIComponent(userId) + '/personalization');
-  const base = snapshot.snapshot ?? snapshot;
+  return snapshot.snapshot ?? snapshot;
+}
+
+export async function getPersonalizationContext(userId: string, intent: string) {
+  const base = await getMaxAuthPersonalizationSnapshot(userId);
 
   const context: Record<string, unknown> = {
     profile: base.profile ?? {},
