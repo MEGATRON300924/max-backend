@@ -2,7 +2,8 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
-import { prisma, Prisma } from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
+import { Prisma } from '@prisma/client';
 import { resolveEcosystemUser } from '../services/user.service.js';
 
 const router = Router();
