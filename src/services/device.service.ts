@@ -26,7 +26,7 @@ const typeMap = {
 export async function registerDevice(principal: AuthPrincipal, input: DeviceRegistration) {
   const user = await prisma.ecosystemUser.findUnique({ where: { authSubject: principal.subject } });
   const existing = input.deviceId && user
-    ? await prisma.device.findFirst({ where: { userId: user.id, id: input.deviceId } })
+    ? await prisma.device.findFirst({ where: { userId: user.id, externalId: input.deviceId } })
     : null;
   if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'MAX account is not initialized');
 
@@ -34,6 +34,7 @@ export async function registerDevice(principal: AuthPrincipal, input: DeviceRegi
     ? await prisma.device.update({
         where: { id: existing.id },
         data: {
+          externalId: input.deviceId,
           deviceType: typeMap[input.deviceType],
           platform: input.platform,
           deviceName: input.deviceName,
@@ -53,6 +54,7 @@ export async function registerDevice(principal: AuthPrincipal, input: DeviceRegi
     : await prisma.device.create({
         data: {
           userId: user.id,
+          externalId: input.deviceId,
           deviceType: typeMap[input.deviceType],
           platform: input.platform,
           deviceName: input.deviceName,
