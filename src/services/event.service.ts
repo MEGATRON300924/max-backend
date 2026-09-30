@@ -47,3 +47,22 @@ export async function createDeviceCommand(userId: string, targetDeviceId: string
     targetId: device.id
   });
 }
+
+export async function listEventsForDevice(userId: string, deviceId: string, after?: Date, limit = 50) {
+  const device = await assertDeviceForUser(userId, deviceId);
+  return prisma.maxEvent.findMany({
+    where: {
+      AND: [
+        { OR: [
+          { userId },
+          { deviceId },
+          ...(device.homeId ? [{ homeId: device.homeId }] : []),
+          ...(device.roomId ? [{ roomId: device.roomId }] : [])
+        ] },
+        ...(after ? { createdAt: { gt: after } } : {})
+      ]
+    },
+    orderBy: { createdAt: 'asc' },
+    take: Math.min(Math.max(limit, 1), 100)
+  });
+}
