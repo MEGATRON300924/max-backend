@@ -19,7 +19,7 @@ router.post('/', async (req: AuthenticatedRequest, res, next) => {
     const raw = Buffer.from(body.imageBase64, 'base64');
     if (raw.length > 10 * 1024 * 1024) throw new ApiError(413, 'VISION_PAYLOAD_TOO_LARGE', 'Screen Vision images must be 10 MB or smaller');
 
-    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent', {
+    const response = await fetch('https://generativelanguage.googleapis.com/v1beta/models/${env.GEMINI_MODEL}:generateContent', {
       method: 'POST',
       headers: { 'content-type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
       body: JSON.stringify({
