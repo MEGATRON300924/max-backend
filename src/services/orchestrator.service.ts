@@ -3,6 +3,7 @@ import { continueGeminiInteraction, generateGeminiResponseWithTools, streamGemin
 import { createPendingAction } from './confirmation.service.js';
 import { executeTool, getGeminiTools, getGoogleCalendarEventForConfirmation, resolveGeminiTool, validateToolInput } from './tools.service.js';
 import { getPersonalizationContext } from './personalization.service.js';
+import { env } from '../config/env.js';
 
 type UserContext = {
   id: string;
@@ -34,10 +35,10 @@ type OrchestrationResult = {
 const capabilities = {
   memory: true,
   home: Boolean(process.env.MAX_HOME_API_URL),
-  music: true,
+  music: Boolean(env.MAX_AUTH_SERVICE_TOKEN),
   cloud: false,
   browser: false,
-  voice: false,
+  voice: Boolean(env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID),
   calendar: true,
   google: true,
   connect: false,
