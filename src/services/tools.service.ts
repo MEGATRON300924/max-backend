@@ -114,6 +114,7 @@ const googleIdInput = z.object({ id: z.string().trim().min(1).max(500) });
 const googleDriveListInput = z.object({ q: z.string().max(2000).optional(), pageSize: z.number().int().min(1).max(100).optional(), pageToken: z.string().max(2000).optional(), orderBy: z.string().max(500).optional() });
 const googleGmailListInput = z.object({ q: z.string().max(2000).optional(), maxResults: z.number().int().min(1).max(100).optional(), pageToken: z.string().max(2000).optional() });
 const googleTasksInput = z.object({ taskListId: z.string().max(500).optional() });
+const googleYouTubeVideosInput = z.object({ videoIds: z.string().trim().min(1).max(5000) });
 const googleYouTubeSearchInput = z.object({ q: z.string().trim().min(1).max(500), type: z.enum(['video','channel','playlist']).optional(), maxResults: z.number().int().min(1).max(50).optional(), pageToken: z.string().max(2000).optional() });
 const googleContactsInput = z.object({ pageSize: z.number().int().min(1).max(1000).optional() });
 const googleSheetInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().max(1000).optional() });
@@ -302,6 +303,10 @@ const tools: MaxTool[] = [
     declaration: { name: 'google_gmail_modify', description: 'Add or remove Gmail labels after confirmation.', parameters: { type: 'object', properties: { messageId: { type: 'string' }, addLabelIds: { type: 'array' }, removeLabelIds: { type: 'array' } }, required: ['messageId'] } }
   },
   {
+    name: 'google.tasks.lists', capability: 'google.tasks', description: 'List the user\'s Google Task lists.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_tasks_lists', description: 'List the user\'s Google Task lists.', parameters: { type: 'object', properties: {} } }
+  },
+  {
     name: 'google.tasks.list', capability: 'google.tasks', description: 'List Google Tasks.', enabled: true, requiresConfirmation: false,
     declaration: { name: 'google_tasks_list', description: 'List tasks from the user task list.', parameters: { type: 'object', properties: { taskListId: { type: 'string' } } } }
   },
@@ -328,6 +333,10 @@ const tools: MaxTool[] = [
   {
     name: 'google.youtube.subscriptions', capability: 'google.youtube', description: 'Read YouTube subscriptions.', enabled: true, requiresConfirmation: false,
     declaration: { name: 'google_youtube_subscriptions', description: 'List the authenticated user YouTube subscriptions.', parameters: { type: 'object', properties: { maxResults: { type: 'number' }, pageToken: { type: 'string' } } } }
+  },
+  {
+    name: 'google.youtube.videos', capability: 'google.youtube', description: 'Read details for specific YouTube videos.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'google_youtube_videos', description: 'Get details for one or more YouTube video IDs.', parameters: { type: 'object', properties: { videoIds: { type: 'string' } }, required: ['videoIds'] } }
   },
   {
     name: 'google.youtube.search', capability: 'google.youtube', description: 'Search YouTube.', enabled: true, requiresConfirmation: false,
@@ -484,6 +493,7 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'google.gmail.send') return googleGmailSendInput.parse(input);
   if (name === 'google.gmail.modify') return googleGmailModifyInput.parse(input);
   if (name === 'google.tasks.list') return googleTasksInput.parse(input);
+  if (name === 'google.youtube.videos') return googleYouTubeVideosInput.parse(input);
   if (name === 'google.contacts.list') return googleContactsInput.parse(input);
   if (name === 'google.youtube.search') return googleYouTubeSearchInput.parse(input);
   if (name === 'google.sheets.get') return googleSheetInput.parse(input);
@@ -556,6 +566,8 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     } else if (name === 'google.gmail.modify') {
       const data = validateToolInput(name, input) as z.infer<typeof googleGmailModifyInput>;
       result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/gmail/messages/' + encodeURIComponent(data.messageId) + '/modify', { method: 'POST', body: data })) as object };
+    } else if (name === 'google.tasks.lists') {
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/tasks/lists')) as object };
     } else if (name === 'google.tasks.list') {
       const data = validateToolInput(name, input) as z.infer<typeof googleTasksInput>;
       result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/tasks', { query: data })) as object };
@@ -576,6 +588,9 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/channels')) as object };
     } else if (name === 'google.youtube.subscriptions') {
       result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/subscriptions', { query: input as Record<string, string> })) as object };
+    } else if (name === 'google.youtube.videos') {
+      const data = validateToolInput(name, input) as z.infer<typeof googleYouTubeVideosInput>;
+      result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/videos', { query: data })) as object };
     } else if (name === 'google.youtube.search') {
       const data = validateToolInput(name, input) as z.infer<typeof googleYouTubeSearchInput>;
       result = { success: true, tool: name, ...(await maxAuthGoogleRequest(context.userId, '/youtube/search', { query: data })) as object };
