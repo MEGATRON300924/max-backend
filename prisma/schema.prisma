@@ -57,6 +57,8 @@ model EcosystemUser {
   events           MaxEvent[]
   profiles         Profile[]
   mediaStates      MediaState[]
+  ownedHomes       Home[] @relation("HomeOwner")
+  homeMemberships  HomeMember[]
 
   @@index([email])
   @@map("ecosystem_users")
@@ -309,4 +311,353 @@ model MediaState {
   @@unique([userId, contentId])
   @@index([userId, updatedAt])
   @@map("media_states")
+}
+
+
+enum HomeMemberRole {
+  OWNER
+  ADMIN
+  MEMBER
+  CHILD
+  GUEST
+  SUPPORT
+}
+
+enum HomeModeType {
+  STUDY
+  WORSHIP
+  VISITOR
+  DINNER
+  FAMILY_TIME
+  SLEEP
+  MOVIE
+  TRAVEL
+  CLEANING
+  EMERGENCY
+  CUSTOM
+}
+
+enum AutomationStatus {
+  ENABLED
+  PAUSED
+  DISABLED
+  FAILED
+}
+
+enum IncidentStatus {
+  OPEN
+  ACKNOWLEDGED
+  RESOLVED
+  CANCELLED
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
+  ACKNOWLEDGED
+}
+
+model Home {
+  id                String             @id @default(uuid()) @db.Uuid
+  ownerId           String             @map("owner_id") @db.Uuid
+  name              String
+  timezone          String?
+  latitude          Float?
+  longitude         Float?
+  settings          Json?
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+  owner             EcosystemUser      @relation("HomeOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members           HomeMember[]
+  rooms             HomeRoom[]
+  modes             HomeMode[]
+  automations       HomeAutomation[]
+  scenes            HomeScene[]
+  notifications     HomeNotification[]
+  accessGrants      HomeAccessGrant[]
+  incidents         HomeIncident[]
+  locations         HomeLocation[]
+  integrations      HomeIntegration[]
+  healthIssues      HomeHealthIssue[]
+  energyReadings    HomeEnergyReading[]
+  tasks             HomeTask[]
+  calendarEvents    HomeCalendarEvent[]
+  payments          HomePayment[]
+  subscriptions     HomeSubscription[]
+  geofences         HomeGeofence[]
+  @@index([ownerId])
+  @@map("homes")
+}
+
+model HomeMember {
+  id          String          @id @default(uuid()) @db.Uuid
+  homeId      String          @map("home_id") @db.Uuid
+  userId      String          @map("user_id") @db.Uuid
+  role        HomeMemberRole
+  permissions Json?
+  privacy     Json?
+  joinedAt    DateTime        @default(now()) @map("joined_at")
+  home        Home             @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  user        EcosystemUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([homeId, userId])
+  @@index([userId])
+  @@map("home_members")
+}
+
+model HomeRoom {
+  id          String       @id @default(uuid()) @db.Uuid
+  homeId      String       @map("home_id") @db.Uuid
+  name        String
+  settings    Json?
+  createdAt   DateTime     @default(now()) @map("created_at")
+  updatedAt   DateTime     @updatedAt @map("updated_at")
+  home        Home         @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@unique([homeId, name])
+  @@map("home_rooms")
+}
+
+model HomeMode {
+  id          String        @id @default(uuid()) @db.Uuid
+  homeId      String        @map("home_id") @db.Uuid
+  type        HomeModeType
+  name        String
+  enabled     Boolean       @default(false)
+  config      Json?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  home        Home          @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@unique([homeId, type, name])
+  @@index([homeId, enabled])
+  @@map("home_modes")
+}
+
+model HomeAutomation {
+  id             String           @id @default(uuid()) @db.Uuid
+  homeId         String           @map("home_id") @db.Uuid
+  name           String
+  status         AutomationStatus @default(ENABLED)
+  triggers       Json
+  conditions     Json?
+  actions        Json
+  schedule       Json?
+  lastRunAt      DateTime?        @map("last_run_at")
+  lastResult     Json?            @map("last_result")
+  failureCount   Int              @default(0) @map("failure_count")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  home           Home             @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, status])
+  @@map("home_automations")
+}
+
+model HomeScene {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  name        String
+  actions     Json
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@unique([homeId, name])
+  @@map("home_scenes")
+}
+
+model HomeNotification {
+  id              String             @id @default(uuid()) @db.Uuid
+  homeId          String             @map("home_id") @db.Uuid
+  userId          String?            @map("user_id") @db.Uuid
+  eventId         String?            @map("event_id") @db.Uuid
+  message         String
+  priority        EventPriority      @default(NORMAL)
+  status          NotificationStatus @default(PENDING)
+  channel         String
+  targetType      String?            @map("target_type")
+  targetId        String?            @map("target_id")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  deliveredAt     DateTime?          @map("delivered_at")
+  readAt          DateTime?          @map("read_at")
+  acknowledgedAt  DateTime?           @map("acknowledged_at")
+  home            Home               @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, createdAt])
+  @@index([userId, status])
+  @@map("home_notifications")
+}
+
+model HomeAccessGrant {
+  id          String    @id @default(uuid()) @db.Uuid
+  homeId      String    @map("home_id") @db.Uuid
+  userId      String?   @map("user_id") @db.Uuid
+  role        String
+  reason      String?
+  permissions Json
+  roomIds     Json?
+  deviceIds   Json?
+  startsAt    DateTime  @map("starts_at")
+  expiresAt   DateTime  @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  home        Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, expiresAt])
+  @@map("home_access_grants")
+}
+
+model HomeIncident {
+  id                 String         @id @default(uuid()) @db.Uuid
+  homeId             String         @map("home_id") @db.Uuid
+  userId             String?        @map("user_id") @db.Uuid
+  type               String
+  status             IncidentStatus @default(OPEN)
+  priority           EventPriority  @default(CRITICAL)
+  message            String
+  metadata           Json?
+  acknowledgedAt     DateTime?      @map("acknowledged_at")
+  resolvedAt         DateTime?      @map("resolved_at")
+  cancelledAt        DateTime?      @map("cancelled_at")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  home               Home            @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, status, createdAt])
+  @@map("home_incidents")
+}
+
+model HomeLocation {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  latitude    Float
+  longitude   Float
+  accuracy    Float?
+  battery     Int?
+  source      String?
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, userId, recordedAt])
+  @@map("home_locations")
+}
+
+model HomeGeofence {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  name        String
+  latitude    Float
+  longitude   Float
+  radiusM     Int      @map("radius_m")
+  enabled     Boolean  @default(true)
+  actions     Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, enabled])
+  @@map("home_geofences")
+}
+
+model HomeIntegration {
+  id            String   @id @default(uuid()) @db.Uuid
+  homeId        String   @map("home_id") @db.Uuid
+  provider      String
+  status        String
+  externalId    String?  @map("external_id")
+  capabilities  Json?
+  metadata      Json?
+  connectedAt   DateTime @default(now()) @map("connected_at")
+  lastCheckedAt DateTime? @map("last_checked_at")
+  home          Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@unique([homeId, provider, externalId])
+  @@index([homeId, status])
+  @@map("home_integrations")
+}
+
+model HomeHealthIssue {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  severity    EventPriority
+  code        String
+  title       String
+  description String
+  resourceType String? @map("resource_type")
+  resourceId   String? @map("resource_id")
+  recommended Json?
+  resolvedAt  DateTime? @map("resolved_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, severity, resolvedAt])
+  @@map("home_health_issues")
+}
+
+model HomeEnergyReading {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  deviceId    String?  @map("device_id") @db.Uuid
+  watts       Float?
+  kwh         Float?
+  voltage     Float?
+  recordedAt  DateTime @default(now()) @map("recorded_at")
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, recordedAt])
+  @@index([deviceId, recordedAt])
+  @@map("home_energy_readings")
+}
+
+model HomeTask {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  title       String
+  assignedTo  String?  @map("assigned_to") @db.Uuid
+  status      String   @default("pending")
+  dueAt       DateTime? @map("due_at")
+  completedAt DateTime? @map("completed_at")
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, status, dueAt])
+  @@map("home_tasks")
+}
+
+model HomeCalendarEvent {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  title       String
+  description String?
+  startsAt    DateTime @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  createdBy   String?  @map("created_by") @db.Uuid
+  metadata    Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, startsAt])
+  @@map("home_calendar_events")
+}
+
+model HomePayment {
+  id             String   @id @default(uuid()) @db.Uuid
+  homeId         String   @map("home_id") @db.Uuid
+  userId         String?  @map("user_id") @db.Uuid
+  transactionId  String   @unique @map("transaction_id")
+  amount         Decimal  @db.Decimal(18,2)
+  currency       String
+  provider       String
+  status         String
+  purpose        String?
+  providerRef    String?  @map("provider_ref")
+  metadata       Json?
+  createdAt      DateTime @default(now()) @map("created_at")
+  home           Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, status, createdAt])
+  @@map("home_payments")
+}
+
+model HomeSubscription {
+  id          String   @id @default(uuid()) @db.Uuid
+  homeId      String   @map("home_id") @db.Uuid
+  plan        String
+  status      String
+  provider    String?
+  providerRef String?  @map("provider_ref")
+  startsAt    DateTime @map("starts_at")
+  endsAt      DateTime? @map("ends_at")
+  metadata    Json?
+  home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
+  @@index([homeId, status])
+  @@map("home_subscriptions")
 }
