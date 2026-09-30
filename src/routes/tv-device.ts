@@ -15,7 +15,7 @@ router.post('/register', async (req: AuthenticatedRequest, res, next) => {
   try {
     const body = z.object({
       platform: z.string().min(1).max(100),
-      deviceId: z.string().uuid().optional(),
+      deviceId: z.string().trim().max(255).optional(),
       deviceName: z.string().min(1).max(200),
       manufacturer: z.string().max(200).optional(),
       model: z.string().max(200).optional(),
