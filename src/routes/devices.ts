@@ -11,7 +11,7 @@ router.use(requireAuth);
 const registration = z.object({
   deviceType: z.enum(['mobile','tablet','tv','desktop','speaker','car','other']),
   platform: z.string().min(1).max(100),
-  deviceId: z.string().uuid().optional(),
+  deviceId: z.string().trim().max(255).optional(),
   deviceName: z.string().min(1).max(200),
   manufacturer: z.string().max(200).optional(),
   model: z.string().max(200).optional(),
