@@ -24,7 +24,11 @@ const schema = z.object({
   ELEVENLABS_TTS_OUTPUT_FORMAT: z.string().default('mp3_44100_128'),
   ELEVENLABS_STT_MODEL: z.string().default('scribe_v2'),
   ELEVENLABS_STT_LANGUAGE: z.string().optional(),
-  ELEVENLABS_MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024)
+  ELEVENLABS_MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
+  MAX_CLOUD_STORAGE_PATH: z.string().default('./storage/max-cloud'),
+  MAX_CLOUD_FILE_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024),
+  MAX_STORE_API_URL: z.string().url().optional(),
+  MAX_PAY_CHECKOUT_URL: z.string().url().optional()
 });
 
 const parsed = schema.safeParse(process.env);
