@@ -128,7 +128,8 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
   try {
     const input = messageSchema.parse(req.body);
     const user = await getUser(req);
-    const conversation = await getConversationForUser(req.params.id, user.id);
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    const conversation = await getConversationForUser(conversationId, user.id);
 
     await prisma.message.create({ data: { conversationId: conversation.id, role: 'USER', content: input.content } });
 
