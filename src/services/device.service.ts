@@ -1,4 +1,5 @@
-import { prisma, Prisma } from '../lib/prisma.js';
+import { prisma } from '../lib/prisma.js';
+import { Prisma } from '@prisma/client';
 import { ApiError } from '../middleware/errors.js';
 import type { AuthPrincipal } from '../types/auth.js';
 
