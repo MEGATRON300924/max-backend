@@ -17,6 +17,7 @@ type ToolContext = {
   confirmed?: boolean;
   authAccessToken?: string;
   timezone?: string | null;
+  tier?: string | null;
 };
 
 export type MaxTool = {
@@ -581,7 +582,7 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       result = { success: true, tool: name, usage: await cloudUsage(context.userId) };
     } else if (name === 'cloud.upload') {
       const data = validateToolInput(name, input) as z.infer<typeof cloudUploadInput>;
-      result = { success: true, tool: name, file: await saveCloudFile(context.userId, undefined, { originalName: data.filename, mimeType: data.mimeType, content: Buffer.from(data.contentBase64, 'base64') }) };
+      result = { success: true, tool: name, file: await saveCloudFile(context.userId, context.tier, { originalName: data.filename, mimeType: data.mimeType, content: Buffer.from(data.contentBase64, 'base64') }) };
     } else if (name === 'cloud.delete') {
       const data = validateToolInput(name, input) as z.infer<typeof cloudFileInput>;
       await deleteCloudFile(context.userId, data.id);
