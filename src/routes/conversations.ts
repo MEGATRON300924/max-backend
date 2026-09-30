@@ -9,6 +9,7 @@ import { orchestrate, orchestrateStream } from '../services/orchestrator.service
 
 const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
 const messageSchema = z.object({ content: z.string().trim().min(1).max(20000) });
+const conversationIdSchema = z.string().uuid();
 
 export const conversationsRouter = Router();
 conversationsRouter.use(requireAuth);
@@ -28,11 +29,15 @@ async function getConversationForUser(id: string, userId: string) {
   return conversation;
 }
 
-function turnsFromConversation(messages: Array<{ role: 'USER' | 'ASSISTANT'; content: string }>) {
-  return messages.slice(-40).map((message) => ({
+function turnsFromConversation(messages: Array<{ role: string; content: string }>) {
+  return messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT').slice(-40).map((message) => ({
     role: message.role === 'USER' ? 'user' as const : 'model' as const,
     content: message.content
   }));
+}
+
+function jsonMetadata(value: unknown) {
+  return JSON.parse(JSON.stringify(value));
 }
 
 conversationsRouter.post('/', async (req: AuthenticatedRequest, res, next) => {
@@ -63,7 +68,7 @@ conversationsRouter.get('/', async (req: AuthenticatedRequest, res, next) => {
 conversationsRouter.get('/:id', async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await getUser(req);
-    res.json({ data: await getConversationForUser(req.params.id, user.id) });
+    res.json({ data: await getConversationForUser(conversationId, user.id) });
   } catch (error) {
     next(error);
   }
@@ -72,8 +77,9 @@ conversationsRouter.get('/:id', async (req: AuthenticatedRequest, res, next) => 
 conversationsRouter.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await getUser(req);
-    await getConversationForUser(req.params.id, user.id);
-    await prisma.conversation.delete({ where: { id: req.params.id } });
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    await getConversationForUser(conversationId, user.id);
+    await prisma.conversation.delete({ where: { id: conversationId } });
     res.status(204).send();
   } catch (error) {
     next(error);
@@ -104,7 +110,7 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
         metadata: {
           intent: generated.intent,
           tools: generated.tools,
-          confirmations: generated.confirmations,
+          confirmations: jsonMetadata(generated.confirmations),
           interactionId: generated.interactionId
         }
       }
@@ -150,13 +156,13 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
         metadata: {
           intent: generated.intent,
           tools: generated.tools,
-          confirmations: generated.confirmations,
+          confirmations: jsonMetadata(generated.confirmations),
           interactionId: generated.interactionId
         }
       }
     });
 
-    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations, interactionId: generated.interactionId })}\n\n`);
+    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), interactionId: generated.interactionId })}\n\n`);
     res.end();
   } catch (error) {
     if (res.headersSent) {
