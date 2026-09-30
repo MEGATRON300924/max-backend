@@ -18,7 +18,7 @@ type PersonalizationSnapshot = {
     connectedServices?: Record<string, unknown>;
     memoryMetadata?: Record<string, unknown>;
   };
-  connectedAccounts?: Array<{ provider: string; connected: boolean; scopes?: string[] }>;
+  connectedAccounts?: Array<{ provider: string; connected: boolean; scopes?: string[]; tokenExpiresAt?: string | null }>;
 };
 
 async function maxAuthRequest<T = unknown>(userId: string, path: string, init: RequestInit = {}): Promise<T> {
@@ -68,7 +68,8 @@ export async function getPersonalizationContext(userId: string, intent: string) 
     connectedServices: (base.connectedAccounts ?? []).map((account) => ({
       provider: account.provider,
       connected: account.connected,
-      scopes: account.scopes ?? []
+      scopes: account.scopes ?? [],
+      tokenExpiresAt: account.tokenExpiresAt ?? null
     }))
   };
 
