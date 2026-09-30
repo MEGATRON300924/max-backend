@@ -21,7 +21,7 @@ export async function createEvent(input: MaxEventInput) {
 export async function listEvents(userId: string, after?: Date, limit = 50) {
   return prisma.maxEvent.findMany({
     where: {
-      OR: [{ userId }, { userId: null }],
+      userId,
       ...(after ? { createdAt: { gt: after } } : {})
     },
     orderBy: { createdAt: 'asc' },
