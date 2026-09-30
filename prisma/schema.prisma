@@ -51,6 +51,7 @@ model EcosystemUser {
   memories         Memory[]
   pendingActions   PendingAction[]
   auditEvents      AuditEvent[]
+  cloudFiles       CloudFile[]
 
   @@index([email])
   @@map("ecosystem_users")
@@ -141,4 +142,20 @@ model AuditEvent {
   @@index([eventType, createdAt])
   @@index([correlationId])
   @@map("audit_events")
+}
+
+model CloudFile {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  originalName String       @map("original_name")
+  storageKey  String        @unique @map("storage_key")
+  mimeType    String        @map("mime_type")
+  sizeBytes   BigInt        @map("size_bytes")
+  sha256      String        @db.VarChar(64)
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  user        EcosystemUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("cloud_files")
 }
