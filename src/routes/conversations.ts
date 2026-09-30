@@ -68,6 +68,7 @@ conversationsRouter.get('/', async (req: AuthenticatedRequest, res, next) => {
 conversationsRouter.get('/:id', async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await getUser(req);
+    const conversationId = conversationIdSchema.parse(req.params.id);
     res.json({ data: await getConversationForUser(conversationId, user.id) });
   } catch (error) {
     next(error);
@@ -90,7 +91,8 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
   try {
     const input = messageSchema.parse(req.body);
     const user = await getUser(req);
-    const conversation = await getConversationForUser(req.params.id, user.id);
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    const conversation = await getConversationForUser(conversationId, user.id);
 
     await prisma.message.create({ data: { conversationId: conversation.id, role: 'USER', content: input.content } });
 
