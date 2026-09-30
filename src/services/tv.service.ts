@@ -3,7 +3,7 @@ import { searchWeb } from './browser.service.js';
 
 export async function tvSearch(query: string) {
   const result = await searchWeb(query + ' TV movie show streaming content');
-  return { query, ...result };
+  return result;
 }
 
 export async function tvAssistant(request: string, context?: Record<string, unknown>) {
