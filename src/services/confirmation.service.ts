@@ -83,7 +83,7 @@ export async function createPendingAction(
       interactionId: context.interactionId,
       callId: context.callId,
       toolName,
-      arguments: argumentsValue,
+      arguments: JSON.parse(JSON.stringify(argumentsValue)),
       expiresAt
     },
     select: actionSelect
