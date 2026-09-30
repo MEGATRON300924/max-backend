@@ -185,6 +185,7 @@ async function processToolCalls(
         authSubject: user.authSubject,
         authAccessToken: user.authAccessToken,
         timezone: user.timezone,
+        tier: user.tier,
         confirmed: false
       }, call.args);
       executed.push(tool.name);
