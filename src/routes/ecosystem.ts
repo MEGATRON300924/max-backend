@@ -24,6 +24,7 @@ ecosystemRouter.get('/capabilities', (_req, res) => {
       studio: { available: true, status: 'gemini_generation' },
       security: { available: true, status: 'max_auth' },
       pay: { available: true, status: 'max_auth_entitlements' },
+      tv: { available: true, status: 'assistant_and_search' },
       os: { available: true, status: 'ecosystem_api' }
     }
   });
