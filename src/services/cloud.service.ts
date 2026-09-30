@@ -35,11 +35,12 @@ export async function cloudUsage(userId: string) {
 }
 
 export async function listCloudFiles(userId: string) {
-  return prisma.cloudFile.findMany({
+  const files = await prisma.cloudFile.findMany({
     where: { userId },
     orderBy: { createdAt: 'desc' },
     select: { id: true, originalName: true, mimeType: true, sizeBytes: true, sha256: true, createdAt: true, updatedAt: true }
   });
+  return files.map((file) => ({ ...file, sizeBytes: Number(file.sizeBytes) }));
 }
 
 export async function saveCloudFile(userId: string, tier: string | null | undefined, input: { originalName: string; mimeType: string; content: Buffer }) {
@@ -59,7 +60,7 @@ export async function saveCloudFile(userId: string, tier: string | null | undefi
     return await prisma.cloudFile.create({
       data: { id, userId, originalName: name, storageKey, mimeType: input.mimeType || 'application/octet-stream', sizeBytes: input.content.length, sha256 },
       select: { id: true, originalName: true, mimeType: true, sizeBytes: true, sha256: true, createdAt: true, updatedAt: true }
-    });
+    }).then((file) => ({ ...file, sizeBytes: Number(file.sizeBytes) }));
   } catch (error) {
     await fs.rm(target, { force: true });
     throw error;
