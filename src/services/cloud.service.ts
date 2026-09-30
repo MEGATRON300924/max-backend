@@ -46,7 +46,7 @@ export async function saveCloudFile(userId: string, tier: string | null | undefi
   if (!input.content.length) throw new ApiError(400, 'CLOUD_EMPTY_FILE', 'The uploaded file is empty');
   if (input.content.length > env.MAX_CLOUD_FILE_BYTES) throw new ApiError(413, 'CLOUD_FILE_TOO_LARGE', 'The uploaded file exceeds the MAX Cloud file limit');
   const usage = await cloudUsage(userId);
-  const quota = quotaFor(tier);
+  const quota = quotaFor(tier) ?? tierQuota.FREE;
   if (usage.bytes + input.content.length > quota) throw new ApiError(413, 'CLOUD_QUOTA_EXCEEDED', 'Your MAX Cloud storage quota has been reached');
   const id = crypto.randomUUID();
   const name = safeName(input.originalName);
