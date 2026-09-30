@@ -19,7 +19,8 @@ function getAudio(req: AuthenticatedRequest) {
 }
 function mimeType(req: AuthenticatedRequest) {
   const header = req.get('content-type') ?? 'audio/webm';
-  return header.split(';')[0].trim() || 'audio/webm';
+  const mediaType = header.split(';')[0] ?? 'audio/webm';
+  return mediaType.trim() || 'audio/webm';
 }
 function turnsFromConversation(messages: Array<{ role: string; content: string }>) {
   return messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT').slice(-40).map((message) => ({ role: message.role === 'USER' ? 'user' as const : 'model' as const, content: message.content }));
