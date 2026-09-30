@@ -142,7 +142,7 @@ async function processToolCalls(
           authAccessToken: user.authAccessToken,
           timezone: user.timezone
         }, eventId, calendarId);
-        const event = existing?.data ?? existing;
+        const event = (existing as any)?.data ?? existing;
         const eventRecord = event && typeof event === 'object' ? event as Record<string, unknown> : {};
         pendingArgs = {
           ...validatedArgs,
