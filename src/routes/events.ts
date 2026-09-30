@@ -45,6 +45,7 @@ router.get('/stream', async (req: AuthenticatedRequest, res, next) => {
     res.setHeader('Connection', 'keep-alive');
     res.flushHeaders?.();
 
+    const deviceId = req.query.deviceId ? z.string().uuid().parse(req.query.deviceId) : undefined;
     let cursor = new Date();
     let closed = false;
     const heartbeat = setInterval(() => {
@@ -53,7 +54,7 @@ router.get('/stream', async (req: AuthenticatedRequest, res, next) => {
     const poll = setInterval(async () => {
       if (closed) return;
       try {
-        const events = await listEvents(user.id, cursor, 100);
+        const events = deviceId ? await listEventsForDevice(user.id, deviceId, cursor, 100) : await listEvents(user.id, cursor, 100);
         for (const event of events) {
           cursor = event.createdAt;
           res.write(`event: ${event.eventType.toLowerCase()}\\ndata: ${JSON.stringify(event)}\\n\\n`);
