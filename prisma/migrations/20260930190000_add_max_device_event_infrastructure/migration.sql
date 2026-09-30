@@ -6,6 +6,7 @@ CREATE TYPE "EventPriority" AS ENUM ('INFO', 'NORMAL', 'IMPORTANT', 'CRITICAL');
 CREATE TABLE "devices" (
   "id" UUID NOT NULL,
   "user_id" UUID NOT NULL,
+  "external_id" TEXT,
   "device_type" "DeviceType" NOT NULL,
   "platform" TEXT NOT NULL,
   "device_name" TEXT NOT NULL,
@@ -24,6 +25,7 @@ CREATE TABLE "devices" (
   "updated_at" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "devices_pkey" PRIMARY KEY ("id")
 );
+CREATE UNIQUE INDEX "devices_user_id_external_id_key" ON "devices"("user_id","external_id");
 CREATE INDEX "devices_user_id_device_type_idx" ON "devices"("user_id","device_type");
 CREATE INDEX "devices_home_id_room_id_idx" ON "devices"("home_id","room_id");
 CREATE INDEX "devices_last_seen_at_idx" ON "devices"("last_seen_at");
