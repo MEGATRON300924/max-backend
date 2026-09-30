@@ -31,6 +31,7 @@ import { profilesRouter } from './routes/profiles.js';
 import { visionRouter } from './routes/vision.js';
 import { homeEventsRouter } from './routes/home-events.js';
 import { maxHomeCoreRouter } from './routes/home-core.js';
+import { maxAuthProxyRouter } from './routes/max-auth-proxy.js';
 
 export const app = express();
 
@@ -58,6 +59,7 @@ app.get('/', (_req, res) => {
 
 app.use('/health', healthRouter);
 app.use(`${env.API_PREFIX}/health`, healthRouter);
+app.use(`${env.API_PREFIX}/auth`, maxAuthProxyRouter);
 app.use(`${env.API_PREFIX}/profile`, profileRouter);
 app.use(`${env.API_PREFIX}/conversations`, conversationsRouter);
 app.use(`${env.API_PREFIX}/memories`, memoriesRouter);
