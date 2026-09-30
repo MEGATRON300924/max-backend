@@ -19,6 +19,7 @@ import { browserRouter } from './routes/browser.js';
 import { connectRouter } from './routes/connect.js';
 import { securityRouter } from './routes/security.js';
 import { payRouter } from './routes/pay.js';
+import { storeRouter } from './routes/store.js';
 
 export const app = express();
 
@@ -58,6 +59,7 @@ app.use(`${env.API_PREFIX}/browser`, browserRouter);
 app.use(`${env.API_PREFIX}/connect`, connectRouter);
 app.use(`${env.API_PREFIX}/security`, securityRouter);
 app.use(`${env.API_PREFIX}/pay`, payRouter);
+app.use(`${env.API_PREFIX}/store`, storeRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
