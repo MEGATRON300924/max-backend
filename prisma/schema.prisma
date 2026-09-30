@@ -52,6 +52,11 @@ model EcosystemUser {
   pendingActions   PendingAction[]
   auditEvents      AuditEvent[]
   cloudFiles       CloudFile[]
+  devices          Device[]
+  deviceSessions   DeviceSession[]
+  events           MaxEvent[]
+  profiles         Profile[]
+  mediaStates      MediaState[]
 
   @@index([email])
   @@map("ecosystem_users")
@@ -158,4 +163,147 @@ model CloudFile {
 
   @@index([userId, createdAt])
   @@map("cloud_files")
+}
+
+
+enum DeviceType {
+  MOBILE
+  TABLET
+  TV
+  DESKTOP
+  SPEAKER
+  CAR
+  OTHER
+}
+
+enum DeviceSessionStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum MaxEventType {
+  ANNOUNCEMENT
+  BROADCAST
+  SECURITY_ALERT
+  COMMAND
+  MEDIA_ACTION
+  NOTIFICATION
+  AUTOMATION_EVENT
+  DEVICE_CHANGED
+  ACCOUNT_UPDATED
+  SUBSCRIPTION_UPDATED
+}
+
+enum EventPriority {
+  INFO
+  NORMAL
+  IMPORTANT
+  CRITICAL
+}
+
+model Device {
+  id             String          @id @default(uuid()) @db.Uuid
+  userId         String          @map("user_id") @db.Uuid
+  deviceType     DeviceType      @map("device_type")
+  platform       String
+  deviceName     String          @map("device_name")
+  manufacturer   String?
+  model          String?
+  osVersion      String?         @map("os_version")
+  appVersion     String?         @map("app_version")
+  capabilities   Json?
+  timezone       String?
+  language       String?
+  homeId         String?         @map("home_id")
+  roomId         String?         @map("room_id")
+  revokedAt      DateTime?       @map("revoked_at")
+  lastSeenAt     DateTime?       @map("last_seen_at")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @updatedAt @map("updated_at")
+  user           EcosystemUser   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions       DeviceSession[]
+  events         MaxEvent[]      @relation("DeviceEvents")
+
+  @@index([userId, deviceType])
+  @@index([homeId, roomId])
+  @@index([lastSeenAt])
+  @@map("devices")
+}
+
+model DeviceSession {
+  id          String              @id @default(uuid()) @db.Uuid
+  deviceId    String              @map("device_id") @db.Uuid
+  userId      String              @map("user_id") @db.Uuid
+  profileId   String?             @map("profile_id") @db.Uuid
+  status      DeviceSessionStatus @default(ACTIVE)
+  sessionKey  String?             @unique @map("session_key")
+  metadata    Json?
+  createdAt   DateTime            @default(now()) @map("created_at")
+  lastSeenAt  DateTime            @default(now()) @map("last_seen_at")
+  expiresAt   DateTime?           @map("expires_at")
+  device      Device              @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  user        EcosystemUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([deviceId, status])
+  @@map("device_sessions")
+}
+
+model MaxEvent {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String?       @map("user_id") @db.Uuid
+  deviceId       String?       @map("device_id") @db.Uuid
+  homeId         String?       @map("home_id")
+  roomId         String?       @map("room_id")
+  eventType      MaxEventType  @map("event_type")
+  priority       EventPriority @default(NORMAL)
+  payload        Json
+  targetType     String?       @map("target_type")
+  targetId       String?       @map("target_id")
+  deliveredAt    DateTime?     @map("delivered_at")
+  expiresAt      DateTime?     @map("expires_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  user           EcosystemUser? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device         Device?       @relation("DeviceEvents", fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([deviceId, createdAt])
+  @@index([homeId, createdAt])
+  @@index([eventType, createdAt])
+  @@map("max_events")
+}
+
+model Profile {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @map("user_id") @db.Uuid
+  name        String
+  profileType String        @map("profile_type")
+  avatarUrl   String?       @map("avatar_url")
+  permissions Json?
+  settings    Json?
+  createdAt   DateTime      @default(now()) @map("created_at")
+  updatedAt   DateTime      @updatedAt @map("updated_at")
+  user        EcosystemUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("profiles")
+}
+
+model MediaState {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String        @map("user_id") @db.Uuid
+  contentId      String        @map("content_id")
+  contentType    String        @map("content_type")
+  title          String?
+  positionMs     Int           @default(0) @map("position_ms")
+  durationMs     Int?          @map("duration_ms")
+  sourceDeviceId String?       @map("source_device_id") @db.Uuid
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+  user           EcosystemUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceDevice   Device?       @relation(fields: [sourceDeviceId], references: [id], onDelete: SetNull)
+
+  @@unique([userId, contentId])
+  @@index([userId, updatedAt])
+  @@map("media_states")
 }
