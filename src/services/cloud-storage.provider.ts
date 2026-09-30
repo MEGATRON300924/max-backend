@@ -37,7 +37,7 @@ class LocalCloudProvider implements CloudStorageProvider {
   }
 
   async upload(input: CloudUploadInput) {
-    const id = crypto.randomUUID();
+    const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
     const name = safeName(input.originalName);
     const storageKey = id + '-' + name;
     const target = this.safeStoragePath(storageKey);
