@@ -14,6 +14,11 @@ import { homeRouter } from './routes/home.js';
 import { ecosystemRouter } from './routes/ecosystem.js';
 import { confirmationsRouter } from './routes/confirmations.js';
 import { voiceRouter } from './routes/voice.js';
+import { cloudRouter } from './routes/cloud.js';
+import { browserRouter } from './routes/browser.js';
+import { connectRouter } from './routes/connect.js';
+import { securityRouter } from './routes/security.js';
+import { payRouter } from './routes/pay.js';
 
 export const app = express();
 
@@ -48,6 +53,11 @@ app.use(`${env.API_PREFIX}/home`, homeRouter);
 app.use(`${env.API_PREFIX}/ecosystem`, ecosystemRouter);
 app.use(`${env.API_PREFIX}/confirmations`, confirmationsRouter);
 app.use(`${env.API_PREFIX}/voice`, voiceRouter);
+app.use(`${env.API_PREFIX}/cloud`, cloudRouter);
+app.use(`${env.API_PREFIX}/browser`, browserRouter);
+app.use(`${env.API_PREFIX}/connect`, connectRouter);
+app.use(`${env.API_PREFIX}/security`, securityRouter);
+app.use(`${env.API_PREFIX}/pay`, payRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
