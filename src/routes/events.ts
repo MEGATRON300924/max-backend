@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
-import { assertDeviceForUser, createEvent, listEvents } from '../services/event.service.js';
+import { assertDeviceForUser, createEvent, listEvents, listEventsForDevice } from '../services/event.service.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 
 const router = Router();
