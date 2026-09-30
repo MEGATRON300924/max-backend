@@ -58,6 +58,7 @@ function classifyIntent(content: string) {
   if (/\b(spotify|currently playing|now playing|pause (the )?(music|song|track)|resume (the )?(music|song|track)|skip (the )?(song|track)|next (song|track)|previous (song|track)|play (the )?(song|track|music))\b/.test(value)) return 'music';
   if (/\b(gmail|email|mail|inbox|drive|document|doc|spreadsheet|sheet|slides|presentation|task|tasks|contact|contacts|youtube|subscription|subscriptions|video)\b/.test(value)) return 'google';
   if (/\b(play|pause|skip|music|song|playlist|album|artist)\b/.test(value)) return 'music';
+  if (/\b(tv|television|movie|movies|show|shows|series|channel|channels|streaming|netflix|gaming mode|game hub)\b/.test(value)) return 'tv';
   if (/\b(search|look up|latest|news|what happened today|browse the web)\b/.test(value)) return 'browser';
   if (/\b(upload|download|file|files|storage|cloud)\b/.test(value)) return 'cloud';
   return 'general';
@@ -67,6 +68,7 @@ function unavailableCapability(intent: string) {
   if (intent === 'home' && !capabilities.home) return 'MAX Home is not configured for this backend.';
   if (intent === 'calendar' && !capabilities.calendar) return 'Google Calendar is not configured for this backend.';
   if (intent === 'google' && !capabilities.google) return 'Google services are not configured for this backend.';
+  if (intent === 'tv' && !capabilities.browser) return 'MAX TV web search is not configured for this backend.';
   if (intent === 'music' && !capabilities.music) return 'MAX Music is not configured for this backend.';
   if (intent === 'browser' && !capabilities.browser) return 'MAX Browser is not configured for this backend.';
   if (intent === 'cloud' && !capabilities.cloud) return 'MAX Cloud is not configured for this backend.';
