@@ -84,7 +84,7 @@ class MediaFireProvider implements CloudStorageProvider {
     if (env.MEDIAFIRE_ROOT_FOLDER_KEY) params.set('folder_key', env.MEDIAFIRE_ROOT_FOLDER_KEY);
 
     const form = new FormData();
-    form.append('fileUpload', new Blob([input.content], { type: input.mimeType }), safeName(input.originalName));
+    form.append('fileUpload', new Blob([new Uint8Array(input.content)], { type: input.mimeType }), safeName(input.originalName));
 
     const result = await this.json<any>('/upload/simple.php?' + params.toString(), { method: 'POST', body: form });
     const quickKey = result?.doupload?.quickkey ?? result?.doupload?.quick_key ?? result?.doupload?.key;
