@@ -10,12 +10,16 @@ export async function resolveEcosystemUser(principal: AuthPrincipal) {
       authSubject: principal.subject,
       email: principal.email,
       displayName: principal.name ?? principal.username,
-      avatarUrl: principal.picture
+      avatarUrl: principal.picture,
+      timezone,
+      locale
     },
     update: {
       email: principal.email,
       displayName: principal.name ?? principal.username,
-      avatarUrl: principal.picture
+      avatarUrl: principal.picture,
+      timezone,
+      locale
     }
   });
 }
