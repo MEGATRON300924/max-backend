@@ -52,7 +52,7 @@ confirmationsRouter.post('/:id/execute', async (req: AuthenticatedRequest, res, 
         metadata: {
           intent: response.intent,
           tools: response.tools,
-          confirmations: response.confirmations,
+          confirmations: JSON.parse(JSON.stringify(response.confirmations)),
           interactionId: response.interactionId,
           confirmationId: execution.action.id
         }
