@@ -12,6 +12,7 @@ type UserContext = {
   timezone: string | null;
   authSubject?: string;
   authAccessToken?: string;
+  tier?: string | null;
 };
 
 type Confirmation = {
@@ -36,17 +37,17 @@ const capabilities = {
   memory: true,
   home: Boolean(process.env.MAX_HOME_API_URL),
   music: Boolean(env.MAX_AUTH_SERVICE_TOKEN),
-  cloud: false,
-  browser: false,
+  cloud: true,
+  browser: Boolean(env.GEMINI_API_KEY),
   voice: Boolean(env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID),
   calendar: true,
   google: true,
-  connect: false,
-  store: false,
-  studio: false,
-  security: false,
-  pay: false,
-  os: false
+  connect: true,
+  store: Boolean(env.MAX_STORE_API_URL),
+  studio: true,
+  security: true,
+  pay: true,
+  os: true
 } as const;
 
 function classifyIntent(content: string) {
