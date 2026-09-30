@@ -6,7 +6,7 @@ import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
 import { maxAuthGoogleRequest } from './max-auth-google.service.js';
-import { maxAuthSpotifyRequest } from './max-auth-spotify.service.js';
+import { maxAuthSpotifyRequest, maxAuthSpotifySavedTracks, maxAuthSpotifyPlaylists } from './max-auth-spotify.service.js';
 
 type ToolContext = {
   userId: string;
@@ -124,6 +124,7 @@ const googleSheetWriteInput = z.object({ spreadsheetId: z.string().trim().min(1)
 const spotifyTimeRange = z.enum(['short_term', 'medium_term', 'long_term']).optional();
 const spotifyTopInput = z.object({ timeRange: spotifyTimeRange, limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).max(1000).optional() });
 const spotifyRecentlyPlayedInput = z.object({ limit: z.number().int().min(1).max(50).optional() });
+const spotifyPageInput = z.object({ limit: z.number().int().min(1).max(50).optional(), offset: z.number().int().min(0).max(10000).optional() });
 const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
 const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
@@ -347,6 +348,14 @@ const tools: MaxTool[] = [
     declaration: { name: 'spotify_top_tracks', description: 'Get the user\'s top Spotify tracks.', parameters: { type: 'object', properties: { timeRange: { type: 'string', enum: ['short_term','medium_term','long_term'] }, limit: { type: 'number' }, offset: { type: 'number' } } } }
   },
   {
+    name: 'spotify.saved-tracks', capability: 'music', description: 'Read the user\'s saved Spotify tracks.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'spotify_saved_tracks', description: 'List the user\'s saved Spotify tracks.', parameters: { type: 'object', properties: { limit: { type: 'number' }, offset: { type: 'number' } } } }
+  },
+  {
+    name: 'spotify.playlists', capability: 'music', description: 'Read the user\'s private Spotify playlists.', enabled: true, requiresConfirmation: false,
+    declaration: { name: 'spotify_playlists', description: 'List the user\'s Spotify playlists.', parameters: { type: 'object', properties: { limit: { type: 'number' }, offset: { type: 'number' } } } }
+  },
+  {
     name: 'spotify.recently-played', capability: 'music', description: 'Read the user\'s recently played Spotify tracks.', enabled: true, requiresConfirmation: false,
     declaration: { name: 'spotify_recently_played', description: 'Get recently played Spotify tracks.', parameters: { type: 'object', properties: { limit: { type: 'number' } } } }
   },
@@ -481,6 +490,7 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'google.sheets.update') return googleSheetWriteInput.parse(input);
   if (name === 'spotify.top.artists' || name === 'spotify.top.tracks') return spotifyTopInput.parse(input);
   if (name === 'spotify.recently-played') return spotifyRecentlyPlayedInput.parse(input);
+  if (name === 'spotify.saved-tracks' || name === 'spotify.playlists') return spotifyPageInput.parse(input);
   if (name === 'spotify.play') return spotifyPlayInput.parse(input);
   return input;
 }
@@ -580,6 +590,12 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     } else if (name === 'spotify.recently-played') {
       const data = validateToolInput(name, input) as z.infer<typeof spotifyRecentlyPlayedInput>;
       result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/recently-played', { query: data })) as object };
+    } else if (name === 'spotify.saved-tracks') {
+      const data = validateToolInput(name, input) as z.infer<typeof spotifyPageInput>;
+      result = { success: true, tool: name, ...(await maxAuthSpotifySavedTracks(context.userId, data)) as object };
+    } else if (name === 'spotify.playlists') {
+      const data = validateToolInput(name, input) as z.infer<typeof spotifyPageInput>;
+      result = { success: true, tool: name, ...(await maxAuthSpotifyPlaylists(context.userId, data)) as object };
     } else if (name === 'spotify.player') {
       result = { success: true, tool: name, ...(await maxAuthSpotifyRequest(context.userId, '/player')) as object };
     } else if (name === 'spotify.play') {
