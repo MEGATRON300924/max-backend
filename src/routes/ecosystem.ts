@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { homeStatus } from '../services/home.service.js';
 import { listTools } from '../services/tools.service.js';
+import { voiceStatus } from '../services/voice.service.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 
 export const ecosystemRouter = Router();
@@ -13,10 +14,10 @@ ecosystemRouter.get('/capabilities', (_req, res) => {
       auth: { available: true, authority: 'max-auth' },
       memory: { available: true, persistent: true },
       home: homeStatus(),
-      music: { available: false, status: 'not_configured' },
+      music: { available: true, status: 'spotify_via_max_auth' },
       cloud: { available: false, status: 'not_configured' },
       browser: { available: false, status: 'not_configured' },
-      voice: { available: false, status: 'not_configured' },
+      voice: voiceStatus(),
       connect: { available: false, status: 'not_configured' },
       store: { available: false, status: 'not_configured' },
       studio: { available: false, status: 'not_configured' },
