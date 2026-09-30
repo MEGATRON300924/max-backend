@@ -149,6 +149,9 @@ export async function getPersonalizationContext(userId: string, intent: string) 
       const artists = (topArtists.value as any)?.items ?? [];
       void persistServiceSignals(userId, 'SPOTIFY', {
         topArtists: artists.slice(0, 10).map((artist: any) => artist?.name).filter(Boolean),
+        topTracks: ((topTracks.value as any)?.items ?? []).slice(0, 10).map((track: any) => track?.name).filter(Boolean),
+        recentlyPlayed: ((recent.value as any)?.items ?? []).slice(0, 10).map((item: any) => item?.track?.name).filter(Boolean),
+        currentlyPlaying: (player.value as any)?.item?.name ?? null,
         lastSyncedAt: new Date().toISOString()
       });
     }
