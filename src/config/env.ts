@@ -17,7 +17,14 @@ const schema = z.object({
   MAX_HOME_API_URL: z.string().url().optional(),
   MAX_AUTH_API_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1'),
   MAX_AUTH_INTERNAL_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1/internal'),
-  MAX_AUTH_SERVICE_TOKEN: z.string().optional()
+  MAX_AUTH_SERVICE_TOKEN: z.string().optional(),
+  ELEVENLABS_API_KEY: z.string().optional(),
+  ELEVENLABS_VOICE_ID: z.string().optional(),
+  ELEVENLABS_TTS_MODEL: z.string().default('eleven_multilingual_v2'),
+  ELEVENLABS_TTS_OUTPUT_FORMAT: z.string().default('mp3_44100_128'),
+  ELEVENLABS_STT_MODEL: z.string().default('scribe_v2'),
+  ELEVENLABS_STT_LANGUAGE: z.string().optional(),
+  ELEVENLABS_MAX_AUDIO_BYTES: z.coerce.number().int().positive().default(25 * 1024 * 1024)
 });
 
 const parsed = schema.safeParse(process.env);
