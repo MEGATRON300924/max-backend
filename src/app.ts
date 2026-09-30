@@ -30,6 +30,7 @@ import { tvDeviceRouter } from './routes/tv-device.js';
 import { profilesRouter } from './routes/profiles.js';
 import { visionRouter } from './routes/vision.js';
 import { homeEventsRouter } from './routes/home-events.js';
+import { maxHomeCoreRouter } from './routes/home-core.js';
 
 export const app = express();
 
@@ -80,6 +81,7 @@ app.use(`${env.API_PREFIX}/tv/device`, tvDeviceRouter);
 app.use(`${env.API_PREFIX}/profiles`, profilesRouter);
 app.use(`${env.API_PREFIX}/vision`, visionRouter);
 app.use(`${env.API_PREFIX}/home/events`, homeEventsRouter);
+app.use(`${env.API_PREFIX}/home/core`, maxHomeCoreRouter);
 
 app.use(notFoundHandler);
 app.use(errorHandler);
