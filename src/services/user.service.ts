@@ -7,12 +7,12 @@ export async function resolveEcosystemUser(principal: AuthPrincipal) {
     create: {
       authSubject: principal.subject,
       email: principal.email,
-      displayName: principal.name,
+      displayName: principal.name ?? principal.username,
       avatarUrl: principal.picture
     },
     update: {
       email: principal.email,
-      displayName: principal.name,
+      displayName: principal.name ?? principal.username,
       avatarUrl: principal.picture
     }
   });
