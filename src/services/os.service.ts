@@ -7,7 +7,7 @@ export function maxOsManifest() {
     identity: 'MAX Auth',
     brain: 'MAX AI',
     voice: env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID ? 'ElevenLabs' : null,
-    services: ['home','music','cloud','browser','connect','store','studio','security','pay','voice'],
+    services: ['home','music','cloud','browser','connect','store','studio','security','pay','tv','voice'],
     transport: 'HTTP API',
     authentication: 'MAX Auth JWT/JWKS',
     storage: 'MAX Cloud',
