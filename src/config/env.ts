@@ -1,6 +1,13 @@
 import 'dotenv/config';
 import { z } from 'zod';
 
+// Optional service URLs may be left blank in deployment environments until the
+// corresponding MAX ecosystem service is implemented. Treat blank values as unset.
+const optionalUrl = z.preprocess(
+  (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+  z.string().url().optional()
+);
+
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'staging', 'production']).default('development'),
   PORT: z.coerce.number().int().positive().default(3000),
@@ -8,10 +15,10 @@ const schema = z.object({
   CORS_ORIGINS: z.string().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   DATABASE_URL: z.string().optional(),
-  REDIS_URL: z.string().url().optional(),
+  REDIS_URL: optionalUrl,
   GEMINI_API_KEY: z.string().optional(),
   GEMINI_MODEL: z.string().default('gemini-3.7-flash'),
-  MAX_HOME_API_URL: z.string().url().optional(),
+  MAX_HOME_API_URL: optionalUrl,
   MAX_AUTH_API_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1'),
   MAX_AUTH_INTERNAL_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1/internal'),
   MAX_AUTH_SERVICE_TOKEN: z.string().optional(),
@@ -28,8 +35,8 @@ const schema = z.object({
   MEDIAFIRE_API_URL: z.string().url().default('https://www.mediafire.com/api/1.5'),
   MEDIAFIRE_SESSION_TOKEN: z.string().optional(),
   MEDIAFIRE_ROOT_FOLDER_KEY: z.string().optional(),
-  MAX_STORE_API_URL: z.string().url().optional(),
-  MAX_PAY_CHECKOUT_URL: z.string().url().optional(),
+  MAX_STORE_API_URL: optionalUrl,
+  MAX_PAY_CHECKOUT_URL: optionalUrl,
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
   GITHUB_APP_INSTALLATION_ID: z.string().optional(),
