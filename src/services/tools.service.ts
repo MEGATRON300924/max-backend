@@ -608,7 +608,7 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       result = { success: true, tool: name, file: await getGithubFile(data.owner, data.repo, data.path, data.ref, context.authSubject) };
     } else if (name === 'github.create_pull_request') {
       const data = validateToolInput(name, input) as z.infer<typeof githubPullRequestInput>;
-      result = { success: true, tool: name, ...(await createGithubPullRequest(data, context.authSubject)) };
+      result = { tool: name, ...(await createGithubPullRequest(data, context.authSubject)) };
     } else if (name === 'tv.search') {
       const data = validateToolInput(name, input) as z.infer<typeof tvSearchInput>;
       result = { success: true, tool: name, ...(await tvSearch(data.query)) };
