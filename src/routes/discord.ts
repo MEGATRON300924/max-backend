@@ -196,7 +196,7 @@ discordRouter.get('/status', (_req, res) => {
   res.json({
     success: true,
     data: {
-      interactionsConfigured: Boolean(env.DISCORD_PUBLIC_KEY && env.MAX_AUTH_SERVICE_TOKEN),
+      interactionsConfigured: Boolean(env.DISCORD_APPLICATION_ID && env.DISCORD_PUBLIC_KEY && env.MAX_AUTH_SERVICE_TOKEN),
       authLinking: 'MAX Auth connected Discord account',
       endpoint: `${env.API_PREFIX}/discord/interactions`,
     },
@@ -204,7 +204,7 @@ discordRouter.get('/status', (_req, res) => {
 });
 
 discordRouter.post('/interactions', (req, res) => {
-  if (!env.DISCORD_PUBLIC_KEY || !env.MAX_AUTH_SERVICE_TOKEN) {
+  if (!env.DISCORD_APPLICATION_ID || !env.DISCORD_PUBLIC_KEY || !env.MAX_AUTH_SERVICE_TOKEN) {
     res.status(503).json({ error: 'DISCORD_NOT_CONFIGURED', message: 'Discord integration is not configured on this backend.' });
     return;
   }
@@ -214,6 +214,10 @@ discordRouter.post('/interactions', (req, res) => {
   }
 
   const interaction = req.body as DiscordInteraction;
+  if (!interaction || interaction.application_id !== env.DISCORD_APPLICATION_ID) {
+    res.status(401).json({ error: 'DISCORD_APPLICATION_MISMATCH' });
+    return;
+  }
   if (interaction?.type === 1) {
     res.status(200).json({ type: 1 });
     return;
