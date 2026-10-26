@@ -19,10 +19,10 @@ const command = {
     required: true,
     max_length: 1500,
   }],
-  dm_permission: true,
-  integration_types: [0, 1],
-  contexts: [0, 1, 2],
 };
+if (!guildId) {
+  Object.assign(command, { integration_types: [0, 1], contexts: [0, 1, 2] });
+}
 
 const path = guildId
   ? `applications/${applicationId}/guilds/${guildId}/commands`
