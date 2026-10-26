@@ -31,6 +31,10 @@ async function github<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (!response.ok) throw new ApiError(response.status === 404 ? 404 : response.status === 403 ? 403 : 502, 'GITHUB_API_ERROR', data.message ?? `GitHub request failed (${response.status}).`);
   return data as T;
 }
+function allowedMaxUser(authSubject?: string) {
+  const allowed = env.GITHUB_ALLOWED_AUTH_SUBJECTS.split(',').map((value) => value.trim()).filter(Boolean);
+  if (!authSubject || !allowed.length || !allowed.includes(authSubject)) throw new ApiError(403, 'GITHUB_USER_NOT_ALLOWED', 'This MAX account is not authorised to use GitHub code editing yet.');
+}
 function allowedOwner(owner: string) {
   const allowed = env.GITHUB_ALLOWED_OWNERS.split(',').map((v) => v.trim().toLowerCase()).filter(Boolean);
   if (!allowed.length || !allowed.includes(owner.toLowerCase())) throw new ApiError(403, 'GITHUB_OWNER_NOT_ALLOWED', 'This GitHub owner is not on MAX’s configured allowlist.');
@@ -39,11 +43,13 @@ function safePart(value: string, label: string) {
   if (!/^[A-Za-z0-9_.-]{1,100}$/.test(value) || value === '.' || value === '..') throw new ApiError(400, 'GITHUB_INVALID_INPUT', `Invalid GitHub ${label}.`);
   return value;
 }
-export async function listGithubRepositories() {
+export async function listGithubRepositories(authSubject?: string) {
+  allowedMaxUser(authSubject);
   const data = await github<{ repositories: GithubRepo[] }>('/installation/repositories?per_page=100');
   return (data.repositories ?? []).map((r) => ({ name: r.name, fullName: r.full_name, owner: r.owner.login, defaultBranch: r.default_branch, private: r.private, url: r.html_url }));
 }
-export async function getGithubFile(ownerInput: string, repoInput: string, pathInput: string, ref?: string) {
+export async function getGithubFile(ownerInput: string, repoInput: string, pathInput: string, ref?: string, authSubject?: string) {
+  allowedMaxUser(authSubject);
   const owner = safePart(ownerInput, 'owner'); const repo = safePart(repoInput, 'repository'); allowedOwner(owner);
   const path = pathInput.split('/').map((part) => { if (!part || part === '.' || part === '..') throw new ApiError(400, 'GITHUB_INVALID_PATH', 'Invalid repository file path.'); return encodeURIComponent(part); }).join('/');
   const file = await github<GithubFile>(`/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`);
@@ -51,7 +57,8 @@ export async function getGithubFile(ownerInput: string, repoInput: string, pathI
   return { path: file.path, size: file.size, content: file.encoding === 'base64' && file.content ? Buffer.from(file.content.replace(/\\n/g, ''), 'base64').toString('utf8') : '', url: file.html_url };
 }
 type ProposedFile = { path: string; content: string };
-export async function createGithubPullRequest(input: { owner: string; repo: string; baseBranch: string; branchName: string; title: string; body: string; files: ProposedFile[] }) {
+export async function createGithubPullRequest(input: { owner: string; repo: string; baseBranch: string; branchName: string; title: string; body: string; files: ProposedFile[] }, authSubject?: string) {
+  allowedMaxUser(authSubject);
   const owner = safePart(input.owner, 'owner'); const repo = safePart(input.repo, 'repository'); allowedOwner(owner);
   const baseBranch = input.baseBranch.trim(); const branchName = input.branchName.trim();
   if (!baseBranch || baseBranch.length > 200 || !/^[A-Za-z0-9._/-]{1,200}$/.test(branchName) || branchName.startsWith('/') || branchName.endsWith('/') || branchName.includes('..')) throw new ApiError(400, 'GITHUB_INVALID_BRANCH', 'The base branch or proposed branch name is invalid.');
