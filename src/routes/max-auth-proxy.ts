@@ -18,7 +18,7 @@ const passthroughGroups = new Set([
 
 function remotePath(req: Request) {
   const path = req.path.replace(/^\/+/, '');
-  const [group] = path.split('/');
+  const group = path.split('/')[0] ?? '';
 
   if (group === 'internal') {
     return '/api/v1/internal' + path.slice('internal'.length);
@@ -36,7 +36,7 @@ function forwardedHeaders(req: Request, internal: boolean) {
     Accept: req.header('accept') ?? 'application/json',
     'Content-Type': req.header('content-type') ?? 'application/json',
     'User-Agent': req.header('user-agent') ?? 'MAX Backend',
-    'X-Forwarded-For': req.ip,
+    'X-Forwarded-For': req.ip ?? '',
     'X-Forwarded-Proto': req.protocol
   };
 
