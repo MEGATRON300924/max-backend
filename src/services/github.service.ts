@@ -68,7 +68,7 @@ export async function createGithubPullRequest(input: { owner: string; repo: stri
   if (!input.files.length || input.files.length > 30) throw new ApiError(400, 'GITHUB_FILE_LIMIT', 'A change must contain between 1 and 30 files.');
   const seen = new Set<string>();
   const files = input.files.map((file) => {
-    const path = file.path.trim().replace(/^\\/+/, '');
+    const path = file.path.trim().replace(/^\/+/, '');
     if (!path || path.length > 400 || path.split('/').some((p) => !p || p === '.' || p === '..') || path.includes('\\')) throw new ApiError(400, 'GITHUB_INVALID_PATH', `Invalid repository path: ${file.path}`);
     if (path.startsWith('.git/')) throw new ApiError(403, 'GITHUB_RESERVED_PATH', 'MAX cannot write into Git internals.');
     if (path.startsWith('.github/workflows/')) throw new ApiError(403, 'GITHUB_WORKFLOW_PROTECTED', 'MAX cannot modify GitHub Actions workflows through this tool.');
