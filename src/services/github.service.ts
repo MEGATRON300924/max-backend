@@ -46,7 +46,8 @@ function safePart(value: string, label: string) {
 export async function listGithubRepositories(authSubject?: string) {
   allowedMaxUser(authSubject);
   const data = await github<{ repositories: GithubRepo[] }>('/installation/repositories?per_page=100');
-  return (data.repositories ?? []).map((r) => ({ name: r.name, fullName: r.full_name, owner: r.owner.login, defaultBranch: r.default_branch, private: r.private, url: r.html_url }));
+  const allowed = new Set(env.GITHUB_ALLOWED_OWNERS.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean));
+  return (data.repositories ?? []).filter((r) => allowed.has(r.owner.login.toLowerCase())).map((r) => ({ name: r.name, fullName: r.full_name, owner: r.owner.login, defaultBranch: r.default_branch, private: r.private, url: r.html_url }));
 }
 export async function getGithubFile(ownerInput: string, repoInput: string, pathInput: string, ref?: string, authSubject?: string) {
   allowedMaxUser(authSubject);
