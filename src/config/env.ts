@@ -32,7 +32,11 @@ const schema = z.object({
   MEDIAFIRE_SESSION_TOKEN: z.string().optional(),
   MEDIAFIRE_ROOT_FOLDER_KEY: z.string().optional(),
   MAX_STORE_API_URL: z.string().url().optional(),
-  MAX_PAY_CHECKOUT_URL: z.string().url().optional()
+  MAX_PAY_CHECKOUT_URL: z.string().url().optional(),
+  GITHUB_APP_ID: z.string().optional(),
+  GITHUB_APP_PRIVATE_KEY: z.string().optional(),
+  GITHUB_APP_INSTALLATION_ID: z.string().optional(),
+  GITHUB_ALLOWED_OWNERS: z.string().default('')
 });
 
 const parsed = schema.safeParse(process.env);
