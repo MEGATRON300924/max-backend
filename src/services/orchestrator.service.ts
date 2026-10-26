@@ -43,10 +43,10 @@ const capabilities = {
   calendar: true,
   google: true,
   connect: true,
-  store: Boolean(env.MAX_STORE_API_URL),
+  store: false,
   studio: true,
   security: true,
-  pay: true,
+  pay: false,
   os: true
 } as const;
 
