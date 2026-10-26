@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "discord:register-command": "tsx scripts/register-discord-command.ts"
   },
   "engines": {
     "node": ">=20"
