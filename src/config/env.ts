@@ -36,7 +36,8 @@ const schema = z.object({
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
   GITHUB_APP_INSTALLATION_ID: z.string().optional(),
-  GITHUB_ALLOWED_OWNERS: z.string().default('')
+  GITHUB_ALLOWED_OWNERS: z.string().default(''),
+  GITHUB_ALLOWED_AUTH_SUBJECTS: z.string().default('')
 });
 
 const parsed = schema.safeParse(process.env);
