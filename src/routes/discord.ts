@@ -62,7 +62,9 @@ function interactionMessage(interaction: DiscordInteraction): string | undefined
   return typeof option?.value === 'string' ? option.value : undefined;
 }
 
-async function lookupMaxIdentity(discordUserId: string) {
+type MaxIdentity = { linked: boolean; user?: { id: string; username?: string; displayName?: string; tier?: string; locale?: string | null; timezone?: string | null } };
+
+async function lookupMaxIdentity(discordUserId: string): Promise<MaxIdentity> {
   if (!env.MAX_AUTH_SERVICE_TOKEN) throw new Error('MAX Auth service authentication is not configured');
   const base = env.MAX_AUTH_INTERNAL_URL.replace(/\/+$/, '');
   const url = new URL(base + '/discord/identity');
@@ -76,7 +78,7 @@ async function lookupMaxIdentity(discordUserId: string) {
     data?: { linked?: boolean; user?: { id: string; username?: string; displayName?: string; tier?: string; locale?: string | null; timezone?: string | null } };
   };
   if (!response.ok || payload.success !== true) throw new Error('MAX Auth identity lookup failed');
-  return payload.data ?? { linked: false };
+  return { linked: payload.data?.linked === true, user: payload.data?.user };
 }
 
 async function updateOriginalResponse(applicationId: string, token: string, content: string) {
