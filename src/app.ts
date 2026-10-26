@@ -33,6 +33,7 @@ import { homeEventsRouter } from './routes/home-events.js';
 import { maxHomeCoreRouter } from './routes/home-core.js';
 import { maxAuthProxyRouter } from './routes/max-auth-proxy.js';
 import { personalizationRouter } from './routes/personalization.js';
+import { discordRouter } from './routes/discord.js';
 
 export const app = express();
 
@@ -40,7 +41,7 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({ origin: corsOrigins, credentials: true }));
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '2mb', verify: (req, _res, buf) => { if (req.url?.includes('/discord/interactions')) (req as typeof req & { rawBody?: Buffer }).rawBody = Buffer.from(buf); } }));
 app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 app.use(correlationMiddleware);
 app.use(pinoHttp({ logger }));
@@ -61,6 +62,7 @@ app.get('/', (_req, res) => {
 app.use('/health', healthRouter);
 app.use(`${env.API_PREFIX}/health`, healthRouter);
 app.use(`${env.API_PREFIX}/auth`, maxAuthProxyRouter);
+app.use(`${env.API_PREFIX}/discord`, discordRouter);
 app.use(`${env.API_PREFIX}/profile`, profileRouter);
 app.use(`${env.API_PREFIX}/personalization`, personalizationRouter);
 app.use(`${env.API_PREFIX}/conversations`, conversationsRouter);
