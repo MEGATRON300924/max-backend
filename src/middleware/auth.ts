@@ -42,11 +42,11 @@ function principalFromIntrospection(result: IntrospectionResponse): AuthPrincipa
 export async function requireAuth(req: AuthenticatedRequest, _res: Response, next: NextFunction) {
   try {
     const authorization = req.header('authorization');
-    if (!authorization || !/^Bearer\\s+/i.test(authorization)) {
+    if (!authorization || !/^Bearer\s+/i.test(authorization)) {
       throw new ApiError(401, 'AUTH_REQUIRED', 'A MAX Auth access token is required');
     }
 
-    const token = authorization.replace(/^Bearer\\s+/i, '').trim();
+    const token = authorization.replace(/^Bearer\s+/i, '').trim();
     if (!token) {
       throw new ApiError(401, 'AUTH_REQUIRED', 'A MAX Auth access token is required');
     }
@@ -57,7 +57,7 @@ export async function requireAuth(req: AuthenticatedRequest, _res: Response, nex
 
     let response: globalThis.Response;
     try {
-      response = await fetch(`${env.MAX_AUTH_API_URL.replace(/\\/$/, '')}/oauth/introspect`, {
+      response = await fetch(`${env.MAX_AUTH_API_URL.replace(/\/$/, '')}/oauth/introspect`, {
         method: 'POST',
         headers: {
           Accept: 'application/json',
