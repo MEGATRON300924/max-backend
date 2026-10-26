@@ -17,8 +17,8 @@ const passthroughGroups = new Set([
 ]);
 
 function remotePath(req: Request) {
-  const path = req.path.replace(/^\\/+/, '');
-  const [group] = path.split('/');
+  const path = req.path.replace(/^\/+/, '');
+  const group = path.split('/')[0] ?? '';
 
   if (group === 'internal') {
     return '/api/v1/internal' + path.slice('internal'.length);
@@ -36,7 +36,7 @@ function forwardedHeaders(req: Request, internal: boolean) {
     Accept: req.header('accept') ?? 'application/json',
     'Content-Type': req.header('content-type') ?? 'application/json',
     'User-Agent': req.header('user-agent') ?? 'MAX Backend',
-    'X-Forwarded-For': req.ip,
+    'X-Forwarded-For': req.ip ?? '',
     'X-Forwarded-Proto': req.protocol
   };
 
@@ -57,13 +57,13 @@ function forwardedHeaders(req: Request, internal: boolean) {
 
 router.use(async (req, res, next) => {
   try {
-    const internal = req.path.replace(/^\\/+/, '').split('/')[0] === 'internal';
+    const internal = req.path.replace(/^\/+/, '').split('/')[0] === 'internal';
 
     if (internal && req.header('X-MAX-Auth-Service-Token') !== env.MAX_AUTH_SERVICE_TOKEN) {
       throw new ApiError(401, 'AUTH_INTERNAL_REQUIRED', 'MAX Auth internal access is required');
     }
 
-    const base = env.MAX_AUTH_API_URL.replace(/\\/$/, '');
+    const base = env.MAX_AUTH_API_URL.replace(/\/$/, '');
     const target = new URL(base + remotePath(req));
 
     for (const [key, value] of Object.entries(req.query)) {

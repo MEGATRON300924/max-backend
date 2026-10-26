@@ -12,6 +12,7 @@ import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cl
 import { storeService } from './store.service.js';
 import { generateStudioAsset } from './studio.service.js';
 import { tvSearch, tvAssistant } from './tv.service.js';
+import { listGithubRepositories, getGithubFile, createGithubPullRequest } from './github.service.js';
 
 type ToolContext = {
   userId: string;
@@ -30,6 +31,9 @@ export type MaxTool = {
   requiresConfirmation: boolean;
   declaration: GeminiFunctionDeclaration;
 };
+
+const githubFileInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), path: z.string().trim().min(1).max(400), ref: z.string().trim().max(200).optional() });
+const githubPullRequestInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), baseBranch: z.string().trim().min(1).max(200), branchName: z.string().trim().min(1).max(200), title: z.string().trim().min(1).max(250), body: z.string().max(10000).default(''), files: z.array(z.object({ path: z.string().min(1).max(400), content: z.string().max(100000) })).min(1).max(30) });
 
 const memoryInput = z.object({
   type: z.enum(['PREFERENCE', 'FACT', 'INTEREST', 'ROUTINE', 'INSTRUCTION']),
@@ -256,7 +260,12 @@ export async function getGoogleCalendarEventForConfirmation(context: ToolContext
   return maxAuthCalendarRequest('/events/' + encodeURIComponent(eventId) + (calendarId ? '?calendarId=' + encodeURIComponent(calendarId) : ''), context);
 }
 
+const githubEnabled = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_ALLOWED_OWNERS.trim() && env.GITHUB_ALLOWED_AUTH_SUBJECTS.trim());
+
 const tools: MaxTool[] = [
+  { name: 'github.repositories', capability: 'github', description: 'List repositories accessible to the configured MAX GitHub App installation.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List repositories the MAX GitHub App can access before proposing repository changes.', parameters: { type: 'object', properties: {} } } },
+  { name: 'github.file.get', capability: 'github', description: 'Read a file from an allowlisted repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
+  { name: 'github.create_pull_request', capability: 'github', description: 'Create a branch, commit code changes, and open a pull request.', enabled: githubEnabled, requiresConfirmation: true, declaration: { name: 'github_create_pull_request', description: 'After explicit user confirmation, create a new branch and one commit with proposed files, then open a pull request. Never commit directly to the base branch. Read relevant files first, keep changes minimal, and do not modify GitHub Actions workflows.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, baseBranch: { type: 'string' }, branchName: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, files: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path','content'] } } }, required: ['owner','repo','baseBranch','branchName','title','body','files'] } } },
   {
     name: 'google.drive.list', capability: 'google.drive', description: 'Read files the user has authorized MAX to access in Google Drive.', enabled: true, requiresConfirmation: false,
     declaration: { name: 'google_drive_list', description: 'List the user-authorized Google Drive files. Use q for targeted searches.', parameters: { type: 'object', properties: { q: { type: 'string' }, pageSize: { type: 'number' }, pageToken: { type: 'string' }, orderBy: { type: 'string' } } } }
@@ -541,6 +550,8 @@ export function resolveGeminiTool(name: string) {
 }
 
 export function validateToolInput(name: string, input: unknown) {
+  if (name === 'github.file.get') return githubFileInput.parse(input);
+  if (name === 'github.create_pull_request') return githubPullRequestInput.parse(input);
   if (name === 'calendar.events') return calendarInput.parse(input);
   if (name === 'calendar.create') return calendarCreateInput.parse(input);
   if (name === 'calendar.update') return calendarUpdateInput.parse(input);
@@ -590,7 +601,15 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'tv.search') {
+    if (name === 'github.repositories') {
+      result = { success: true, tool: name, repositories: await listGithubRepositories(context.authSubject) };
+    } else if (name === 'github.file.get') {
+      const data = validateToolInput(name, input) as z.infer<typeof githubFileInput>;
+      result = { success: true, tool: name, file: await getGithubFile(data.owner, data.repo, data.path, data.ref, context.authSubject) };
+    } else if (name === 'github.create_pull_request') {
+      const data = validateToolInput(name, input) as z.infer<typeof githubPullRequestInput>;
+      result = { tool: name, ...(await createGithubPullRequest(data, context.authSubject)) };
+    } else if (name === 'tv.search') {
       const data = validateToolInput(name, input) as z.infer<typeof tvSearchInput>;
       result = { success: true, tool: name, ...(await tvSearch(data.query)) };
     } else if (name === 'tv.assistant') {
