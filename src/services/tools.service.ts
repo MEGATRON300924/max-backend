@@ -260,7 +260,7 @@ export async function getGoogleCalendarEventForConfirmation(context: ToolContext
   return maxAuthCalendarRequest('/events/' + encodeURIComponent(eventId) + (calendarId ? '?calendarId=' + encodeURIComponent(calendarId) : ''), context);
 }
 
-const githubEnabled = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_ALLOWED_OWNERS.trim());
+const githubEnabled = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_ALLOWED_OWNERS.trim() && env.GITHUB_ALLOWED_AUTH_SUBJECTS.trim());
 
 const tools: MaxTool[] = [
   { name: 'github.repositories', capability: 'github', description: 'List repositories accessible to the configured MAX GitHub App installation.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List repositories the MAX GitHub App can access before proposing repository changes.', parameters: { type: 'object', properties: {} } } },
@@ -602,13 +602,13 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     let result: unknown;
 
     if (name === 'github.repositories') {
-      result = { success: true, tool: name, repositories: await listGithubRepositories() };
+      result = { success: true, tool: name, repositories: await listGithubRepositories(context.authSubject) };
     } else if (name === 'github.file.get') {
       const data = validateToolInput(name, input) as z.infer<typeof githubFileInput>;
-      result = { success: true, tool: name, file: await getGithubFile(data.owner, data.repo, data.path, data.ref) };
+      result = { success: true, tool: name, file: await getGithubFile(data.owner, data.repo, data.path, data.ref, context.authSubject) };
     } else if (name === 'github.create_pull_request') {
       const data = validateToolInput(name, input) as z.infer<typeof githubPullRequestInput>;
-      result = { success: true, tool: name, ...(await createGithubPullRequest(data)) };
+      result = { success: true, tool: name, ...(await createGithubPullRequest(data, context.authSubject)) };
     } else if (name === 'tv.search') {
       const data = validateToolInput(name, input) as z.infer<typeof tvSearchInput>;
       result = { success: true, tool: name, ...(await tvSearch(data.query)) };
