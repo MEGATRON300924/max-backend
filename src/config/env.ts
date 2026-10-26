@@ -19,7 +19,7 @@ const schema = z.object({
   MAX_AUTH_INTERNAL_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1/internal'),
   MAX_AUTH_SERVICE_TOKEN: z.string().optional(),
   DISCORD_APPLICATION_ID: z.string().optional(),
-  DISCORD_PUBLIC_KEY: z.string().regex(/^[0-9a-fA-F]{64}$/).optional(),
+  DISCORD_PUBLIC_KEY: z.string().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_COMMAND_GUILD_ID: z.string().optional(),
   ELEVENLABS_API_KEY: z.string().optional(),
