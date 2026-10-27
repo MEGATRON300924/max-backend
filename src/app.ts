@@ -43,7 +43,16 @@ app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 app.use(correlationMiddleware);
-app.use(pinoHttp({ logger }));
+app.use(pinoHttp({
+  logger,
+  customLogLevel: (_req, res, err) => {
+    if (err || res.statusCode >= 500) return 'error';
+    if (res.statusCode >= 400) return 'warn';
+    return 'info';
+  },
+  customSuccessMessage: (req, res) => `${req.method} ${req.url} completed with ${res.statusCode}`,
+  customErrorMessage: (req, res, err) => `${req.method} ${req.url} failed with ${res.statusCode}: ${err.message}`
+}));
 
 app.get('/', (_req, res) => {
   res.json({
