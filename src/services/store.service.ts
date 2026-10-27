@@ -5,6 +5,10 @@ function unavailable(): never {
 }
 
 export const storeService = {
-  async search(_query: Record<string, string | number | undefined>) { return unavailable(); },
-  async product(_slug: string) { return unavailable(); }
+  async search(_query: Record<string, string | number | undefined>): Promise<Record<string, unknown>> {
+    return unavailable();
+  },
+  async product(_slug: string): Promise<Record<string, unknown>> {
+    return unavailable();
+  }
 };
