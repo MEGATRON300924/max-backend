@@ -129,11 +129,19 @@ function safeName(name: string) {
   return (base || 'file').slice(0, 240);
 }
 
+class UnconfiguredCloudProvider implements CloudStorageProvider {
+  private unavailable(): never {
+    throw new ApiError(503, 'MEDIAFIRE_NOT_CONFIGURED', 'MAX Cloud storage is temporarily unavailable because its MediaFire session token is missing');
+  }
+
+  async upload(_input: CloudUploadInput): Promise<CloudStoredFile> { return this.unavailable(); }
+  async download(_storageKey: string): Promise<Buffer> { return this.unavailable(); }
+  async delete(_storageKey: string): Promise<void> { return this.unavailable(); }
+}
+
 export function createCloudStorageProvider(): CloudStorageProvider {
   if (env.MAX_CLOUD_PROVIDER === 'mediafire') {
-    if (!env.MEDIAFIRE_SESSION_TOKEN) {
-      throw new ApiError(503, 'MEDIAFIRE_NOT_CONFIGURED', 'MAX Cloud is configured for MediaFire but its session token is missing');
-    }
+    if (!env.MEDIAFIRE_SESSION_TOKEN) return new UnconfiguredCloudProvider();
     return new MediaFireProvider();
   }
   return new LocalCloudProvider();
