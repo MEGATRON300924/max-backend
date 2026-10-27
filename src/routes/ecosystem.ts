@@ -3,7 +3,6 @@ import { requireAuth } from '../middleware/auth.js';
 import { homeStatus } from '../services/home.service.js';
 import { listTools } from '../services/tools.service.js';
 import { voiceStatus } from '../services/voice.service.js';
-import { env } from '../config/env.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 
 export const ecosystemRouter = Router();
@@ -20,10 +19,10 @@ ecosystemRouter.get('/capabilities', (_req, res) => {
       browser: { available: true, status: 'gemini_google_search_and_url_context' },
       voice: voiceStatus(),
       connect: { available: true, status: 'max_auth' },
-      store: { available: Boolean(env.MAX_STORE_API_URL), status: env.MAX_STORE_API_URL ? 'ttfl_store' : 'not_configured' },
+      store: { available: false, status: 'not_implemented' },
       studio: { available: true, status: 'gemini_generation' },
       security: { available: true, status: 'max_auth' },
-      pay: { available: true, status: 'max_auth_entitlements' },
+      pay: { available: false, status: 'not_implemented' },
       tv: { available: true, status: 'assistant_and_search' },
       os: { available: true, status: 'ecosystem_api' }
     }
