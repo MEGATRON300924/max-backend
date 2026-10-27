@@ -508,11 +508,11 @@ const tools: MaxTool[] = [
     declaration: { name: 'cloud_delete', description: 'Delete a MAX Cloud file after explicit confirmation.', parameters: { type: 'object', properties: { id: { type: 'string' } }, required: ['id'] } }
   },
   {
-    name: 'store.search', capability: 'store', description: 'Search products in TTFL Store.', enabled: Boolean(env.MAX_STORE_API_URL), requiresConfirmation: false,
+    name: 'store.search', capability: 'store', description: 'Search products in TTFL Store.', enabled: false, requiresConfirmation: false,
     declaration: { name: 'store_search', description: 'Search products available through MAX Store.', parameters: { type: 'object', properties: { q: { type: 'string' }, category: { type: 'string' }, page: { type: 'number' }, limit: { type: 'number' } } } }
   },
   {
-    name: 'store.product', capability: 'store', description: 'Read a TTFL Store product.', enabled: Boolean(env.MAX_STORE_API_URL), requiresConfirmation: false,
+    name: 'store.product', capability: 'store', description: 'Read a TTFL Store product.', enabled: false, requiresConfirmation: false,
     declaration: { name: 'store_product', description: 'Get a TTFL Store product by slug.', parameters: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] } }
   },
   {
