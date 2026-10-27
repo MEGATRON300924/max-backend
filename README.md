@@ -4,12 +4,12 @@ The central backend for MAX AI. MAX Auth remains the identity and connector auth
 
 ## Services
 
-- MAX AI — Gemini Interactions API orchestration, conversations, memory and tool calling.
+- MAX AI — Groq-powered chat, conversations, memory, streaming and tool calling. Gemini remains an optional legacy chat provider.
 - MAX Voice — ElevenLabs Scribe STT and ElevenLabs TTS.
 - MAX Music — Spotify through MAX Auth; provider credentials stay in MAX Auth.
 - MAX Connect — unified connector status/connect/disconnect bridge to MAX Auth.
 - MAX Cloud — authenticated per-user file storage with quotas and checksums.
-- MAX Browser — Gemini Google Search grounding and URL Context.
+- MAX Browser — Gemini Google Search grounding and URL Context (currently still requires GEMINI_API_KEY).
 - MAX Store — optional read bridge to TTFL Store.
 - MAX Studio — authenticated generation workflows.
 - MAX Security — MAX Auth audit, usage, device and session bridge.
@@ -27,4 +27,4 @@ See docs/ALPINE.md. Docker and systemd are not required.
 
 ## Configuration
 
-Set DATABASE_URL, MAX Auth JWKS/service-token settings, and GEMINI_API_KEY. Set ElevenLabs credentials for voice. Set MAX_CLOUD_STORAGE_PATH for Cloud. Set MAX_STORE_API_URL only when TTFL Store discovery should be enabled. Set MAX_PAY_CHECKOUT_URL when an external checkout page is ready.
+Set GROQ_API_KEY to enable Groq as the primary chat provider and GROQ_MODEL to choose a supported model (default: openai/gpt-oss-20b). MAX Browser currently still requires GEMINI_API_KEY for Google Search grounding and URL Context; Gemini can also serve as a legacy chat provider when GROQ_API_KEY is absent. Set DATABASE_URL and MAX Auth JWKS/service-token settings. Set ElevenLabs credentials for voice. Set MAX_CLOUD_STORAGE_PATH for Cloud. Set MAX_STORE_API_URL only when TTFL Store discovery should be enabled. Set MAX_PAY_CHECKOUT_URL when an external checkout page is ready.
