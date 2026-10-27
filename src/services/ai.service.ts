@@ -30,7 +30,6 @@ type GroqMessage = {
   content?: string | null;
   tool_calls?: GroqToolCall[];
   tool_call_id?: string;
-  name?: string;
 };
 type GroqState = { messages: GroqMessage[]; model: string; updatedAt: number };
 type ProviderPayload = {
@@ -235,8 +234,7 @@ async function continueGroq(
     ...functionResults.map((item): GroqMessage => ({
       role: 'tool',
       tool_call_id: item.callId,
-      content: JSON.stringify(item.result),
-      name: item.name
+      content: JSON.stringify(item.result)
     }))
   ];
   const response = await groqRequest(messages, functions);
@@ -472,7 +470,7 @@ export async function streamGeminiInteraction(
     const messages: GroqMessage[] = [
       ...previous.messages,
       ...functionResults.map((item): GroqMessage => ({
-        role: 'tool', tool_call_id: item.callId, content: JSON.stringify(item.result), name: item.name
+        role: 'tool', tool_call_id: item.callId, content: JSON.stringify(item.result)
       }))
     ];
     const result = await streamGroq(messages, functions, onText);
