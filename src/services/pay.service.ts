@@ -1,4 +1,3 @@
-import { env } from '../config/env.js';
 import { ApiError } from '../middleware/errors.js';
 
 const plans = {
@@ -12,10 +11,9 @@ const plans = {
 export function entitlements(tier?: string | null) {
   const key = String(tier || 'FREE').toUpperCase() as keyof typeof plans;
   const plan = plans[key] ?? plans.FREE;
-  return { tier: key in plans ? key : 'FREE', plan, checkoutConfigured: Boolean(env.MAX_PAY_CHECKOUT_URL) };
+  return { tier: key in plans ? key : 'FREE', plan, checkoutConfigured: false };
 }
 
 export function checkoutUrl() {
-  if (!env.MAX_PAY_CHECKOUT_URL) throw new ApiError(503, 'MAX_PAY_NOT_CONFIGURED', 'MAX Pay checkout is not configured');
-  return env.MAX_PAY_CHECKOUT_URL;
+  throw new ApiError(503, 'MAX_PAY_NOT_IMPLEMENTED', 'MAX Pay checkout is not available yet');
 }
