@@ -87,6 +87,68 @@ conversationsRouter.delete('/:id', async (req: AuthenticatedRequest, res, next) 
   }
 });
 
+
+const recordMessagesSchema = z.object({
+  messages: z.array(z.object({
+    id: z.string().trim().min(1).max(128).optional(),
+    role: z.enum(['user', 'assistant']),
+    content: z.string().trim().min(1).max(20000),
+    provider: z.string().trim().max(80).optional()
+  })).min(1).max(20)
+});
+
+conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const input = recordMessagesSchema.parse(req.body);
+    const user = await getUser(req);
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    const conversation = await getConversationForUser(conversationId, user.id);
+
+    const saved = await prisma.$transaction(async (tx) => {
+      const created = [];
+      for (const message of input.messages) {
+        if (message.id) {
+          const duplicate = await tx.message.findFirst({
+            where: {
+              conversationId: conversation.id,
+              metadata: { path: ['clientMessageId'], equals: message.id }
+            }
+          });
+          if (duplicate) {
+            created.push(duplicate);
+            continue;
+          }
+        }
+        created.push(await tx.message.create({
+          data: {
+            conversationId: conversation.id,
+            role: message.role === 'user' ? 'USER' : 'ASSISTANT',
+            content: message.content,
+            provider: message.provider || 'botpress',
+            metadata: message.id ? { clientMessageId: message.id, source: 'MAX Chat' } : { source: 'MAX Chat' }
+          }
+        }));
+      }
+
+      const firstUserMessage = input.messages.find((message) => message.role === 'user');
+      await tx.conversation.update({
+        where: { id: conversation.id },
+        data: {
+          updatedAt: new Date(),
+          ...(firstUserMessage && (!conversation.title || conversation.title === 'New chat')
+            ? { title: firstUserMessage.content.slice(0, 80) }
+            : {})
+        }
+      });
+      return created;
+    });
+
+    res.status(201).json({ data: saved });
+  } catch (error) {
+    next(error);
+  }
+});
+
 conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res, next) => {
   try {
     const input = messageSchema.parse(req.body);
