@@ -1,15 +1,18 @@
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  previewFeatures = ["multiSchema"]
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+  schemas  = ["max_backend"]
 }
 
 enum ConversationStatus {
   ACTIVE
   ARCHIVED
+  @@schema("max_backend")
 }
 
 enum MessageRole {
@@ -17,6 +20,7 @@ enum MessageRole {
   ASSISTANT
   SYSTEM
   TOOL
+  @@schema("max_backend")
 }
 
 enum MemoryType {
@@ -25,6 +29,7 @@ enum MemoryType {
   INTEREST
   ROUTINE
   INSTRUCTION
+  @@schema("max_backend")
 }
 
 enum PendingActionStatus {
@@ -35,6 +40,7 @@ enum PendingActionStatus {
   CANCELLED
   EXPIRED
   FAILED
+  @@schema("max_backend")
 }
 
 model EcosystemUser {
@@ -62,6 +68,7 @@ model EcosystemUser {
 
   @@index([email])
   @@map("ecosystem_users")
+  @@schema("max_backend")
 }
 
 model Conversation {
@@ -78,6 +85,7 @@ model Conversation {
   @@index([userId, updatedAt])
   @@index([userId, status, updatedAt])
   @@map("conversations")
+  @@schema("max_backend")
 }
 
 model Message {
@@ -93,6 +101,7 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@map("messages")
+  @@schema("max_backend")
 }
 
 model Memory {
@@ -101,8 +110,12 @@ model Memory {
   type       MemoryType
   key        String
   value      String
-  source     String?
-  confidence Float?
+  source        String?
+  productSource String?   @map("product_source")
+  confidence    Float?
+  importance    Float     @default(0.5)
+  isExplicit    Boolean   @default(false) @map("is_explicit")
+  expiresAt     DateTime? @map("expires_at")
   createdAt  DateTime      @default(now()) @map("created_at")
   updatedAt  DateTime      @updatedAt @map("updated_at")
   user       EcosystemUser @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -110,6 +123,7 @@ model Memory {
   @@unique([userId, type, key])
   @@index([userId, type])
   @@map("memories")
+  @@schema("max_backend")
 }
 
 model PendingAction {
@@ -130,6 +144,7 @@ model PendingAction {
   @@index([userId, status, expiresAt])
   @@index([conversationId, status])
   @@map("pending_actions")
+  @@schema("max_backend")
 }
 
 model AuditEvent {
@@ -149,6 +164,7 @@ model AuditEvent {
   @@index([eventType, createdAt])
   @@index([correlationId])
   @@map("audit_events")
+  @@schema("max_backend")
 }
 
 model CloudFile {
@@ -165,6 +181,7 @@ model CloudFile {
 
   @@index([userId, createdAt])
   @@map("cloud_files")
+  @@schema("max_backend")
 }
 
 
@@ -176,12 +193,14 @@ enum DeviceType {
   SPEAKER
   CAR
   OTHER
+  @@schema("max_backend")
 }
 
 enum DeviceSessionStatus {
   ACTIVE
   REVOKED
   EXPIRED
+  @@schema("max_backend")
 }
 
 enum MaxEventType {
@@ -195,6 +214,7 @@ enum MaxEventType {
   DEVICE_CHANGED
   ACCOUNT_UPDATED
   SUBSCRIPTION_UPDATED
+  @@schema("max_backend")
 }
 
 enum EventPriority {
@@ -202,6 +222,7 @@ enum EventPriority {
   NORMAL
   IMPORTANT
   CRITICAL
+  @@schema("max_backend")
 }
 
 model Device {
@@ -234,6 +255,7 @@ model Device {
   @@index([homeId, roomId])
   @@index([lastSeenAt])
   @@map("devices")
+  @@schema("max_backend")
 }
 
 model DeviceSession {
@@ -253,6 +275,7 @@ model DeviceSession {
   @@index([userId, status])
   @@index([deviceId, status])
   @@map("device_sessions")
+  @@schema("max_backend")
 }
 
 model MaxEvent {
@@ -277,6 +300,7 @@ model MaxEvent {
   @@index([homeId, createdAt])
   @@index([eventType, createdAt])
   @@map("max_events")
+  @@schema("max_backend")
 }
 
 model Profile {
@@ -293,6 +317,7 @@ model Profile {
 
   @@index([userId])
   @@map("profiles")
+  @@schema("max_backend")
 }
 
 model MediaState {
@@ -311,6 +336,7 @@ model MediaState {
   @@unique([userId, contentId])
   @@index([userId, updatedAt])
   @@map("media_states")
+  @@schema("max_backend")
 }
 
 
@@ -321,6 +347,7 @@ enum HomeMemberRole {
   CHILD
   GUEST
   SUPPORT
+  @@schema("max_backend")
 }
 
 enum HomeModeType {
@@ -335,6 +362,7 @@ enum HomeModeType {
   CLEANING
   EMERGENCY
   CUSTOM
+  @@schema("max_backend")
 }
 
 enum AutomationStatus {
@@ -342,6 +370,7 @@ enum AutomationStatus {
   PAUSED
   DISABLED
   FAILED
+  @@schema("max_backend")
 }
 
 enum IncidentStatus {
@@ -349,6 +378,7 @@ enum IncidentStatus {
   ACKNOWLEDGED
   RESOLVED
   CANCELLED
+  @@schema("max_backend")
 }
 
 enum NotificationStatus {
@@ -358,6 +388,7 @@ enum NotificationStatus {
   FAILED
   READ
   ACKNOWLEDGED
+  @@schema("max_backend")
 }
 
 model Home {
@@ -390,6 +421,7 @@ model Home {
   geofences         HomeGeofence[]
   @@index([ownerId])
   @@map("homes")
+  @@schema("max_backend")
 }
 
 model HomeMember {
@@ -405,6 +437,7 @@ model HomeMember {
   @@unique([homeId, userId])
   @@index([userId])
   @@map("home_members")
+  @@schema("max_backend")
 }
 
 model HomeRoom {
@@ -417,6 +450,7 @@ model HomeRoom {
   home        Home         @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@unique([homeId, name])
   @@map("home_rooms")
+  @@schema("max_backend")
 }
 
 model HomeMode {
@@ -432,6 +466,7 @@ model HomeMode {
   @@unique([homeId, type, name])
   @@index([homeId, enabled])
   @@map("home_modes")
+  @@schema("max_backend")
 }
 
 model HomeAutomation {
@@ -451,6 +486,7 @@ model HomeAutomation {
   home           Home             @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, status])
   @@map("home_automations")
+  @@schema("max_backend")
 }
 
 model HomeScene {
@@ -463,6 +499,7 @@ model HomeScene {
   home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@unique([homeId, name])
   @@map("home_scenes")
+  @@schema("max_backend")
 }
 
 model HomeNotification {
@@ -484,6 +521,7 @@ model HomeNotification {
   @@index([homeId, createdAt])
   @@index([userId, status])
   @@map("home_notifications")
+  @@schema("max_backend")
 }
 
 model HomeAccessGrant {
@@ -502,6 +540,7 @@ model HomeAccessGrant {
   home        Home      @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, expiresAt])
   @@map("home_access_grants")
+  @@schema("max_backend")
 }
 
 model HomeIncident {
@@ -520,6 +559,7 @@ model HomeIncident {
   home               Home            @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, status, createdAt])
   @@map("home_incidents")
+  @@schema("max_backend")
 }
 
 model HomeLocation {
@@ -535,6 +575,7 @@ model HomeLocation {
   home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, userId, recordedAt])
   @@map("home_locations")
+  @@schema("max_backend")
 }
 
 model HomeGeofence {
@@ -550,6 +591,7 @@ model HomeGeofence {
   home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, enabled])
   @@map("home_geofences")
+  @@schema("max_backend")
 }
 
 model HomeIntegration {
@@ -566,6 +608,7 @@ model HomeIntegration {
   @@unique([homeId, provider, externalId])
   @@index([homeId, status])
   @@map("home_integrations")
+  @@schema("max_backend")
 }
 
 model HomeHealthIssue {
@@ -583,6 +626,7 @@ model HomeHealthIssue {
   home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, severity, resolvedAt])
   @@map("home_health_issues")
+  @@schema("max_backend")
 }
 
 model HomeEnergyReading {
@@ -597,6 +641,7 @@ model HomeEnergyReading {
   @@index([homeId, recordedAt])
   @@index([deviceId, recordedAt])
   @@map("home_energy_readings")
+  @@schema("max_backend")
 }
 
 model HomeTask {
@@ -612,6 +657,7 @@ model HomeTask {
   home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, status, dueAt])
   @@map("home_tasks")
+  @@schema("max_backend")
 }
 
 model HomeCalendarEvent {
@@ -627,6 +673,7 @@ model HomeCalendarEvent {
   home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, startsAt])
   @@map("home_calendar_events")
+  @@schema("max_backend")
 }
 
 model HomePayment {
@@ -645,6 +692,7 @@ model HomePayment {
   home           Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, status, createdAt])
   @@map("home_payments")
+  @@schema("max_backend")
 }
 
 model HomeSubscription {
@@ -660,4 +708,5 @@ model HomeSubscription {
   home        Home     @relation(fields: [homeId], references: [id], onDelete: Cascade)
   @@index([homeId, status])
   @@map("home_subscriptions")
+  @@schema("max_backend")
 }
