@@ -72,6 +72,13 @@ oauthMemoryRouter.get('/oauth', requireAuth, async (req: AuthenticatedRequest, r
 
 memoriesRouter.get('/', async (req: AuthenticatedRequest, res, next) => {
   try {
+    const scopes = Array.isArray(req.auth?.claims.scopes)
+      ? req.auth.claims.scopes.filter((scope): scope is string => typeof scope === 'string')
+      : [];
+    if (!scopes.includes('memory:read')) {
+      res.status(403).json({ success: false, error: { code: 'INSUFFICIENT_SCOPE', message: 'The access token does not include MAX Memory read permission' } });
+      return;
+    }
     const user = await resolveEcosystemUser(req.auth!);
     const type = req.query.type ? z.enum(['PREFERENCE', 'FACT', 'INTEREST', 'ROUTINE', 'INSTRUCTION']).parse(req.query.type) : undefined;
     const memories = await prisma.memory.findMany({
@@ -120,6 +127,13 @@ memoriesRouter.put('/', async (req: AuthenticatedRequest, res, next) => {
 
 memoriesRouter.delete('/:id', async (req: AuthenticatedRequest, res, next) => {
   try {
+    const scopes = Array.isArray(req.auth?.claims.scopes)
+      ? req.auth.claims.scopes.filter((scope): scope is string => typeof scope === 'string')
+      : [];
+    if (!scopes.includes('memory:write')) {
+      res.status(403).json({ success: false, error: { code: 'INSUFFICIENT_SCOPE', message: 'The access token does not include MAX Memory write permission' } });
+      return;
+    }
     const id = z.string().uuid().parse(req.params.id);
     const user = await resolveEcosystemUser(req.auth!);
     const result = await prisma.memory.deleteMany({ where: { id, userId: user.id } });
