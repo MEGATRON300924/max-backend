@@ -10,11 +10,65 @@ const memorySchema = z.object({
   key: z.string().trim().min(1).max(120),
   value: z.string().trim().min(1).max(4000),
   source: z.string().trim().max(120).optional(),
-  confidence: z.number().min(0).max(1).optional()
+  productSource: z.string().trim().max(120).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  importance: z.number().min(0).max(1).optional(),
+  isExplicit: z.boolean().optional(),
+  expiresAt: z.string().datetime().nullable().optional().transform((value) => value ? new Date(value) : value)
 });
 
 export const memoriesRouter = Router();
 memoriesRouter.use(requireAuth);
+
+export const oauthMemoryRouter = Router();
+oauthMemoryRouter.get('/oauth', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const scopes = Array.isArray(req.auth?.claims.scopes)
+      ? req.auth.claims.scopes.filter((scope): scope is string => typeof scope === 'string')
+      : [];
+    if (!scopes.includes('memory:read')) {
+      res.status(403).json({
+        success: false,
+        error: { code: 'INSUFFICIENT_SCOPE', message: 'The access token does not include MAX Memory permission' }
+      });
+      return;
+    }
+
+    const user = await resolveEcosystemUser(req.auth!);
+    const memories = await prisma.memory.findMany({
+      where: {
+        userId: user.id,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 500
+    });
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    const data: Array<Record<string, unknown>> = [];
+    for (const memory of memories) {
+      const item = {
+        id: memory.id,
+        type: memory.type,
+        content: memory.value,
+        source: memory.source ?? 'MAX',
+        productSource: memory.productSource ?? 'max-backend',
+        confidence: memory.confidence ?? 0.5,
+        importance: memory.importance,
+        isExplicit: memory.isExplicit,
+        expiresAt: memory.expiresAt?.toISOString() ?? null,
+        createdAt: memory.createdAt.toISOString(),
+        updatedAt: memory.updatedAt.toISOString()
+      };
+      if (Buffer.byteLength(JSON.stringify({ success: true, data: [...data, item] }), 'utf8') > 240 * 1024) break;
+      data.push(item);
+    }
+    res.json({ success: true, data, truncated: data.length < memories.length });
+  } catch (error) {
+    next(error);
+  }
+});
 
 memoriesRouter.get('/', async (req: AuthenticatedRequest, res, next) => {
   try {
@@ -37,7 +91,15 @@ memoriesRouter.put('/', async (req: AuthenticatedRequest, res, next) => {
     const memory = await prisma.memory.upsert({
       where: { userId_type_key: { userId: user.id, type: input.type, key: input.key } },
       create: { userId: user.id, ...input },
-      update: { value: input.value, source: input.source, confidence: input.confidence }
+      update: {
+        value: input.value,
+        source: input.source,
+        productSource: input.productSource,
+        confidence: input.confidence,
+        importance: input.importance,
+        isExplicit: input.isExplicit,
+        expiresAt: input.expiresAt
+      }
     });
     res.json({ data: memory });
   } catch (error) {
