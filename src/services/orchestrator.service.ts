@@ -12,6 +12,7 @@ type UserContext = {
   timezone: string | null;
   authSubject?: string;
   authAccessToken?: string;
+  scopes?: string[];
   tier?: string | null;
 };
 
@@ -187,6 +188,7 @@ async function processToolCalls(
         userId: user.id,
         authSubject: user.authSubject,
         authAccessToken: user.authAccessToken,
+        scopes: user.scopes,
         timezone: user.timezone,
         tier: user.tier,
         confirmed: false
