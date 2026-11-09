@@ -17,7 +17,10 @@ conversationsRouter.use(requireAuth);
 async function getUser(req: AuthenticatedRequest) {
   const user = await resolveEcosystemUser(req.auth!);
   const authorization = req.header('authorization');
-  return { ...user, authAccessToken: authorization?.replace(/^Bearer\s+/i, '').trim() };
+  const scopes = Array.isArray(req.auth?.claims.scopes)
+    ? req.auth.claims.scopes.filter((scope): scope is string => typeof scope === 'string')
+    : [];
+  return { ...user, scopes, authAccessToken: authorization?.replace(/^Bearer\s+/i, '').trim() };
 }
 
 async function getConversationForUser(id: string, userId: string) {

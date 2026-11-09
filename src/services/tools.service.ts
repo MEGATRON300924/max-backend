@@ -19,6 +19,7 @@ type ToolContext = {
   authSubject?: string;
   confirmed?: boolean;
   authAccessToken?: string;
+  scopes?: string[];
   timezone?: string | null;
   tier?: string | null;
 };
@@ -760,6 +761,7 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       const data = validateToolInput(name, input) as z.infer<typeof calendarDeleteInput>;
       result = { success: true, tool: name, result: await maxAuthCalendarRequest('/events/' + encodeURIComponent(data.eventId) + (data.calendarId ? '?calendarId=' + encodeURIComponent(data.calendarId) : ''), context, { method: 'DELETE' }) };
     } else if (name === 'memory.save') {
+      if (!context.scopes?.includes('memory:write')) throw new ApiError(403, 'INSUFFICIENT_SCOPE', 'The MAX Auth token does not include memory:write permission');
       const data = memoryInput.parse(input);
       const memory = await prisma.memory.upsert({
         where: { userId_type_key: { userId: context.userId, type: data.type, key: data.key } },
@@ -768,6 +770,7 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       });
       result = { success: true, tool: name, memoryId: memory.id };
     } else if (name === 'memory.delete') {
+      if (!context.scopes?.includes('memory:write')) throw new ApiError(403, 'INSUFFICIENT_SCOPE', 'The MAX Auth token does not include memory:write permission');
       const data = z.object({ memoryId: z.string().min(1).max(200) }).parse(input);
       const deleted = await prisma.memory.deleteMany({ where: { id: data.memoryId, userId: context.userId } });
       if (deleted.count !== 1) throw new ApiError(404, 'MEMORY_NOT_FOUND', 'The requested memory was not found');
