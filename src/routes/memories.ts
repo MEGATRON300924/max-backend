@@ -16,6 +16,53 @@ const memorySchema = z.object({
 export const memoriesRouter = Router();
 memoriesRouter.use(requireAuth);
 
+export const oauthMemoryRouter = Router();
+oauthMemoryRouter.get('/oauth', requireAuth, async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const scopes = Array.isArray(req.auth?.claims.scopes)
+      ? req.auth.claims.scopes.filter((scope): scope is string => typeof scope === 'string')
+      : [];
+    if (!scopes.includes('memory:read')) {
+      res.status(403).json({
+        success: false,
+        error: { code: 'INSUFFICIENT_SCOPE', message: 'The access token does not include MAX Memory permission' }
+      });
+      return;
+    }
+
+    const user = await resolveEcosystemUser(req.auth!);
+    const memories = await prisma.memory.findMany({
+      where: {
+        userId: user.id,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+      },
+      orderBy: { updatedAt: 'desc' },
+      take: 1000
+    });
+
+    res.setHeader('Cache-Control', 'no-store');
+    res.setHeader('Pragma', 'no-cache');
+    res.json({
+      success: true,
+      data: memories.map((memory) => ({
+        id: memory.id,
+        type: memory.type,
+        content: memory.value,
+        source: memory.source ?? 'MAX',
+        productSource: memory.productSource ?? 'max-backend',
+        confidence: memory.confidence ?? 0.5,
+        importance: memory.importance,
+        isExplicit: memory.isExplicit,
+        expiresAt: memory.expiresAt?.toISOString() ?? null,
+        createdAt: memory.createdAt.toISOString(),
+        updatedAt: memory.updatedAt.toISOString()
+      }))
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 memoriesRouter.get('/', async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await resolveEcosystemUser(req.auth!);
