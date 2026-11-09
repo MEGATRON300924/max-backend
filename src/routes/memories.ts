@@ -10,7 +10,11 @@ const memorySchema = z.object({
   key: z.string().trim().min(1).max(120),
   value: z.string().trim().min(1).max(4000),
   source: z.string().trim().max(120).optional(),
-  confidence: z.number().min(0).max(1).optional()
+  productSource: z.string().trim().max(120).optional(),
+  confidence: z.number().min(0).max(1).optional(),
+  importance: z.number().min(0).max(1).optional(),
+  isExplicit: z.boolean().optional(),
+  expiresAt: z.string().datetime().nullable().optional().transform((value) => value ? new Date(value) : value)
 });
 
 export const memoriesRouter = Router();
@@ -37,14 +41,14 @@ oauthMemoryRouter.get('/oauth', requireAuth, async (req: AuthenticatedRequest, r
         OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
       },
       orderBy: { updatedAt: 'desc' },
-      take: 1000
+      take: 500
     });
 
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('Pragma', 'no-cache');
-    res.json({
-      success: true,
-      data: memories.map((memory) => ({
+    const data: Array<Record<string, unknown>> = [];
+    for (const memory of memories) {
+      const item = {
         id: memory.id,
         type: memory.type,
         content: memory.value,
@@ -56,8 +60,11 @@ oauthMemoryRouter.get('/oauth', requireAuth, async (req: AuthenticatedRequest, r
         expiresAt: memory.expiresAt?.toISOString() ?? null,
         createdAt: memory.createdAt.toISOString(),
         updatedAt: memory.updatedAt.toISOString()
-      }))
-    });
+      };
+      if (Buffer.byteLength(JSON.stringify({ success: true, data: [...data, item] }), 'utf8') > 240 * 1024) break;
+      data.push(item);
+    }
+    res.json({ success: true, data, truncated: data.length < memories.length });
   } catch (error) {
     next(error);
   }
@@ -84,7 +91,15 @@ memoriesRouter.put('/', async (req: AuthenticatedRequest, res, next) => {
     const memory = await prisma.memory.upsert({
       where: { userId_type_key: { userId: user.id, type: input.type, key: input.key } },
       create: { userId: user.id, ...input },
-      update: { value: input.value, source: input.source, confidence: input.confidence }
+      update: {
+        value: input.value,
+        source: input.source,
+        productSource: input.productSource,
+        confidence: input.confidence,
+        importance: input.importance,
+        isExplicit: input.isExplicit,
+        expiresAt: input.expiresAt
+      }
     });
     res.json({ data: memory });
   } catch (error) {
