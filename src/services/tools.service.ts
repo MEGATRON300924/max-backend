@@ -47,7 +47,7 @@ const memoryInput = z.object({
 const homeInput = z.object({
   action: z.string().trim().min(1).max(100),
   targetId: z.string().trim().min(1).max(200).optional(),
-  parameters: z.record(z.unknown()).optional()
+  parameters: z.record(z.string(), z.unknown()).optional()
 });
 
 
@@ -130,7 +130,7 @@ const googleYouTubeVideosInput = z.object({ videoIds: z.string().trim().min(1).m
 const googleYouTubeSearchInput = z.object({ q: z.string().trim().min(1).max(500), type: z.enum(['video','channel','playlist']).optional(), maxResults: z.number().int().min(1).max(50).optional(), pageToken: z.string().max(2000).optional() });
 const googleContactsInput = z.object({ pageSize: z.number().int().min(1).max(1000).optional() });
 const googleSheetInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().max(1000).optional() });
-const googleWriteInput = z.record(z.unknown());
+const googleWriteInput = z.record(z.string(), z.unknown());
 const googleGmailSendInput = z.object({ raw: z.string().min(1).max(1000000) });
 const googleGmailModifyInput = z.object({ messageId: z.string().trim().min(1).max(500), addLabelIds: z.array(z.string().max(100)).max(50).optional(), removeLabelIds: z.array(z.string().max(100)).max(50).optional() });
 const googleSheetWriteInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().trim().min(1).max(1000), values: z.array(z.array(z.unknown())).max(10000), valueInputOption: z.string().max(100).optional() });
@@ -144,10 +144,10 @@ const cloudUploadInput = z.object({ filename: z.string().min(1).max(255), mimeTy
 const cloudFileInput = z.object({ id: z.string().uuid() });
 const storeSearchInput = z.object({ q: z.string().max(300).optional(), category: z.string().max(100).optional(), page: z.number().int().min(1).max(1000).optional(), limit: z.number().int().min(1).max(100).optional() });
 const tvSearchInput = z.object({ query: z.string().trim().min(1).max(1000) });
-const tvAssistantInput = z.object({ request: z.string().trim().min(1).max(10000), context: z.record(z.unknown()).optional() });
+const tvAssistantInput = z.object({ request: z.string().trim().min(1).max(10000), context: z.record(z.string(), z.unknown()).optional() });
 const studioInput = z.object({ prompt: z.string().trim().min(1).max(20000), type: z.enum(['text','code','prompt']).default('text'), context: z.string().max(20000).optional() });
 const storeProductInput = z.object({ slug: z.string().min(1).max(300) });
-const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
+const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.string(), z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
 const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   eventId: z.string().trim().min(1).max(500)
