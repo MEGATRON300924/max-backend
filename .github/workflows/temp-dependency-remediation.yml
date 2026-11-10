@@ -1,0 +1,48 @@
+name: Temporary dependency remediation
+
+on:
+  push:
+    branches:
+      - feat/github-app-user-access
+
+permissions:
+  contents: write
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Upgrade dependencies and validate application
+        run: |
+          set -e
+          npm install zod@^4.6.7 --save
+          npm install vitest@^5.1.0 --save-dev
+          npx prisma generate
+          npm run typecheck
+          npm run build
+          npm test -- --passWithNoTests
+          npm audit --omit=dev || true
+      - name: Commit validated dependency updates and remove temporary workflow
+        if: success()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json
+          git rm .github/workflows/temp-dependency-remediation.yml
+          git commit -m "fix: upgrade Zod and patched test runner"
+          git push origin HEAD:${{ github.ref_name }}
+      - name: Remove temporary workflow after failed validation
+        if: failure()
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/temp-dependency-remediation.yml || true
+          git commit -m "chore: remove temporary remediation workflow" || true
+          git push origin HEAD:${{ github.ref_name }} || true
