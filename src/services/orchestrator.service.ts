@@ -43,6 +43,7 @@ const capabilities = {
   voice: Boolean(env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID),
   calendar: true,
   google: true,
+  github: Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.MAX_AUTH_SERVICE_TOKEN),
   connect: true,
   store: false,
   studio: true,
@@ -69,6 +70,7 @@ function unavailableCapability(intent: string) {
   if (intent === 'home' && !capabilities.home) return 'MAX Home is not configured for this backend.';
   if (intent === 'calendar' && !capabilities.calendar) return 'Google Calendar is not configured for this backend.';
   if (intent === 'google' && !capabilities.google) return 'Google services are not configured for this backend.';
+  if (intent === 'github' && !capabilities.github) return 'GitHub repository access is not configured for this MAX account yet.';
   if (intent === 'tv' && !capabilities.browser) return 'MAX TV web search is not configured for this backend.';
   if (intent === 'music' && !capabilities.music) return 'MAX Music is not configured for this backend.';
   if (intent === 'browser' && !capabilities.browser) return 'MAX Browser is not configured for this backend.';
