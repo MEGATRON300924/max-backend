@@ -71,7 +71,7 @@ export async function listGithubDirectory(ownerInput: string, repoInput: string,
   const repo = safePart(repoInput, 'repository');
   const installation = await installationForRepository(authSubject, owner, repo);
   const path = pathInput.split('/').filter(Boolean).join('/');
-  if (path.split('/').some((part) => part === '.' || part === '..')) throw new ApiError(400, 'GITHUB_INVALID_PATH', 'Invalid repository directory path.');
+    if (!path || path.length > 400 || path.split('/').some((p) => !p || p === '.' || p === '..') || path.includes('\\')) throw new ApiError(400, 'GITHUB_INVALID_PATH', \`Invalid repository path: \${file.path}\`);
   const encodedPath = path ? '/' + path.split('/').map(encodeURIComponent).join('/') : '';
   const data = await github<Array<{ type: string; name: string; path: string; size?: number; html_url?: string }>>(installation.installationId, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents${encodedPath}${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`);
   if (!Array.isArray(data)) throw new ApiError(400, 'GITHUB_NOT_A_DIRECTORY', 'The requested path is not a directory.');
@@ -99,8 +99,8 @@ export async function createGithubPullRequest(input: { owner: string; repo: stri
   if (!input.files.length || input.files.length > 30) throw new ApiError(400, 'GITHUB_FILE_LIMIT', 'A change must contain between 1 and 30 files.');
   const seen = new Set<string>();
   const files = input.files.map((file) => {
-    const path = file.path.trim().replace(/^\\/+/, '');
-    if (!path || path.length > 400 || path.split('/').some((p) => !p || p === '.' || p === '..') || path.includes('\\')) throw new ApiError(400, 'GITHUB_INVALID_PATH', `Invalid repository path: ${file.path}`);
+    const path = file.path.trim().replace(/^\/+/, '');
+    if (!path || path.length > 400 || path.split('/').some((p) => !p || p === '.' || p === '..') || path.includes('\\')) throw new ApiError(400, 'GITHUB_INVALID_PATH', \`Invalid repository path: \${file.path}\`);
     if (path.startsWith('.git/')) throw new ApiError(403, 'GITHUB_RESERVED_PATH', 'MAX cannot write into Git internals.');
     if (path.startsWith('.github/workflows/')) throw new ApiError(403, 'GITHUB_WORKFLOW_PROTECTED', 'MAX cannot modify GitHub Actions workflows through this tool.');
     if (seen.has(path)) throw new ApiError(400, 'GITHUB_DUPLICATE_PATH', `Duplicate file path: ${path}`);
