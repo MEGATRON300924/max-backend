@@ -23,7 +23,7 @@ router.post('/', async (req: AuthenticatedRequest, res, next) => {
     const body = z.object({
       eventType: z.enum(['ANNOUNCEMENT','BROADCAST','SECURITY_ALERT','COMMAND','MEDIA_ACTION','NOTIFICATION','AUTOMATION_EVENT','DEVICE_CHANGED','ACCOUNT_UPDATED','SUBSCRIPTION_UPDATED']),
       priority: z.enum(['INFO','NORMAL','IMPORTANT','CRITICAL']).default('NORMAL'),
-      payload: z.record(z.unknown()),
+      payload: z.record(z.string(), z.unknown()),
       deviceId: z.string().uuid().optional(),
       homeId: z.string().max(200).optional(),
       roomId: z.string().max(200).optional(),
