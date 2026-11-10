@@ -36,7 +36,7 @@ async function userInstallations(authSubject?: string): Promise<UserInstallation
   if (!env.MAX_AUTH_SERVICE_TOKEN) throw new ApiError(503, 'AUTH_NOT_CONFIGURED', 'MAX Auth service integration is not configured.');
   const internalBase = env.MAX_AUTH_INTERNAL_URL.endsWith('/') ? env.MAX_AUTH_INTERNAL_URL.slice(0, -1) : env.MAX_AUTH_INTERNAL_URL;
   const response = await fetch(`${internalBase}/users/${encodeURIComponent(authSubject)}/github/installations`, {
-    headers: { Accept: 'application/json', 'X-MAX-Auth-Service-Token': env.MAX_AUTH_SERVICE_TOKEN },
+    headers: { Accept: 'application/json', 'X-MAX-Auth-Service-Token': env.MAX_AUTH_SERVICE_TOKEN, 'X-MAX-User-Id': authSubject },
     signal: AbortSignal.timeout(8000)
   });
   const body = await response.json().catch(() => ({})) as { data?: { installations?: UserInstallation[] }; installations?: UserInstallation[] };
