@@ -17,7 +17,7 @@ const registration = z.object({
   model: z.string().max(200).optional(),
   osVersion: z.string().max(100).optional(),
   appVersion: z.string().max(100).optional(),
-  capabilities: z.record(z.unknown()).optional(),
+  capabilities: z.record(z.string(), z.unknown()).optional(),
   timezone: z.string().max(100).optional(),
   language: z.string().max(50).optional(),
   homeId: z.string().max(200).optional(),
