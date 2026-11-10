@@ -239,7 +239,7 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
   // MAX's existing tool-calling path so confirmations and backend permissions remain intact.
   if (intent === 'general' && env.BOTPRESS_PRIMARY_ENABLED) {
     try {
-      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns, system);
+      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns);
       if (primary.text.trim()) {
         return { text: primary.text, provider: primary.provider, model: primary.model, intent, tools: [], confirmations: [], interactionId: null };
       }
