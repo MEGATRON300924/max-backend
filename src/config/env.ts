@@ -15,7 +15,7 @@ const schema = z.object({
   BOTPRESS_CHAT_API_ID: z.string().trim().default('241cbe7b-1e57-4f32-bead-9e82440b66dc'),
   BOTPRESS_ENCRYPTION_KEY: z.string().min(1).optional(),
   BOTPRESS_CHAT_ENCRYPTION_KEY: z.string().min(1).optional(),
-  BOTPRESS_PRIMARY_ENABLED: z.coerce.boolean().default(false),
+  BOTPRESS_PRIMARY_ENABLED: z.preprocess((value) => value === true || value === 'true', z.boolean()).default(false),
   MAX_HOME_API_URL: z.string().url().optional(),
   MAX_AUTH_API_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1'),
   MAX_AUTH_INTERNAL_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1/internal'),
