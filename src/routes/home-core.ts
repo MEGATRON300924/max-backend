@@ -12,7 +12,7 @@ const router = Router();
 router.use(requireAuth);
 
 const id = z.string().uuid();
-const json = z.record(z.unknown());
+const json = z.record(z.string(), z.unknown());
 
 async function actor(req: AuthenticatedRequest) {
   return resolveEcosystemUser(req.auth!);

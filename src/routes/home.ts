@@ -8,7 +8,7 @@ import { homeStatus, maxHomeRequest } from '../services/home.service.js';
 const actionSchema = z.object({
   action: z.string().trim().min(1).max(100),
   targetId: z.string().trim().max(200).optional(),
-  parameters: z.record(z.unknown()).optional()
+  parameters: z.record(z.string(), z.unknown()).optional()
 });
 
 export const homeRouter = Router();

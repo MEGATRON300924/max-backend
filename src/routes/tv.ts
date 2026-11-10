@@ -15,7 +15,7 @@ router.post('/search', async (req, res, next) => {
 
 router.post('/assistant', async (req, res, next) => {
   try {
-    const body = z.object({ request: z.string().trim().min(1).max(10000), context: z.record(z.unknown()).optional() }).parse(req.body);
+    const body = z.object({ request: z.string().trim().min(1).max(10000), context: z.record(z.string(), z.unknown()).optional() }).parse(req.body);
     res.json({ data: await tvAssistant(body.request, body.context) });
   } catch (error) { next(error); }
 });

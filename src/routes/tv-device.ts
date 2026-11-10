@@ -21,7 +21,7 @@ router.post('/register', async (req: AuthenticatedRequest, res, next) => {
       model: z.string().max(200).optional(),
       osVersion: z.string().max(100).optional(),
       appVersion: z.string().max(100).optional(),
-      capabilities: z.record(z.unknown()).optional(),
+      capabilities: z.record(z.string(), z.unknown()).optional(),
       timezone: z.string().max(100).optional(),
       language: z.string().max(50).optional(),
       homeId: z.string().max(200).optional(),
@@ -33,7 +33,7 @@ router.post('/register', async (req: AuthenticatedRequest, res, next) => {
 
 router.post('/:id/commands', async (req: AuthenticatedRequest, res, next) => {
   try {
-    const body = z.object({ command: z.string().min(1).max(200), parameters: z.record(z.unknown()).optional() }).parse(req.body);
+    const body = z.object({ command: z.string().min(1).max(200), parameters: z.record(z.string(), z.unknown()).optional() }).parse(req.body);
     res.status(202).json({ data: await sendTvCommand(req.auth!, z.string().uuid().parse(req.params.id), body.command, body.parameters) });
   } catch (error) { next(error); }
 });

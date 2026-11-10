@@ -12,7 +12,7 @@ import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cl
 import { storeService } from './store.service.js';
 import { generateStudioAsset } from './studio.service.js';
 import { tvSearch, tvAssistant } from './tv.service.js';
-import { listGithubRepositories, getGithubFile, createGithubPullRequest } from './github.service.js';
+import { listGithubRepositories, listGithubDirectory, getGithubFile, createGithubPullRequest } from './github.service.js';
 
 type ToolContext = {
   userId: string;
@@ -34,6 +34,7 @@ export type MaxTool = {
 };
 
 const githubFileInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), path: z.string().trim().min(1).max(400), ref: z.string().trim().max(200).optional() });
+const githubDirectoryInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), path: z.string().trim().max(400).optional(), ref: z.string().trim().max(200).optional() });
 const githubPullRequestInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), baseBranch: z.string().trim().min(1).max(200), branchName: z.string().trim().min(1).max(200), title: z.string().trim().min(1).max(250), body: z.string().max(10000).default(''), files: z.array(z.object({ path: z.string().min(1).max(400), content: z.string().max(100000) })).min(1).max(30) });
 
 const memoryInput = z.object({
@@ -46,7 +47,7 @@ const memoryInput = z.object({
 const homeInput = z.object({
   action: z.string().trim().min(1).max(100),
   targetId: z.string().trim().min(1).max(200).optional(),
-  parameters: z.record(z.unknown()).optional()
+  parameters: z.record(z.string(), z.unknown()).optional()
 });
 
 
@@ -129,7 +130,7 @@ const googleYouTubeVideosInput = z.object({ videoIds: z.string().trim().min(1).m
 const googleYouTubeSearchInput = z.object({ q: z.string().trim().min(1).max(500), type: z.enum(['video','channel','playlist']).optional(), maxResults: z.number().int().min(1).max(50).optional(), pageToken: z.string().max(2000).optional() });
 const googleContactsInput = z.object({ pageSize: z.number().int().min(1).max(1000).optional() });
 const googleSheetInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().max(1000).optional() });
-const googleWriteInput = z.record(z.unknown());
+const googleWriteInput = z.record(z.string(), z.unknown());
 const googleGmailSendInput = z.object({ raw: z.string().min(1).max(1000000) });
 const googleGmailModifyInput = z.object({ messageId: z.string().trim().min(1).max(500), addLabelIds: z.array(z.string().max(100)).max(50).optional(), removeLabelIds: z.array(z.string().max(100)).max(50).optional() });
 const googleSheetWriteInput = z.object({ spreadsheetId: z.string().trim().min(1).max(500), range: z.string().trim().min(1).max(1000), values: z.array(z.array(z.unknown())).max(10000), valueInputOption: z.string().max(100).optional() });
@@ -143,10 +144,10 @@ const cloudUploadInput = z.object({ filename: z.string().min(1).max(255), mimeTy
 const cloudFileInput = z.object({ id: z.string().uuid() });
 const storeSearchInput = z.object({ q: z.string().max(300).optional(), category: z.string().max(100).optional(), page: z.number().int().min(1).max(1000).optional(), limit: z.number().int().min(1).max(100).optional() });
 const tvSearchInput = z.object({ query: z.string().trim().min(1).max(1000) });
-const tvAssistantInput = z.object({ request: z.string().trim().min(1).max(10000), context: z.record(z.unknown()).optional() });
+const tvAssistantInput = z.object({ request: z.string().trim().min(1).max(10000), context: z.record(z.string(), z.unknown()).optional() });
 const studioInput = z.object({ prompt: z.string().trim().min(1).max(20000), type: z.enum(['text','code','prompt']).default('text'), context: z.string().max(20000).optional() });
 const storeProductInput = z.object({ slug: z.string().min(1).max(300) });
-const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
+const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.string(), z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
 const calendarDeleteInput = z.object({
   calendarId: z.string().trim().min(1).max(500).optional(),
   eventId: z.string().trim().min(1).max(500)
@@ -261,11 +262,12 @@ export async function getGoogleCalendarEventForConfirmation(context: ToolContext
   return maxAuthCalendarRequest('/events/' + encodeURIComponent(eventId) + (calendarId ? '?calendarId=' + encodeURIComponent(calendarId) : ''), context);
 }
 
-const githubEnabled = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_ALLOWED_OWNERS.trim() && env.GITHUB_ALLOWED_AUTH_SUBJECTS.trim());
+const githubEnabled = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.MAX_AUTH_SERVICE_TOKEN && env.MAX_AUTH_INTERNAL_URL);
 
 const tools: MaxTool[] = [
-  { name: 'github.repositories', capability: 'github', description: 'List repositories accessible to the configured MAX GitHub App installation.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List repositories the MAX GitHub App can access before proposing repository changes.', parameters: { type: 'object', properties: {} } } },
-  { name: 'github.file.get', capability: 'github', description: 'Read a file from an allowlisted repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
+  { name: 'github.repositories', capability: 'github', description: 'List repositories granted to this authenticated MAX user through their GitHub App installations.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List only repositories the authenticated MAX user has granted to MAX. Use these results to identify the exact repository and default branch before reading or editing.', parameters: { type: 'object', properties: {} } } },
+  { name: 'github.directory.list', capability: 'github', description: 'Browse a directory in a repository granted by this MAX user.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_directory_list', description: 'List files and folders in a repository directory. Start with an empty path to inspect the repository root; then browse folders and read relevant files.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo'] } } },
+  { name: 'github.file.get', capability: 'github', description: 'Read a file from a repository explicitly granted by this MAX user.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
   { name: 'github.create_pull_request', capability: 'github', description: 'Create a branch, commit code changes, and open a pull request.', enabled: githubEnabled, requiresConfirmation: true, declaration: { name: 'github_create_pull_request', description: 'After explicit user confirmation, create a new branch and one commit with proposed files, then open a pull request. Never commit directly to the base branch. Read relevant files first, keep changes minimal, and do not modify GitHub Actions workflows.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, baseBranch: { type: 'string' }, branchName: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, files: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path','content'] } } }, required: ['owner','repo','baseBranch','branchName','title','body','files'] } } },
   {
     name: 'google.drive.list', capability: 'google.drive', description: 'Read files the user has authorized MAX to access in Google Drive.', enabled: true, requiresConfirmation: false,
@@ -551,6 +553,7 @@ export function resolveGeminiTool(name: string) {
 }
 
 export function validateToolInput(name: string, input: unknown) {
+  if (name === 'github.directory.list') return githubDirectoryInput.parse(input);
   if (name === 'github.file.get') return githubFileInput.parse(input);
   if (name === 'github.create_pull_request') return githubPullRequestInput.parse(input);
   if (name === 'calendar.events') return calendarInput.parse(input);
@@ -604,6 +607,9 @@ export async function executeTool(name: string, context: ToolContext, input: unk
 
     if (name === 'github.repositories') {
       result = { success: true, tool: name, repositories: await listGithubRepositories(context.authSubject) };
+    } else if (name === 'github.directory.list') {
+      const data = validateToolInput(name, input) as z.infer<typeof githubDirectoryInput>;
+      result = { success: true, tool: name, entries: await listGithubDirectory(data.owner, data.repo, data.path, data.ref, context.authSubject) };
     } else if (name === 'github.file.get') {
       const data = validateToolInput(name, input) as z.infer<typeof githubFileInput>;
       result = { success: true, tool: name, file: await getGithubFile(data.owner, data.repo, data.path, data.ref, context.authSubject) };
