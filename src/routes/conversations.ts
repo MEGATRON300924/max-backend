@@ -8,6 +8,7 @@ import { resolveEcosystemUser } from '../services/user.service.js';
 import { orchestrate, orchestrateStream } from '../services/orchestrator.service.js';
 
 const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
+const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(100) });
 const messageSchema = z.object({ content: z.string().trim().min(1).max(20000) });
 const conversationIdSchema = z.string().uuid();
 
@@ -73,6 +74,23 @@ conversationsRouter.get('/:id', async (req: AuthenticatedRequest, res, next) => 
     const user = await getUser(req);
     const conversationId = conversationIdSchema.parse(req.params.id);
     res.json({ data: await getConversationForUser(conversationId, user.id) });
+  } catch (error) {
+    next(error);
+  }
+});
+
+conversationsRouter.patch('/:id', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const input = updateConversationSchema.parse(req.body);
+    const user = await getUser(req);
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    await getConversationForUser(conversationId, user.id);
+    const conversation = await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { title: input.title, updatedAt: new Date() },
+      select: { id: true, title: true, status: true, createdAt: true, updatedAt: true }
+    });
+    res.json({ data: conversation });
   } catch (error) {
     next(error);
   }
