@@ -113,7 +113,7 @@ export async function generateBotpressResponse(
 ) {
   if (!env.BOTPRESS_PRIMARY_ENABLED) throw new Error('Botpress primary routing is disabled.');
 
-  const botpressUserId = `max-${userId}`;
+  const botpressUserId = userId;
   const userKey = await signUserKey(botpressUserId);
 
   await request<{ user: { id: string } }>(
