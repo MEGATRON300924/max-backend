@@ -1,5 +1,6 @@
 import { SignJWT } from 'jose';
 import { env } from '../config/env.js';
+import { prisma } from '../lib/prisma.js';
 
 const API_BASE = `https://chat.botpress.cloud/${env.BOTPRESS_CHAT_API_ID}`;
 const REQUEST_TIMEOUT_MS = 12_000;
@@ -108,8 +109,7 @@ export async function generateBotpressResponse(
   userId: string,
   conversationId: string,
   displayName: string | null,
-  turns: Array<{ role: 'user' | 'model'; content: string }>,
-  systemInstruction?: string
+  turns: Array<{ role: 'user' | 'model'; content: string }>
 ) {
   if (!env.BOTPRESS_PRIMARY_ENABLED) throw new Error('Botpress primary routing is disabled.');
 
@@ -142,7 +142,7 @@ export async function generateBotpressResponse(
     'POST',
     {
       conversationId,
-      payload: { type: 'text', text: makeContextMessage(turns, systemInstruction) }
+      payload: { type: 'text', text: await makeContextMessage(userId, turns) }
     }
   );
 
