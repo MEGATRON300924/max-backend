@@ -72,7 +72,7 @@ export async function getGithubFile(ownerInput: string, repoInput: string, pathI
   const path = pathInput.split('/').map((part) => { if (!part || part === '.' || part === '..') throw new ApiError(400, 'GITHUB_INVALID_PATH', 'Invalid repository file path.'); return encodeURIComponent(part); }).join('/');
   const file = await github<GithubFile>(installation.installationId, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents/${path}${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`);
   if (file.type !== 'file') throw new ApiError(400, 'GITHUB_NOT_A_FILE', 'The requested path is not a file.');
-  return { path: file.path, size: file.size, content: file.encoding === 'base64' && file.content ? Buffer.from(file.content.replace(/\\\\n/g, ''), 'base64').toString('utf8') : '', url: file.html_url };
+  return { path: file.path, size: file.size, content: file.encoding === 'base64' && file.content ? Buffer.from(file.content.replaceAll(String.fromCharCode(10), ''), 'base64').toString('utf8') : '', url: file.html_url };
 }
 type ProposedFile = { path: string; content: string };
 export async function createGithubPullRequest(input: { owner: string; repo: string; baseBranch: string; branchName: string; title: string; body: string; files: ProposedFile[] }, authSubject?: string) {
