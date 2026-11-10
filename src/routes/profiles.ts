@@ -23,8 +23,8 @@ router.post('/', async (req: AuthenticatedRequest, res, next) => {
       name: z.string().min(1).max(100),
       profileType: z.enum(['adult','child','guest']).default('adult'),
       avatarUrl: z.string().url().optional(),
-      permissions: z.record(z.unknown()).optional(),
-      settings: z.record(z.unknown()).optional()
+      permissions: z.record(z.string(), z.unknown()).optional(),
+      settings: z.record(z.string(), z.unknown()).optional()
     }).parse(req.body);
     const profile = await prisma.profile.create({ data: { ...body, userId: user.id, permissions: body.permissions as Prisma.InputJsonValue | undefined, settings: body.settings as Prisma.InputJsonValue | undefined } });
     res.status(201).json({ data: profile });
@@ -38,8 +38,8 @@ router.patch('/:id', async (req: AuthenticatedRequest, res, next) => {
     const body = z.object({
       name: z.string().min(1).max(100).optional(),
       avatarUrl: z.string().url().nullable().optional(),
-      permissions: z.record(z.unknown()).optional(),
-      settings: z.record(z.unknown()).optional()
+      permissions: z.record(z.string(), z.unknown()).optional(),
+      settings: z.record(z.string(), z.unknown()).optional()
     }).parse(req.body);
     const result = await prisma.profile.updateMany({ where: { id, userId: user.id }, data: { ...body, permissions: body.permissions as Prisma.InputJsonValue | undefined, settings: body.settings as Prisma.InputJsonValue | undefined } });
     if (!result.count) return res.status(404).json({ error: { code: 'PROFILE_NOT_FOUND', message: 'Profile not found' } });
