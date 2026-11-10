@@ -308,7 +308,7 @@ export async function orchestrateStream(
 
   if (intent === 'general' && env.BOTPRESS_PRIMARY_ENABLED) {
     try {
-      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns, system);
+      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns);
       if (!primary.text.trim()) throw new Error('Botpress returned an empty response');
       onText(primary.text);
       return { text: primary.text, provider: primary.provider, model: primary.model, intent, tools: [], confirmations: [], interactionId: null };
