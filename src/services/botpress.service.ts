@@ -5,7 +5,7 @@ import { prisma } from '../lib/prisma.js';
 const API_BASE = `https://chat.botpress.cloud/${env.BOTPRESS_CHAT_API_ID}`;
 const REQUEST_TIMEOUT_MS = 12_000;
 const RESPONSE_TIMEOUT_MS = 25_000;
-const POLL_INTERVAL_MS = 500;
+const POLL_INTERVAL_MS = 1_000;
 
 type BotpressMessage = {
   id?: string;
