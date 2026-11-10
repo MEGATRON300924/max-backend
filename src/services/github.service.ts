@@ -71,7 +71,7 @@ export async function listGithubDirectory(ownerInput: string, repoInput: string,
   const repo = safePart(repoInput, 'repository');
   const installation = await installationForRepository(authSubject, owner, repo);
   const path = pathInput.split('/').filter(Boolean).join('/');
-    if (!path || path.length > 400 || path.split('/').some((p) => !p || p === '.' || p === '..') || path.includes('\\')) throw new ApiError(400, 'GITHUB_INVALID_PATH', 'Invalid repository path: ' + file.path);
+  if (path.length > 400 || (path && path.split('/').some((p) => !p || p === '.' || p === '..')) || path.includes('\\')) throw new ApiError(400, 'GITHUB_INVALID_PATH', 'Invalid repository directory path.');
   const encodedPath = path ? '/' + path.split('/').map(encodeURIComponent).join('/') : '';
   const data = await github<Array<{ type: string; name: string; path: string; size?: number; html_url?: string }>>(installation.installationId, `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents${encodedPath}${ref ? `?ref=${encodeURIComponent(ref)}` : ''}`);
   if (!Array.isArray(data)) throw new ApiError(400, 'GITHUB_NOT_A_DIRECTORY', 'The requested path is not a directory.');
