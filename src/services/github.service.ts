@@ -9,7 +9,7 @@ type UserInstallation = { installationId: string; accountLogin: string; accountT
 
 function config() {
   if (!env.GITHUB_APP_ID || !env.GITHUB_APP_PRIVATE_KEY) throw new ApiError(503, 'GITHUB_NOT_CONFIGURED', 'MAX GitHub App access is not configured yet.');
-  return { appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY.replace(/\\\\n/g, '\\n') };
+  return { appId: env.GITHUB_APP_ID, privateKey: env.GITHUB_APP_PRIVATE_KEY.split(String.fromCharCode(92) + 'n').join(String.fromCharCode(10)) };
 }
 async function appJwt() {
   const { appId, privateKey } = config();
@@ -34,7 +34,7 @@ async function github<T>(installationId: string, path: string, init: RequestInit
 async function userInstallations(authSubject?: string): Promise<UserInstallation[]> {
   if (!authSubject) throw new ApiError(403, 'GITHUB_NOT_CONNECTED', 'Connect GitHub in MAX Auth before using repository tools.');
   if (!env.MAX_AUTH_SERVICE_TOKEN) throw new ApiError(503, 'AUTH_NOT_CONFIGURED', 'MAX Auth service integration is not configured.');
-  const response = await fetch(`${env.MAX_AUTH_INTERNAL_URL.replace(/\\/$/, '')}/users/${encodeURIComponent(authSubject)}/github/installations`, {
+  const internalBase = env.MAX_AUTH_INTERNAL_URL.endsWith('/') ? env.MAX_AUTH_INTERNAL_URL.slice(0, -1) : env.MAX_AUTH_INTERNAL_URL;
     headers: { Accept: 'application/json', 'X-MAX-Auth-Service-Token': env.MAX_AUTH_SERVICE_TOKEN },
     signal: AbortSignal.timeout(8000)
   });
