@@ -4,6 +4,7 @@ import { createPendingAction } from './confirmation.service.js';
 import { executeTool, getGeminiTools, getGoogleCalendarEventForConfirmation, resolveGeminiTool, validateToolInput } from './tools.service.js';
 import { getPersonalizationContext } from './personalization.service.js';
 import { env } from '../config/env.js';
+import { generateBotpressResponse } from './botpress.service.js';
 
 type UserContext = {
   id: string;
@@ -233,6 +234,21 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
+
+  // Botpress is the primary conversational provider. Capability/action intents stay on
+  // MAX's existing tool-calling path so confirmations and backend permissions remain intact.
+  if (intent === 'general' && env.BOTPRESS_PRIMARY_ENABLED) {
+    try {
+      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns);
+      if (primary.text.trim()) {
+        return { text: primary.text, provider: primary.provider, model: primary.model, intent, tools: [], confirmations: [], interactionId: null };
+      }
+      throw new Error('Botpress returned an empty response');
+    } catch {
+      // Fail over using the same MAX turns, memory context, and existing Groq tool loop.
+    }
+  }
+
   const generated = await runToolLoop(user, conversationId, turns, system);
   return {
     text: generated.text,
@@ -289,6 +305,18 @@ export async function orchestrateStream(
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
+
+  if (intent === 'general' && env.BOTPRESS_PRIMARY_ENABLED) {
+    try {
+      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns);
+      if (!primary.text.trim()) throw new Error('Botpress returned an empty response');
+      onText(primary.text);
+      return { text: primary.text, provider: primary.provider, model: primary.model, intent, tools: [], confirmations: [], interactionId: null };
+    } catch {
+      // Streaming clients receive the Groq fallback below if Botpress is unavailable.
+    }
+  }
+
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
