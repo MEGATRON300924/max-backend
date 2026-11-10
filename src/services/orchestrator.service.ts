@@ -57,6 +57,7 @@ function classifyIntent(content: string) {
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
   if (/\b(turn on|turn off|switch on|switch off|dim|brighten|set .* thermostat|lock|unlock|open|close)\b/.test(value)) return 'home';
   if (/\b(calendar|schedule|scheduled|appointment|meeting|meetings|event|events|agenda|availability)\b/.test(value)) return 'calendar';
+  if (/\b(github|repository|repositories|repo|pull request|commit|branch|codebase|source code|github issue)\b/.test(value)) return 'github';
   if (/\b(spotify|currently playing|now playing|pause (the )?(music|song|track)|resume (the )?(music|song|track)|skip (the )?(song|track)|next (song|track)|previous (song|track)|play (the )?(song|track|music))\b/.test(value)) return 'music';
   if (/\b(gmail|email|mail|inbox|drive|document|doc|spreadsheet|sheet|slides|presentation|task|tasks|contact|contacts|youtube|subscription|subscriptions|video)\b/.test(value)) return 'google';
   if (/\b(play|pause|skip|music|song|playlist|album|artist)\b/.test(value)) return 'music';
