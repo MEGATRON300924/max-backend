@@ -38,7 +38,7 @@ type OrchestrationResult = {
 const capabilities = {
   memory: true,
   account: true,
-  home: Boolean(process.env.MAX_HOME_API_URL),
+  home: Boolean(env.MAX_HOME_API_URL),
   music: Boolean(env.MAX_AUTH_SERVICE_TOKEN),
   cloud: true,
   browser: Boolean(env.GEMINI_API_KEY || env.GROQ_API_KEY),
