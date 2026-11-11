@@ -2,7 +2,6 @@ import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
-import { resolveEcosystemUser } from '../services/user.service.js';
 import { homeStatus, listHomes, executeHomeAction } from '../services/home.service.js';
 
 const actionSchema = z.object({
@@ -20,7 +19,6 @@ homeRouter.get('/status', (_req, res) => {
 
 homeRouter.get('/homes', async (req: AuthenticatedRequest, res, next) => {
   try {
-    const user = await resolveEcosystemUser(req.auth!);
     const authorization = req.header('authorization');
     const accessToken = authorization?.replace(/^Bearer\\s+/i, '').trim();
     const data = await listHomes(accessToken);
