@@ -6,6 +6,7 @@ import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
 import { maxAuthGoogleRequest } from './max-auth-google.service.js';
+import { maxAuthService } from './max-auth.service.js';
 import { maxAuthSpotifyRequest, maxAuthSpotifySavedTracks, maxAuthSpotifyPlaylists } from './max-auth-spotify.service.js';
 import { searchWeb, openWeb } from './browser.service.js';
 import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cloud.service.js';
@@ -264,6 +265,18 @@ export async function getGoogleCalendarEventForConfirmation(context: ToolContext
 const githubEnabled = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY && env.GITHUB_APP_INSTALLATION_ID && env.GITHUB_ALLOWED_OWNERS.trim() && env.GITHUB_ALLOWED_AUTH_SUBJECTS.trim());
 
 const tools: MaxTool[] = [
+  {
+    name: 'max_auth.devices',
+    capability: 'account',
+    description: 'List devices registered to the authenticated MAX Auth account. Use this for account devices and login/session questions, never for MAX Home devices.',
+    enabled: true,
+    requiresConfirmation: false,
+    declaration: {
+      name: 'max_auth_devices',
+      description: 'List devices registered to the user\'s MAX Auth account. This is not a MAX Home smart-device inventory.',
+      parameters: { type: 'object', properties: {} }
+    }
+  },
   { name: 'github.repositories', capability: 'github', description: 'List repositories accessible to the configured MAX GitHub App installation.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List repositories the MAX GitHub App can access before proposing repository changes.', parameters: { type: 'object', properties: {} } } },
   { name: 'github.file.get', capability: 'github', description: 'Read a file from an allowlisted repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
   { name: 'github.create_pull_request', capability: 'github', description: 'Create a branch, commit code changes, and open a pull request.', enabled: githubEnabled, requiresConfirmation: true, declaration: { name: 'github_create_pull_request', description: 'After explicit user confirmation, create a new branch and one commit with proposed files, then open a pull request. Never commit directly to the base branch. Read relevant files first, keep changes minimal, and do not modify GitHub Actions workflows.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, baseBranch: { type: 'string' }, branchName: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, files: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path','content'] } } }, required: ['owner','repo','baseBranch','branchName','title','body','files'] } } },
@@ -602,7 +615,10 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'github.repositories') {
+    if (name === 'max_auth.devices') {
+      if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'A MAX Auth account is required to list account devices');
+      result = { success: true, tool: name, ...(await maxAuthService.devices(context.authSubject)) as object };
+    } else if (name === 'github.repositories') {
       result = { success: true, tool: name, repositories: await listGithubRepositories(context.authSubject) };
     } else if (name === 'github.file.get') {
       const data = validateToolInput(name, input) as z.infer<typeof githubFileInput>;
