@@ -13,7 +13,7 @@ import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cl
 import { storeService } from './store.service.js';
 import { generateStudioAsset } from './studio.service.js';
 import { tvSearch, tvAssistant } from './tv.service.js';
-import { listGithubRepositories, getGithubFile, createGithubPullRequest } from './github.service.js';
+import { getGithubFile, createGithubPullRequest } from './github.service.js';
 
 async function maxAuthUserGet(accessToken: string | undefined, path: string) {
   if (!accessToken) throw new ApiError(401, 'MAX_AUTH_REQUIRED', 'Sign in with your MAX Auth account to use this connected service.');
