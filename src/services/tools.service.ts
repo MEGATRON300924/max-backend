@@ -16,7 +16,7 @@ import { getGithubFile, createGithubPullRequest } from './github.service.js';
 
 async function maxAuthUserGet(accessToken: string | undefined, path: string) {
   if (!accessToken) throw new ApiError(401, 'MAX_AUTH_REQUIRED', 'Sign in with your MAX Auth account to use this connected service.');
-  const response = await fetch(env.MAX_AUTH_API_URL.replace(/\\/$/, '') + path, {
+  const response = await fetch(env.MAX_AUTH_API_URL.replace(/\/$/, '') + path, {
     method: 'GET',
     headers: { Authorization: 'Bearer ' + accessToken, Accept: 'application/json' },
     cache: 'no-store',
@@ -556,7 +556,7 @@ const tools: MaxTool[] = [
     name: 'home.execute',
     capability: 'home',
     description: 'Execute an authorized MAX Home action.',
-    enabled: Boolean(process.env.MAX_HOME_API_URL),
+    enabled: Boolean(env.MAX_HOME_API_URL),
     requiresConfirmation: true,
     declaration: {
       name: 'home_execute',
