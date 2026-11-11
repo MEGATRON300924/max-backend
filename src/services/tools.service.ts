@@ -6,7 +6,6 @@ import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
 import { maxAuthGoogleRequest } from './max-auth-google.service.js';
-import { maxAuthService } from './max-auth.service.js';
 import { maxAuthSpotifyRequest, maxAuthSpotifySavedTracks, maxAuthSpotifyPlaylists } from './max-auth-spotify.service.js';
 import { searchWeb, openWeb } from './browser.service.js';
 import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cloud.service.js';
@@ -642,7 +641,13 @@ export async function executeTool(name: string, context: ToolContext, input: unk
 
     if (name === 'max_auth.devices') {
       if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'A MAX Auth account is required to list account devices');
-      result = { success: true, tool: name, ...(await maxAuthService.devices(context.authSubject)) as object };
+      const response = await maxAuthUserGet(context.authAccessToken, '/devices');
+      if (!response.ok) {
+        const message = response.payload?.error?.message || response.payload?.message || 'MAX Auth could not retrieve account devices.';
+        throw new ApiError(response.status, response.payload?.error?.code || 'MAX_AUTH_DEVICE_LOOKUP_FAILED', message);
+      }
+      const data = response.payload?.data ?? response.payload;
+      result = { success: true, tool: name, devices: data?.devices ?? [] };
     } else if (name === 'github.repositories') {
       const response = await maxAuthUserGet(context.authAccessToken, '/connected-accounts/github/repos');
       if (!response.ok) {
