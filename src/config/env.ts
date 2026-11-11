@@ -12,6 +12,7 @@ const schema = z.object({
   GEMINI_MODEL: z.string().default('gemini-3.7-flash'),
   GROQ_API_KEY: z.string().optional(),
   GROQ_MODEL: z.string().default('openai/gpt-oss-20b'),
+  OPENAI_API_KEY: z.string().optional(),
   MAX_HOME_API_URL: z.string().url().default('https://max-home-backend.onrender.com/api/v1'),
   MAX_AUTH_API_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1'),
   MAX_AUTH_INTERNAL_URL: z.string().url().default('https://auth.max-ai.name.ng/api/v1/internal'),

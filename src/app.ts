@@ -33,6 +33,8 @@ import { homeEventsRouter } from './routes/home-events.js';
 import { maxHomeCoreRouter } from './routes/home-core.js';
 import { maxAuthProxyRouter } from './routes/max-auth-proxy.js';
 import { personalizationRouter } from './routes/personalization.js';
+import { filesRouter } from './routes/files.js';
+import { imagesRouter } from './routes/images.js';
 
 export const app = express();
 
@@ -72,6 +74,8 @@ app.use(`${env.API_PREFIX}/health`, healthRouter);
 app.use(`${env.API_PREFIX}/auth`, maxAuthProxyRouter);
 app.use(`${env.API_PREFIX}/profile`, profileRouter);
 app.use(`${env.API_PREFIX}/personalization`, personalizationRouter);
+app.use(`${env.API_PREFIX}/files`, filesRouter);
+app.use(`${env.API_PREFIX}/images`, imagesRouter);
 app.use(`${env.API_PREFIX}/conversations`, conversationsRouter);
 app.use(`${env.API_PREFIX}/memories`, memoriesRouter);
 app.use(`${env.API_PREFIX}/memory`, oauthMemoryRouter);
