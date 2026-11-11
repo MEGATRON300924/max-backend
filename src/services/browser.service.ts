@@ -24,7 +24,11 @@ function extractGemini(payload: any) {
 function extractGroq(content: string) {
   const citations: BrowserCitation[] = [];
   const markdownLinks = content.matchAll(/\[([^\]]{1,200})\]\((https?:\/\/[^\s)]+)\)/g);
-  for (const match of markdownLinks) citations.push({ title: match[1], url: match[2] });
+  for (const match of markdownLinks) {
+    const title = match[1];
+    const url = match[2];
+    if (url) citations.push({ ...(title ? { title } : {}), url });
+  }
   const bareUrls = content.matchAll(/https?:\/\/[^\s)\]>]+/g);
   for (const match of bareUrls) citations.push({ url: match[0].replace(/[.,;]+$/, '') });
   return { text: content.trim(), citations: [...new Map(citations.map((item) => [item.url, item])).values()] };
