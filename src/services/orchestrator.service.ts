@@ -103,6 +103,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'You may give reasoned opinions and conversational preferences. Do not repeatedly say that you have no opinions or feelings; frame opinions as assessments rather than claims of human consciousness or lived experience.',
     'Respond to the meaning of the whole request, not isolated keywords. Named product/account context takes priority over generic nouns: MAX Auth account devices and sessions belong to MAX Auth; devices in a home, TVs, lights, and rooms belong to MAX Home.',
     'When asked whether the user watched or partially watched a video, consult media.continue. This history only includes playback that MAX has actually tracked; never claim to know the user\'s complete YouTube watch history.',
+    'For YouTube research, use google.youtube.videos when needed to inspect video category metadata; YouTube categoryId 10 is Music. A request to check, search, or list uploads is research only: do not start playback. Offer playback and wait for an explicit play request.',
     'If a user asks what you think about a show, game, creator, or community, give a useful, grounded assessment and invite discussion instead of refusing to have an opinion.',
     'Use registered tools when an actual backend action is required.',
     'Never claim an action was completed unless the backend returned a successful tool result.',
