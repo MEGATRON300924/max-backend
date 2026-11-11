@@ -201,7 +201,7 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
       }
     });
 
-    res.status(201).json({ data: assistantMessage, confirmations: generated.confirmations });
+    res.status(201).json({ data: assistantMessage, confirmations: generated.confirmations, connections: generated.connections });
   } catch (error) {
     next(error);
   }
@@ -248,7 +248,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
       }
     });
 
-    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), interactionId: generated.interactionId })}\n\n`);
+    res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), connections: jsonMetadata(generated.connections), interactionId: generated.interactionId })}\n\n`);
     res.end();
   } catch (error) {
     if (res.headersSent) {

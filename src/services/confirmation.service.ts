@@ -45,6 +45,16 @@ function formatDateTime(value: unknown) {
 }
 
 function formatConfirmationSummary(toolName: string, args: Record<string, unknown>) {
+  if (toolName === 'home.execute') {
+    const parameters = typeof args.parameters === 'object' && args.parameters !== null ? args.parameters as Record<string, unknown> : {};
+    const action = String(args.action || '').toLowerCase();
+    const device = String(parameters.deviceName || parameters.currentName || args.targetId || 'the selected device');
+    const newName = String(parameters.newName || parameters.new_name || parameters.nameToSet || '');
+    if (/rename|set_device_name|change_device_name/.test(action)) return newName ? `Rename ${device} to “${newName}”` : `Rename ${device}`;
+    if (/power_off|turn_off|switch_off|device_off/.test(action)) return `Turn off ${device}`;
+    if (/power_on|turn_on|switch_on|device_on/.test(action)) return `Turn on ${device}`;
+    return `Run the requested MAX Home action on ${device}`;
+  }
   if (!toolName.startsWith('calendar.')) return null;
   const event = typeof args.event === 'object' && args.event !== null ? args.event as Record<string, unknown> : {};
   const context = typeof args.confirmationContext === 'object' && args.confirmationContext !== null ? args.confirmationContext as Record<string, unknown> : {};
