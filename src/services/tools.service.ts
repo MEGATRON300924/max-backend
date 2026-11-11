@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../middleware/errors.js';
-import { maxHomeRequest } from './home.service.js';
+import { listHomeDevices, executeHomeAction } from './home.service.js';
 import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
@@ -542,6 +542,18 @@ const tools: MaxTool[] = [
     declaration: { name: 'store_product', description: 'Get a TTFL Store product by slug.', parameters: { type: 'object', properties: { slug: { type: 'string' } }, required: ['slug'] } }
   },
   {
+    name: 'home.devices.list',
+    capability: 'home',
+    description: 'Read the authenticated user\'s MAX Home devices and identify a device before changing it.',
+    enabled: Boolean(env.MAX_HOME_API_URL),
+    requiresConfirmation: false,
+    declaration: {
+      name: 'home_devices_list',
+      description: 'List devices in the user\'s MAX Home. Use this before renaming or controlling a device. Do not use this for devices registered to MAX Auth.',
+      parameters: { type: 'object', properties: { homeId: { type: 'string' }, homeName: { type: 'string' } } }
+    }
+  },
+  {
     name: 'home.execute',
     capability: 'home',
     description: 'Execute an authorized MAX Home action.',
@@ -598,6 +610,7 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'spotify.recently-played') return spotifyRecentlyPlayedInput.parse(input);
   if (name === 'spotify.saved-tracks' || name === 'spotify.playlists') return spotifyPageInput.parse(input);
   if (name === 'spotify.play') return spotifyPlayInput.parse(input);
+  if (name === 'home.devices.list') return z.object({ homeId: z.string().uuid().optional(), homeName: z.string().trim().min(1).max(120).optional() }).parse(input);
   if (name === 'tv.search') return tvSearchInput.parse(input);
   if (name === 'tv.assistant') return tvAssistantInput.parse(input);
   if (name === 'studio.generate') return studioInput.parse(input);
@@ -817,15 +830,13 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       const deleted = await prisma.memory.deleteMany({ where: { id: data.memoryId, userId: context.userId } });
       if (deleted.count !== 1) throw new ApiError(404, 'MEMORY_NOT_FOUND', 'The requested memory was not found');
       result = { success: true, tool: name, memoryId: data.memoryId };
+    } else if (name === 'home.devices.list') {
+      const data = validateToolInput(name, input) as { homeId?: string; homeName?: string };
+      result = { success: true, tool: name, ...(await listHomeDevices(context.authAccessToken, data)) };
     } else if (name === 'home.execute') {
       if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'MAX Home requires an authenticated MAX identity');
       const data = homeInput.parse(input);
-      const homeResult = await maxHomeRequest({
-        path: `/api/v1/users/${encodeURIComponent(context.authSubject)}/actions`,
-        method: 'POST',
-        body: data
-      });
-      result = { success: true, tool: name, result: homeResult };
+      result = { success: true, tool: name, result: await executeHomeAction(context.authAccessToken, data) };
     } else {
       throw new ApiError(501, 'TOOL_NOT_IMPLEMENTED', `MAX tool ${name} is registered but not implemented`);
     }
