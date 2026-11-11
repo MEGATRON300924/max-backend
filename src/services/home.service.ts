@@ -63,6 +63,11 @@ async function resolveHome(accessToken: string | undefined, options: { homeId?: 
   return homes[0];
 }
 
+export async function listHomes(accessToken: string | undefined) {
+  const payload = await requestHome<any>({ accessToken, path: '/homes' });
+  return { homes: extractHomes(payload) };
+}
+
 export async function listHomeDevices(accessToken: string | undefined, options: { homeId?: string; homeName?: string } = {}) {
   const home = await resolveHome(accessToken, options);
   const payload = await requestHome<any>({
