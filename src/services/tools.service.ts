@@ -15,6 +15,18 @@ import { generateStudioAsset } from './studio.service.js';
 import { tvSearch, tvAssistant } from './tv.service.js';
 import { listGithubRepositories, getGithubFile, createGithubPullRequest } from './github.service.js';
 
+async function maxAuthUserGet(accessToken: string | undefined, path: string) {
+  if (!accessToken) throw new ApiError(401, 'MAX_AUTH_REQUIRED', 'Sign in with your MAX Auth account to use this connected service.');
+  const response = await fetch(env.MAX_AUTH_API_URL.replace(/\\/$/, '') + path, {
+    method: 'GET',
+    headers: { Authorization: 'Bearer ' + accessToken, Accept: 'application/json' },
+    cache: 'no-store',
+    signal: AbortSignal.timeout(12000)
+  });
+  const payload = await response.json().catch(() => ({}));
+  return { ok: response.ok, status: response.status, payload };
+}
+
 type ToolContext = {
   userId: string;
   authSubject?: string;
@@ -277,7 +289,7 @@ const tools: MaxTool[] = [
       parameters: { type: 'object', properties: {} }
     }
   },
-  { name: 'github.repositories', capability: 'github', description: 'List repositories accessible to the configured MAX GitHub App installation.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List repositories the MAX GitHub App can access before proposing repository changes.', parameters: { type: 'object', properties: {} } } },
+  { name: 'github.repositories', capability: 'github', description: 'List repositories from the authenticated user\'s GitHub account linked through MAX Auth. If it is not linked, return the MAX Auth connection URL.', enabled: true, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List all repositories in the user\'s GitHub account through MAX Auth. If GitHub is not connected, request its authorization URL instead of failing silently.', parameters: { type: 'object', properties: {} } } },
   { name: 'github.file.get', capability: 'github', description: 'Read a file from an allowlisted repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
   { name: 'github.create_pull_request', capability: 'github', description: 'Create a branch, commit code changes, and open a pull request.', enabled: githubEnabled, requiresConfirmation: true, declaration: { name: 'github_create_pull_request', description: 'After explicit user confirmation, create a new branch and one commit with proposed files, then open a pull request. Never commit directly to the base branch. Read relevant files first, keep changes minimal, and do not modify GitHub Actions workflows.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, baseBranch: { type: 'string' }, branchName: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, files: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path','content'] } } }, required: ['owner','repo','baseBranch','branchName','title','body','files'] } } },
   {
@@ -619,7 +631,21 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'A MAX Auth account is required to list account devices');
       result = { success: true, tool: name, ...(await maxAuthService.devices(context.authSubject)) as object };
     } else if (name === 'github.repositories') {
-      result = { success: true, tool: name, repositories: await listGithubRepositories(context.authSubject) };
+      const response = await maxAuthUserGet(context.authAccessToken, '/connected-accounts/github/repos');
+      if (!response.ok) {
+        const code = String(response.payload?.error?.code || response.payload?.code || '');
+        const message = String(response.payload?.error?.message || response.payload?.message || '');
+        if (response.status === 404 || response.status === 409 || /not.?connected|account.?not.?found|github.*link/i.test(code + ' ' + message)) {
+          const connect = await maxAuthUserGet(context.authAccessToken, '/connected-accounts/github/connect');
+          const authorizationUrl = connect.payload?.data?.authorizationUrl || connect.payload?.authorizationUrl || null;
+          result = { success: false, tool: name, connectionRequired: true, provider: 'github', authorizationUrl, message: 'GitHub is not connected to this MAX Auth account. Ask the user to connect it before listing repositories.' };
+        } else {
+          throw new ApiError(response.status, code || 'GITHUB_ACCOUNT_REQUEST_FAILED', message || 'MAX Auth could not access the connected GitHub account.');
+        }
+      } else {
+        const data = response.payload?.data ?? response.payload;
+        result = { success: true, tool: name, repositories: data?.repos ?? data?.repositories ?? [] };
+      }
     } else if (name === 'github.file.get') {
       const data = validateToolInput(name, input) as z.infer<typeof githubFileInput>;
       result = { success: true, tool: name, file: await getGithubFile(data.owner, data.repo, data.path, data.ref, context.authSubject) };
