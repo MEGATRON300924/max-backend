@@ -31,6 +31,7 @@ type OrchestrationResult = {
   intent: string;
   tools: string[];
   confirmations: Confirmation[];
+  connections: Array<{ provider: string; authorizationUrl: string }>;
   interactionId: string | null;
 };
 
@@ -215,6 +216,7 @@ async function runToolLoop(user: UserContext, conversationId: string, turns: Cha
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
+  const connections: Array<{ provider: string; authorizationUrl: string }> = [];
   let result = await generateGeminiResponseWithTools(turns, tools, system);
   let interactionId = result.interactionId;
 
@@ -223,10 +225,16 @@ async function runToolLoop(user: UserContext, conversationId: string, turns: Cha
   for (let iteration = 0; iteration < 4; iteration += 1) {
     if (!result.functionCalls.length) {
       if (!result.text) throw new Error('AI returned neither text nor a tool call');
-      return { ...result, executed, confirmations, interactionId };
+      return { ...result, executed, confirmations, connections, interactionId };
     }
 
     const functionResults = await processToolCalls(user, conversationId, interactionId, result.functionCalls, executed, confirmations);
+    for (const item of functionResults) {
+      const value = item.result as Record<string, unknown> | null;
+      if (value && value.connectionRequired === true && typeof value.provider === 'string' && typeof value.authorizationUrl === 'string') {
+        connections.push({ provider: value.provider, authorizationUrl: value.authorizationUrl });
+      }
+    }
     result = await continueGeminiInteraction(interactionId, functionResults, tools, system);
     interactionId = result.interactionId;
     if (!interactionId) throw new Error('Gemini continuation did not return an interaction identifier');
@@ -248,6 +256,7 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
     intent,
     tools: generated.executed,
     confirmations: generated.confirmations,
+    connections: generated.connections,
     interactionId: generated.interactionId
   };
 }
@@ -281,6 +290,7 @@ export async function continueAfterConfirmation(
     intent,
     tools: [action.toolName],
     confirmations: [],
+    connections: [],
     interactionId: continued.interactionId
   };
 }
@@ -299,6 +309,7 @@ export async function orchestrateStream(
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
+  const connections: Array<{ provider: string; authorizationUrl: string }> = [];
   let interaction = await streamGeminiResponseWithTools(turns, tools, system, onText);
   let interactionId = interaction.interactionId;
   let fullText = interaction.text;
@@ -313,12 +324,19 @@ export async function orchestrateStream(
         intent,
         tools: executed,
         confirmations,
+        connections,
         interactionId
       };
     }
 
     if (!interactionId) throw new Error('Gemini did not return an interaction identifier');
     const functionResults = await processToolCalls(user, conversationId, interactionId, interaction.functionCalls, executed, confirmations);
+    for (const item of functionResults) {
+      const value = item.result as Record<string, unknown> | null;
+      if (value && value.connectionRequired === true && typeof value.provider === 'string' && typeof value.authorizationUrl === 'string') {
+        connections.push({ provider: value.provider, authorizationUrl: value.authorizationUrl });
+      }
+    }
     interaction = await streamGeminiInteraction(interactionId, functionResults, tools, system, onText);
     interactionId = interaction.interactionId;
     fullText += interaction.text;
