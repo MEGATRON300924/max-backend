@@ -60,7 +60,7 @@ async function resolveHome(accessToken: string | undefined, options: { homeId?: 
   if (homes.length > 1) {
     throw new ApiError(409, 'HOME_SELECTION_REQUIRED', 'More than one MAX Home is connected: ' + homes.map((home) => home.name).join(', ') + '. Ask which home the user means before acting.');
   }
-  return homes[0];
+  return homes[0]!;
 }
 
 export async function listHomes(accessToken: string | undefined) {
