@@ -660,7 +660,20 @@ export async function executeTool(name: string, context: ToolContext, input: unk
         orderBy: { updatedAt: 'desc' },
         take: data.limit
       });
-      result = { success: true, tool: name, playbackHistory: items };
+      result = {
+        success: true,
+        tool: name,
+        playbackHistory: items.map((item) => ({
+          contentId: item.contentId,
+          contentType: item.contentType,
+          title: item.title,
+          positionMs: item.positionMs,
+          durationMs: item.durationMs,
+          progressPercent: item.durationMs ? Math.min(100, Math.round(item.positionMs / item.durationMs * 100)) : null,
+          watched: item.durationMs ? item.positionMs / item.durationMs >= 0.9 : false,
+          updatedAt: item.updatedAt
+        }))
+      };
     } else if (name === 'max_auth.devices') {
       if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'A MAX Auth account is required to list account devices');
       const response = await maxAuthUserGet(context.authAccessToken, '/devices');
