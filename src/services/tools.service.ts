@@ -16,7 +16,8 @@ import { getGithubFile, createGithubPullRequest } from './github.service.js';
 
 async function maxAuthUserGet(accessToken: string | undefined, path: string) {
   if (!accessToken) throw new ApiError(401, 'MAX_AUTH_REQUIRED', 'Sign in with your MAX Auth account to use this connected service.');
-  const response = await fetch(env.MAX_AUTH_API_URL.replace(/\/$/, '') + path, {
+  const authBase = env.MAX_AUTH_API_URL.endsWith('/') ? env.MAX_AUTH_API_URL.slice(0, -1) : env.MAX_AUTH_API_URL;
+  const response = await fetch(authBase + path, {
     method: 'GET',
     headers: { Authorization: 'Bearer ' + accessToken, Accept: 'application/json' },
     cache: 'no-store',
