@@ -55,7 +55,7 @@ const capabilities = {
 function classifyIntent(content: string) {
   const value = content.toLowerCase();
   // Named account/product context takes priority over generic nouns such as 'device'.
-  if (/\\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\\b/.test(value)) return 'account';
+  if (/\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\b/.test(value)) return 'account';
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
   if (/\b(turn on|turn off|switch on|switch off|dim|brighten|set .* thermostat|lock|unlock|open|close)\b/.test(value)) return 'home';
   if (/\b(calendar|schedule|scheduled|appointment|meeting|meetings|event|events|agenda|availability)\b/.test(value)) return 'calendar';
