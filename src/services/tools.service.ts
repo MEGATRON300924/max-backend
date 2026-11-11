@@ -278,6 +278,19 @@ const githubEnabled = Boolean(env.GITHUB_APP_ID && env.GITHUB_APP_PRIVATE_KEY &&
 
 const tools: MaxTool[] = [
   {
+    name: 'media.continue',
+    capability: 'media',
+    description: 'Read playback progress saved by MAX players. Use this to check whether the user has already watched or partially watched a video inside MAX.',
+    enabled: true,
+    requiresConfirmation: false,
+    declaration: {
+      name: 'media_continue',
+      description: 'Read the user\'s recent MAX media playback history, including saved position and duration. This only reflects playback tracked by MAX; it is not the user\'s complete YouTube watch history.',
+      parameters: { type: 'object', properties: { contentId: { type: 'string' }, limit: { type: 'number' } } }
+    }
+  },
+
+  {
     name: 'max_auth.devices',
     capability: 'account',
     description: 'List devices registered to the authenticated MAX Auth account. Use this for account devices and login/session questions, never for MAX Home devices.',
@@ -640,7 +653,15 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'max_auth.devices') {
+    if (name === 'media.continue') {
+      const data = z.object({ contentId: z.string().max(500).optional(), limit: z.number().int().min(1).max(50).default(20) }).parse(input);
+      const items = await prisma.mediaState.findMany({
+        where: { userId: context.userId, ...(data.contentId ? { contentId: data.contentId } : {}) },
+        orderBy: { updatedAt: 'desc' },
+        take: data.limit
+      });
+      result = { success: true, tool: name, playbackHistory: items };
+    } else if (name === 'max_auth.devices') {
       if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'A MAX Auth account is required to list account devices');
       const response = await maxAuthUserGet(context.authAccessToken, '/devices');
       if (!response.ok) {
