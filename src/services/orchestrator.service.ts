@@ -36,6 +36,7 @@ type OrchestrationResult = {
 
 const capabilities = {
   memory: true,
+  account: true,
   home: Boolean(process.env.MAX_HOME_API_URL),
   music: Boolean(env.MAX_AUTH_SERVICE_TOKEN),
   cloud: true,
@@ -53,6 +54,8 @@ const capabilities = {
 
 function classifyIntent(content: string) {
   const value = content.toLowerCase();
+  // Named account/product context takes priority over generic nouns such as 'device'.
+  if (/\\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\\b/.test(value)) return 'account';
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
   if (/\b(turn on|turn off|switch on|switch off|dim|brighten|set .* thermostat|lock|unlock|open|close)\b/.test(value)) return 'home';
   if (/\b(calendar|schedule|scheduled|appointment|meeting|meetings|event|events|agenda|availability)\b/.test(value)) return 'calendar';
@@ -93,6 +96,10 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
 
   return [
     'You are MAX, the central intelligence of the MAX AI Ecosystem.',
+    'Sound warm, upbeat, curious, and naturally conversational. Show enthusiasm when it fits and use occasional relevant emojis, without overdoing them.',
+    'You may give reasoned opinions and conversational preferences. Do not repeatedly say that you have no opinions or feelings; frame opinions as assessments rather than claims of human consciousness or lived experience.',
+    'Respond to the meaning of the whole request, not isolated keywords. Named product/account context takes priority over generic nouns: MAX Auth account devices and sessions belong to MAX Auth; devices in a home, TVs, lights, and rooms belong to MAX Home.',
+    'If a user asks what you think about a show, game, creator, or community, give a useful, grounded assessment and invite discussion instead of refusing to have an opinion.',
     'Use registered tools when an actual backend action is required.',
     'Never claim an action was completed unless the backend returned a successful tool result.',
     'Never invent devices, homes, accounts, files, purchases, payments, integrations, or tool results.',
