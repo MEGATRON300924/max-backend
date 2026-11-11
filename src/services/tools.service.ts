@@ -561,7 +561,7 @@ const tools: MaxTool[] = [
     requiresConfirmation: true,
     declaration: {
       name: 'home_execute',
-      description: 'Execute an authorized smart-home action through MAX Home after explicit confirmation.',
+      description: 'Execute a MAX Home device action after explicit confirmation. Use action rename_device with parameters.deviceName and parameters.newName to rename a device; use power.off or turn_off to switch it off; use power.on or turn_on to switch it on. targetId should be the device ID returned by home.devices.list. Optional parameters.homeId or homeName selects the home.',
       parameters: {
         type: 'object',
         properties: {
