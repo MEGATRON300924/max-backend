@@ -48,3 +48,10 @@ PROGRESS LOG
 - Inspected src/app.ts and src/routes/conversations.ts.
 - Confirmed route is mounted and POST handler is implemented with auth + Prisma create.
 - Production failure still requires Render logs / authenticated endpoint verification.
+
+PROGRESS LOG ADDENDUM — 2026-11-12
+- Render service inspected: srv-d7eeuc0sfn5c738tml3g (max-backend), Frankfurt, free plan, auto-deploy from main.
+- Latest listed live deploy commit: 7a721f3a549bc225dbf968aabf455138dee55b15, message “Add MAX playback history context for YouTube questions (#16)”.
+- Render app logs show service process start at 2026-11-12T09:28:09Z and “MAX backend started” at 09:28:12Z.
+- Render request log query returned no request entries for the investigated interval; HTTP request-count metric query for /api/v1/conversations also returned no data. These are inconclusive and do not prove no requests or endpoint health.
+- No authenticated production POST /conversations test performed; root cause remains unknown.
