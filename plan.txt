@@ -63,3 +63,10 @@ BOTPRESS PR #12 CI REPAIR — 2026-11-12
 - Fixed the adapter call by passing makeContextMessage(turns) in the Botpress POST /messages payload and removed an unused Prisma import. Commit: 550ab51dc15ad40dfb7a8d078db323805ecb5044 on feat/botpress-primary-groq-fallback.
 - The fix is not yet validated; rerun CI against the new head before considering PR readiness. Keep PR draft/open and do not merge until all required checks pass.
 - Provider activation remains disabled by default (BOTPRESS_PRIMARY_ENABLED=false). Production Botpress routing still requires verified Render Chat integration ID/encryption key configuration and an end-to-end Botpress response test. Groq fallback, MAX tools/confirmations, memory persistence, CORS and YouTube public search remain separate validation items.
+
+
+BOTPRESS PR #12 MAINLINE COMPATIBILITY CHECK — 2026-11-12
+- After the typecheck repair, compared feat/botpress-primary-groq-fallback against current main. The PR branch is diverged: 11 commits ahead and 15 commits behind; GitHub reports mergeable=false. Current main includes later orchestration changes (including connections metadata and additional intent/capability handling) absent from the PR branch.
+- No successful workflow run/check was returned for repaired head 550ab51dc15ad40dfb7a8d078db323805ecb5044; combined status is empty. Previous CI failure is fixed in source but not yet proven by a new build.
+- Returned PR #12 to draft while it is being reconciled with current main. Do not merge this stale branch. Next: rebuild the Botpress changes on top of current main without dropping newer orchestration behavior, run typecheck/build/tests, then merge only after green checks.
+- Backend deployment and Botpress production activation remain pending. BOTPRESS_PRIMARY_ENABLED defaults false and Render Botpress credentials have not been verified. CORS, YouTube public upload lookup, and real authenticated chat are still not end-to-end verified.
