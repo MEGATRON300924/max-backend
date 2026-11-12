@@ -1,0 +1,50 @@
+MAX BACKEND — IMPLEMENTATION PLAN
+Last updated: 2026-11-12
+Repository: https://github.com/MEGATRON300924/max-backend
+Production API: https://max-backend-z0ee.onrender.com/api/v1
+
+PURPOSE
+Persistent handoff for backend work. Update whenever a feature is requested, planned, implemented, tested, merged, deployed, blocked, or deferred. Record exact files, commits, PRs, tests, errors, and next steps. Never mark complete from code presence alone.
+
+ACTIVE ISSUE: MAX CHAT CLOUD CONVERSATION CREATION FAILURE
+Status: INVESTIGATING; NOT FIXED OR VERIFIED.
+User reports repeated failures in production chat.max-ai.name.ng:
+“MAX couldn't create a cloud conversation. Your message is still visible here; please retry.”
+The failure occurs for ordinary “Hey” as well as YouTube creator research, so it blocks general chat.
+
+Relevant implementation:
+- src/app.ts mounts conversationsRouter at /api/v1/conversations.
+- src/routes/conversations.ts applies requireAuth to the router.
+- POST / validates optional title, resolves the ecosystem user from verified auth claims, creates a Prisma Conversation, and returns HTTP 201 with { data: conversation }.
+- GET / and other conversation routes also require auth.
+- MAX Chat frontend uses https://max-backend-z0ee.onrender.com/api/v1 and sends a Bearer token.
+- Frontend expects unwrapped response data to include an id.
+
+Investigation / acceptance criteria:
+1. Inspect live Render service health and logs for POST /api/v1/conversations at the reported time.
+2. Confirm deployed commit matches repository main and that Prisma/database connectivity is healthy.
+3. Confirm MAX Auth access token claims/scopes and user resolution behavior; never log or expose tokens.
+4. Confirm POST /api/v1/conversations returns 201 { data: { id, ... } } for a valid authenticated user.
+5. Diagnose and fix the actual cause; don't assume the route code alone proves production is healthy.
+6. Add regression coverage for auth failure, missing user mapping, database failure, and successful creation.
+7. Verify end-to-end from chat.max-ai.name.ng: plain “Hey”, research request, persistence, and reload.
+
+Known limitation:
+- Public health endpoint lookup via web viewer was inconclusive; no live service status conclusion.
+- Root cause is unknown. No fix is claimed yet.
+
+WORKING RULES
+1. Read this plan before backend GitHub work.
+2. Add acceptance criteria before implementation.
+3. Update as work progresses and before ending a session.
+4. Record exact commits, PRs, workflow run IDs, failures, fixes, deployment, and test results.
+5. Keep secrets out of this file.
+6. Do not mark deployed or end-to-end complete until verified.
+7. Merge PRs after checks pass, per user's standing instruction.
+
+PROGRESS LOG
+2026-11-12
+- Created backend handoff plan for the user-reported cloud conversation failure.
+- Inspected src/app.ts and src/routes/conversations.ts.
+- Confirmed route is mounted and POST handler is implemented with auth + Prisma create.
+- Production failure still requires Render logs / authenticated endpoint verification.
