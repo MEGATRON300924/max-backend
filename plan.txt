@@ -63,3 +63,12 @@ PROGRESS LOG ADDENDUM — 2026-11-12 (CLOUD CHAT FAILURE)
 - Render filtered HTTP request metrics for /api/v1/conversations returned no points; the queried log interval returned build/app logs but no request record sufficient to establish the endpoint response. Root cause remains unknown.
 - Source inspection: POST /conversations runs MAX Auth introspection, upserts EcosystemUser, then inserts Conversation. Prisma schema uses UUID IDs. No source-level response-shape mismatch found: API client unwraps {data:...} and expects id, matching backend response.
 - Frontend confirmed to be masking the actual failure; tracked and fixed separately in max-chat PR #19. Do not claim backend service fixed until authenticated creation succeeds.
+
+
+PROGRESS LOG ADDENDUM — 2026-11-12 (REPEATED CLOUD FAILURE)
+- User reports the same cloud-conversation creation failure continues.
+- Re-inspected current main: POST /api/v1/conversations is mounted and protected by requireAuth; token introspection calls MAX Auth /oauth/introspect with an 8-second timeout; user resolution performs Prisma ecosystemUser.upsert by authSubject; conversation creation then inserts into Prisma Conversation.
+- Error middleware emits a correlationId and structured API error code/status for failures. The pino HTTP logger records method, path, status and response time, but the Render query returned no request entries for /api/v1/conversations in 2026-11-12 09:00–12:00 UTC.
+- Render service srv-d7eeuc0sfn5c738tml3g had successful build/startup events in the inspected period; this only confirms process startup, not database/auth endpoint health.
+- No evidence yet distinguishes MAX Auth introspection failure, DB connection/schema failure, or request not reaching this service. Root cause remains unknown; no fix claimed.
+- Next: correlate one fresh authenticated browser reproduction with Render request/app logs and correlationId; inspect actual status/code and only then implement the targeted backend/frontend correction. Never log tokens or message contents.
