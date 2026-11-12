@@ -72,3 +72,11 @@ PROGRESS LOG ADDENDUM — 2026-11-12 (REPEATED CLOUD FAILURE)
 - Render service srv-d7eeuc0sfn5c738tml3g had successful build/startup events in the inspected period; this only confirms process startup, not database/auth endpoint health.
 - No evidence yet distinguishes MAX Auth introspection failure, DB connection/schema failure, or request not reaching this service. Root cause remains unknown; no fix claimed.
 - Next: correlate one fresh authenticated browser reproduction with Render request/app logs and correlationId; inspect actual status/code and only then implement the targeted backend/frontend correction. Never log tokens or message contents.
+
+
+LIVE REPRODUCTION CHECK — 2026-11-12 10:23–10:27 UTC
+- User confirmed sending a fresh "Hey" at approximately 10:26 UTC (11:26 WAT).
+- Render request logs and app logs for srv-d7eeuc0sfn5c738tml3g show no POST /api/v1/conversations or correlated app error in the observation window; only deployment completion and health-check GET / requests appeared.
+- Render HTTP request-count metric filtered to max-backend-z0ee.onrender.com + /api/v1/conversations returned an empty series for 10:23–10:27:30 UTC.
+- Evidence currently indicates the attempt did not reach this Render service. Backend introspection and DB stages therefore cannot be blamed based on this reproduction. Investigate deployed frontend request dispatch, API host configuration, browser auth/session state, or whether the user-facing request targets a different service.
+- Root cause remains unconfirmed; no backend fix claimed.
