@@ -38,3 +38,12 @@ BOTPRESS CONNECTOR LIMIT / IMPLEMENTATION BLOCKER — 2026-11-12
 - Official Chat API supports create/get-or-create user, create conversation, create message, list messages and SSE listenConversation. Preserve MAX's own message persistence and MAX tool/confirmation execution in the backend.
 - No source-code change made because the required Botpress endpoint ID and auth configuration are unavailable, and live Botpress verification is blocked by connector cap. Do not switch provider or claim Botpress active yet.
 - Next user action: provide Chat integration Webhook URL (or just its ID) and confirm manual auth / Encryption Key setting; never share the key itself. If user upgrades connector, rerun Botpress health/conversation checks.
+
+
+FOLLOW-UP DEPLOYMENT / CORS VERIFICATION — 2026-11-12
+- Rechecked Render service srv-d7eeuc0sfn5c738tml3g after deploy dep-dbqr083rjlhs73a6pfgg had previously reported deactivated.
+- Newer Render logs (2026-11-12 13:32:24–13:32:57 UTC) show the TypeScript build succeeded, node dist/server.js started, health HEAD / and GET / returned HTTP 200, and Render logged "Your service is live". Service is not suspended.
+- The successful startup proves the backend is live after a subsequent deployment, but the exact newer deployment ID was not identified.
+- Inspected logs did not include an OPTIONS preflight or authenticated /api/v1/conversations request. Direct curl from this execution environment could not resolve the Render hostname (DNS failure), so CORS behavior is not yet verified from a browser/client.
+- Keep CORS fix marked pending until a browser OPTIONS response includes Access-Control-Allow-Origin: https://chat.max-ai.name.ng and an authenticated chat request succeeds.
+- Botpress-first migration remains blocked on Chat integration webhook ID and confirmation of manual-auth configuration; no provider code changed.
