@@ -29,3 +29,12 @@ APK STATUS CHECK — 2026-11-12
 - PR #20 (Android Orb speaking-state fix) remains OPEN and unmerged. PR description requires Flutter analyze, successful release APK build, and uploaded artifact before merge.
 - The previously reported successful workflow run #177 (ID 43193362605) built the APK but skipped artifact upload because upload was gated to workflow_dispatch. No current release APK artifact has been confirmed from the checks queried in this audit.
 - Keep PR #20 open until its required checks and downloadable APK artifact are verified; do not claim the APK is ready based on an earlier compile-only run.
+
+
+BOTPRESS CONNECTOR LIMIT / IMPLEMENTATION BLOCKER — 2026-11-12
+- Continued the approved Botpress-first migration investigation and re-read this plan before work.
+- Botpress management connector reached its hosted free-tier monthly cap: 50/50 tool calls for November 2026. Subsequent Botpress conversation/issue/analytics reads were rejected before execution. This is the connector's hosted-tool allowance, not proof that the user's Botpress bot itself is over quota. Do not retry Botpress data tools until the counter resets or the user chooses to upgrade the connector.
+- Official Botpress Chat API docs confirm the Chat integration exposes a Webhook URL; the webhook ID is the final path segment. Chat API uses x-user-key authentication. For secure MAX Auth mapping, recommended approach is manual authentication with a server-only encryption key configured in Botpress and Render, using stable MAX Auth subject IDs as Botpress user IDs. Need the Chat integration webhook ID and whether manual auth is configured before implementation.
+- Official Chat API supports create/get-or-create user, create conversation, create message, list messages and SSE listenConversation. Preserve MAX's own message persistence and MAX tool/confirmation execution in the backend.
+- No source-code change made because the required Botpress endpoint ID and auth configuration are unavailable, and live Botpress verification is blocked by connector cap. Do not switch provider or claim Botpress active yet.
+- Next user action: provide Chat integration Webhook URL (or just its ID) and confirm manual auth / Encryption Key setting; never share the key itself. If user upgrades connector, rerun Botpress health/conversation checks.
