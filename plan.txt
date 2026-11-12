@@ -55,3 +55,11 @@ PROGRESS LOG ADDENDUM — 2026-11-12
 - Render app logs show service process start at 2026-11-12T09:28:09Z and “MAX backend started” at 09:28:12Z.
 - Render request log query returned no request entries for the investigated interval; HTTP request-count metric query for /api/v1/conversations also returned no data. These are inconclusive and do not prove no requests or endpoint health.
 - No authenticated production POST /conversations test performed; root cause remains unknown.
+
+
+PROGRESS LOG ADDENDUM — 2026-11-12 (CLOUD CHAT FAILURE)
+- Re-read max-backend plan.txt before backend investigation.
+- Confirmed Render service srv-d7eeuc0sfn5c738tml3g is not suspended and auto-deploys main. Render logs show a successful process startup at 09:28:12Z and a subsequent build/deploy starting at 09:32Z for commit da1136b4d4511a4241e38cb19a68e2429cd5e6f5.
+- Render filtered HTTP request metrics for /api/v1/conversations returned no points; the queried log interval returned build/app logs but no request record sufficient to establish the endpoint response. Root cause remains unknown.
+- Source inspection: POST /conversations runs MAX Auth introspection, upserts EcosystemUser, then inserts Conversation. Prisma schema uses UUID IDs. No source-level response-shape mismatch found: API client unwraps {data:...} and expects id, matching backend response.
+- Frontend confirmed to be masking the actual failure; tracked and fixed separately in max-chat PR #19. Do not claim backend service fixed until authenticated creation succeeds.
