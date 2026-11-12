@@ -3,3 +3,14 @@ PRODUCTION CORS ALLOWLIST UPDATE — 2026-11-12
 - Updated CORS_ORIGINS on Render service srv-d7eeuc0sfn5c738tml3g, preserving existing origins https://www.max-ai.name.ng, https://max-ai.name.ng, http://localhost:3000, and http://127.0.0.1:5500; appended https://chat.max-ai.name.ng.
 - Render accepted the environment update and triggered deploy dep-dbqr083rjlhs73a6pfgg at 2026-11-12T12:25:05Z; initial status build_in_progress.
 - Pending: confirm deploy is live, inspect CORS preflight/POST logs, and complete authenticated MAX Chat test. No end-to-end success claimed yet.
+
+AI PROVIDER / BOTPRESS ROUTING AUDIT — 2026-11-12
+- Read max-backend plan.txt before investigation.
+- src/services/ai.service.ts selects Groq whenever GROQ_API_KEY is present; GROQ_MODEL defaults to openai/gpt-oss-20b. There is no Botpress provider in this AI service.
+- src/services/orchestrator.service.ts invokes generateGeminiResponseWithTools()/streamGeminiResponseWithTools() and the MAX tool loop. This is the active backend orchestration path.
+- src/routes/conversations.ts invokes orchestrate()/orchestrateStream() for chat message endpoints and persists provider/model/tool metadata.
+- src/services/tools.service.ts registers YouTube search/video/channel tools and routes them to MAX Auth internal Google endpoints using MAX_AUTH_SERVICE_TOKEN. The current YouTube search endpoint requires the user's YouTube OAuth scope.
+- No Botpress server-side adapter or Botpress provider was found in the inspected backend routes/services. Botpress code found in max-chat is client-side only and is not loaded by the current page.
+- No backend application code changed during this audit. Do not change provider selection or remove Groq until routing requirements are agreed; a direct Botpress browser switch would bypass backend tool execution and persistence.
+- Next: if Botpress is intended as primary agent, implement a server-side Botpress adapter and tool bridge while preserving MAX Auth identity, confirmation flows, MAX tools, conversation persistence, and fallback/error handling. Repair public YouTube creator upload search so it can query public channel uploads without a Google account; keep account-scoped YouTube data behind MAX Auth.
+- Pending validation: run tests for both normal chat and YouTube creator uploads, verify tool execution metadata and conversation persistence, then deploy and confirm production routing.
