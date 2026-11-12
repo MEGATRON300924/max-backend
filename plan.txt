@@ -14,3 +14,18 @@ AI PROVIDER / BOTPRESS ROUTING AUDIT — 2026-11-12
 - No backend application code changed during this audit. Do not change provider selection or remove Groq until routing requirements are agreed; a direct Botpress browser switch would bypass backend tool execution and persistence.
 - Next: if Botpress is intended as primary agent, implement a server-side Botpress adapter and tool bridge while preserving MAX Auth identity, confirmation flows, MAX tools, conversation persistence, and fallback/error handling. Repair public YouTube creator upload search so it can query public channel uploads without a Google account; keep account-scoped YouTube data behind MAX Auth.
 - Pending validation: run tests for both normal chat and YouTube creator uploads, verify tool execution metadata and conversation persistence, then deploy and confirm production routing.
+
+BOTPRESS-FIRST PROVIDER MIGRATION — 2026-11-12
+- User approved provider priority: Botpress primary, Groq secondary fallback.
+- Verified production backend currently selects Groq whenever GROQ_API_KEY is present; active conversation routes call the MAX orchestrator, which directly calls the Groq/Gemini service. No Botpress adapter exists in backend source or environment schema.
+- Verified deployed Botpress bot: Max AI (78d8c527-45ce-41f3-b4d2-97c7e65698f1), deployed 2026-11-09. Botpress Chat and Webchat integrations are enabled; Groq, OpenAI and Google AI integrations are also enabled inside the bot. Botpress logs for 2026-11-12 showed Instagram traffic, not MAX Chat traffic.
+- Official Botpress Chat API supports server-side HTTP chat through its Chat integration. Implementation needs the Chat integration webhook ID (from its Webhook URL); if manual authentication is enabled, it also needs the configured encryption key. Do not expose credentials in GitHub or chat logs.
+- Migration design: backend remains the MAX Auth/persistence/tool/confirmation boundary; Botpress becomes primary conversational agent; Groq is fallback only when Botpress is unavailable or returns a retriable provider failure. Preserve MAX tool execution, identity, memory/context, SSE streaming, confirmations, and provider/model metadata. Do not embed Botpress credentials in web or APK clients.
+- BLOCKED before code implementation: obtain Botpress Chat integration webhook ID and confirm whether Chat integration Encryption Key/manual auth is configured. If not configured, configure a new strong key in Botpress and Render as coordinated secret values; never commit it.
+- Pending: implement adapter and persistent Botpress user/conversation mapping (or safe deterministic mapping if supported by the Chat API), add provider selection/fallback tests, and verify actual Botpress request + MAX tool loop end-to-end.
+
+APK STATUS CHECK — 2026-11-12
+- Native Flutter app source is under mobile/ in max-chat; mobile/pubspec.yaml confirms dependencies and app package.
+- PR #20 (Android Orb speaking-state fix) remains OPEN and unmerged. PR description requires Flutter analyze, successful release APK build, and uploaded artifact before merge.
+- The previously reported successful workflow run #177 (ID 43193362605) built the APK but skipped artifact upload because upload was gated to workflow_dispatch. No current release APK artifact has been confirmed from the checks queried in this audit.
+- Keep PR #20 open until its required checks and downloadable APK artifact are verified; do not claim the APK is ready based on an earlier compile-only run.
