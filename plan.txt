@@ -47,3 +47,10 @@ FOLLOW-UP DEPLOYMENT / CORS VERIFICATION — 2026-11-12
 - Inspected logs did not include an OPTIONS preflight or authenticated /api/v1/conversations request. Direct curl from this execution environment could not resolve the Render hostname (DNS failure), so CORS behavior is not yet verified from a browser/client.
 - Keep CORS fix marked pending until a browser OPTIONS response includes Access-Control-Allow-Origin: https://chat.max-ai.name.ng and an authenticated chat request succeeds.
 - Botpress-first migration remains blocked on Chat integration webhook ID and confirmation of manual-auth configuration; no provider code changed.
+
+
+LEGACY BOTPRESS IMPLEMENTATION REVIEW — 2026-11-12
+- max-chat has an open PR #1 with api/botpress-chat.js, but that is a separate Vercel serverless endpoint. It authenticates MAX Auth/paired TV identity, calls @botpress/chat, and polls Botpress messages, returning a single JSON response.
+- This route does not preserve the active Render backend orchestrator's MAX tool loop, pending confirmations, SSE stream, normal conversation persistence/provider metadata, or Groq fallback. Do not merge or route production traffic through it as-is.
+- max-chat root package.json already includes @botpress/chat ^1.1.0; max-backend package.json does not. If migration is implemented in Render backend, add dependency and server-side adapter there, not Vercel-only client path.
+- Vercel production environment includes variable entries named BOTPRESS_CHAT_WEBHOOK_ID and BOTPRESS_CHAT_ENCRYPTION_KEY, but their values are redacted/not verifiable from the metadata listing. This does not establish that usable values are set in Render.
