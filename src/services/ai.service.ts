@@ -113,30 +113,49 @@ function groqError(status: number, message: string) {
   return new ApiError(502, 'AI_PROVIDER_ERROR', `Groq request failed (${status}): ${message.slice(0, 400) || 'provider error'}`);
 }
 
-async function groqRequest(messages: GroqMessage[], functions: GeminiFunctionDeclaration[], stream = false) {
+type GroqResponse = Response & { selectedModel: string };
+
+function groqModelCandidates() {
+  const configured = [env.GROQ_MODEL, ...env.GROQ_FALLBACK_MODELS.split(',')]
+    .map((model) => model.trim())
+    .filter(Boolean);
+  return [...new Set(configured)];
+}
+
+async function groqRequest(messages: GroqMessage[], functions: GeminiFunctionDeclaration[], stream = false): Promise<GroqResponse> {
   assertConfigured();
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${env.GROQ_API_KEY}`,
-      'content-type': 'application/json',
-      ...(stream ? { accept: 'text/event-stream' } : {})
-    },
-    signal: AbortSignal.timeout(60_000),
-    body: JSON.stringify({
-      model: env.GROQ_MODEL,
-      messages,
-      ...(functions.length ? { tools: groqTools(functions), tool_choice: 'auto' } : {}),
-      ...(stream ? { stream: true } : {}),
-      temperature: 0.3,
-      max_completion_tokens: 4096
-    })
-  });
-  if (!response.ok) {
+  let lastError: ApiError | null = null;
+
+  for (const model of groqModelCandidates()) {
+    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${env.GROQ_API_KEY}`,
+        'content-type': 'application/json',
+        ...(stream ? { accept: 'text/event-stream' } : {})
+      },
+      signal: AbortSignal.timeout(60_000),
+      body: JSON.stringify({
+        model,
+        messages,
+        ...(functions.length ? { tools: groqTools(functions), tool_choice: 'auto' } : {}),
+        ...(stream ? { stream: true } : {}),
+        temperature: 0.3,
+        max_completion_tokens: 1536
+      })
+    });
+
+    if (response.ok) {
+      return Object.assign(response, { selectedModel: model });
+    }
+
     const body = await response.text().catch(() => '');
-    throw groqError(response.status, body);
+    lastError = groqError(response.status, body);
+    // Only move to another model for transient capacity/rate-limit failures.
+    if (![408, 409, 429, 500, 502, 503, 504].includes(response.status)) throw lastError;
   }
-  return response;
+
+  throw lastError ?? new ApiError(503, 'AI_PROVIDER_UNAVAILABLE', 'No configured Groq model is available');
 }
 
 function extractGemini(payload: InteractionPayload) {
@@ -211,12 +230,12 @@ async function runGroq(turns: ChatTurn[], functions: GeminiFunctionDeclaration[]
     content: message.content ?? null,
     ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {})
   }];
-  groqStates.set(interactionId, { messages: stateMessages, model: payload.model ?? env.GROQ_MODEL, updatedAt: Date.now() });
+  groqStates.set(interactionId, { messages: stateMessages, model: payload.model ?? response.selectedModel, updatedAt: Date.now() });
   return {
     text: message.content?.trim() ?? '',
     functionCalls,
     provider: 'groq',
-    model: payload.model ?? env.GROQ_MODEL,
+    model: payload.model ?? response.selectedModel,
     interactionId
   };
 }
@@ -249,12 +268,12 @@ async function continueGroq(
     content: message.content ?? null,
     ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {})
   });
-  groqStates.set(nextId, { messages, model: payload.model ?? previous.model, updatedAt: Date.now() });
+  groqStates.set(nextId, { messages, model: payload.model ?? response.selectedModel, updatedAt: Date.now() });
   return {
     text: message.content?.trim() ?? '',
     functionCalls,
     provider: 'groq',
-    model: payload.model ?? previous.model,
+    model: payload.model ?? response.selectedModel,
     interactionId: nextId
   };
 }
@@ -358,13 +377,13 @@ async function streamGroq(
   };
   groqStates.set(interactionId, {
     messages: [...messages, assistantMessage],
-    model: env.GROQ_MODEL,
+    model: response.selectedModel,
     updatedAt: Date.now()
   });
   if (!fullText.trim() && !functionCalls.length) {
     throw new ApiError(502, 'AI_EMPTY_RESPONSE', `Groq stream ended without a response${finishReason ? ` (${finishReason})` : ''}`);
   }
-  return { text: fullText, functionCalls, interactionId, status: finishReason, provider: 'groq', model: env.GROQ_MODEL };
+  return { text: fullText, functionCalls, interactionId, status: finishReason, provider: 'groq', model: response.selectedModel };
 }
 
 async function streamGemini(
