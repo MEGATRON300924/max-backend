@@ -5,7 +5,6 @@ import { continueGeminiInteraction, generateGeminiResponseWithTools, streamGemin
 import { createPendingAction } from './confirmation.service.js';
 import { executeTool, getGeminiTools, getGoogleCalendarEventForConfirmation, resolveGeminiTool, validateToolInput } from './tools.service.js';
 import { getPersonalizationContext } from './personalization.service.js';
-import { env } from '../config/env.js';
 
 type UserContext = {
   id: string;
