@@ -259,7 +259,7 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
   // remains authoritative for actions, permissions, confirmations and connected apps.
   if (intent === 'general' && env.BOTPRESS_PRIMARY_ENABLED) {
     try {
-      const memoryContext = memories.map((memory) => `- ${memory.type.toLowerCase()}: ${memory.key} = ${memory.value}`).join('\\n');
+      const memoryContext = memories.map((memory) => `- ${memory.type.toLowerCase()}: ${memory.key} = ${memory.value}`).join('\n');
       const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns, memoryContext);
       if (primary.text.trim()) {
         return {
