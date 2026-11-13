@@ -70,3 +70,40 @@ BOTPRESS PR #12 MAINLINE COMPATIBILITY CHECK — 2026-11-12
 - No successful workflow run/check was returned for repaired head 550ab51dc15ad40dfb7a8d078db323805ecb5044; combined status is empty. Previous CI failure is fixed in source but not yet proven by a new build.
 - Returned PR #12 to draft while it is being reconciled with current main. Do not merge this stale branch. Next: rebuild the Botpress changes on top of current main without dropping newer orchestration behavior, run typecheck/build/tests, then merge only after green checks.
 - Backend deployment and Botpress production activation remain pending. BOTPRESS_PRIMARY_ENABLED defaults false and Render Botpress credentials have not been verified. CORS, YouTube public upload lookup, and real authenticated chat are still not end-to-end verified.
+
+
+GROQ MODEL FALLBACK + BOTPRESS MAINLINE REBUILD — 2026-11-13
+- Read the current main plan.txt and audited the live max-backend main branch before changes.
+- Confirmed active provider selection: GROQ_API_KEY causes the backend to use Groq; GROQ_MODEL defaults to openai/gpt-oss-20b. No Botpress adapter exists on main, so ordinary MAX Chat traffic bypasses Botpress.
+- Created branch feat/groq-model-fallback-botpress-mainline from current main; did not reuse stale/diverged Botpress PR #12.
+- Added Groq model candidate fallback: try configured GROQ_MODEL, then GROQ_FALLBACK_MODELS on rate-limit/transient provider failures (HTTP 408/409/429/5xx); non-retryable 4xx errors fail immediately. The actual selected model is retained in interaction metadata.
+- Reduced max_completion_tokens from 4096 to 1536 to lower output-token reservation.
+- Changed source default GROQ_MODEL to llama-3.1-8b-instant and documented GROQ_FALLBACK_MODELS=openai/gpt-oss-20b. Official Groq model documentation confirms Llama 3.1 8B supports tool use and 128K context.
+- Added backend Botpress Chat adapter using server-side x-user-key signed with the Chat Integration manual-auth encryption key; stable MAX user and conversation IDs are used. Saved MAX memories are passed as context. No Botpress credentials are committed.
+- Updated normal and streaming orchestration so general conversational turns try Botpress first when BOTPRESS_PRIMARY_ENABLED=true; Botpress errors fall back to the existing MAX Groq/Gemini tool loop. Action intents continue through MAX's own tool executor so permissions, confirmations, tools, connections and persistence remain authoritative.
+- Corrected the old PR branch's unsafe default Chat API ID: the backend now requires BOTPRESS_CHAT_API_ID (or BOTPRESS_CHAT_WEBHOOK_ID) to be explicitly configured. The previously supplied webhook.botpress.cloud ID is not assumed to be the Chat Integration ID.
+- Added environment schema and .env.example entries for Groq fallback and Botpress configuration.
+- Current code changes are on this branch only; no production deployment or end-to-end test has occurred yet.
+- Render service max-backend (srv-d7eeuc0sfn5c738tml3g) is in Zion's workspace, main branch, auto-deploy enabled. Attempted to update GROQ_MODEL and GROQ_FALLBACK_MODELS directly; Render requires workspace selection confirmation. Available workspace is Zion's workspace (tea-d3ekt6adbo4c738cvjrg); waiting for user confirmation before environment update.
+- Botpress production activation remains blocked until the exact Botpress Chat Integration ID is supplied/confirmed and the manual-auth encryption key is configured directly in Render. Do not use the earlier webhook.botpress.cloud ID as the Chat API ID.
+- Next: run typecheck/build/tests on this branch, open draft PR, configure Render model variables after workspace confirmation, set Botpress secrets and enable BOTPRESS_PRIMARY_ENABLED, then deploy and verify a general chat request reports provider=botpress. Verify action intents still report the MAX/Groq provider and preserve confirmations/tools.
+
+
+CI VERIFICATION UPDATE — 2026-11-13
+- Opened draft PR #17: https://github.com/MEGATRON300924/max-backend/pull/17
+- PR head at first CI run: 33225914796f79e36d612acf38bed39ae35c5733.
+- GitHub Actions run #274 (ID 43394931224) completed successfully. Dependency installation, Prisma client generation, TypeScript typecheck, and production TypeScript build all passed.
+- No unit/integration test suite is configured in this CI workflow; no Botpress live API request or Groq live rate-limit failover test was performed.
+- PR #17 remains draft/open/unmerged pending production environment setup and end-to-end provider verification.
+- Render environment update was not applied: workspace selection is required. The only workspace returned for the Zion Opaaje Render connection is “Zion's workspace” (tea-d3ekt6adbo4c738cvjrg); ask the user to confirm before applying GROQ_MODEL=llama-3.1-8b-instant and GROQ_FALLBACK_MODELS=openai/gpt-oss-20b.
+
+
+RENDER GROQ PRIMARY MODEL CONFIGURATION — 2026-11-13
+- User explicitly approved applying production Groq model settings in Zion's workspace.
+- Updated Render service max-backend (srv-d7eeuc0sfn5c738tml3g) in workspace tea-d3ekt6adbo4c738cvjrg using the Zion Opaaje Render account.
+- Set GROQ_MODEL=llama-3.1-8b-instant and GROQ_FALLBACK_MODELS=openai/gpt-oss-20b. Existing environment variables were merged, not replaced.
+- Render accepted the update and triggered deployment dep-dbrd9mtg1s2s7385mblg from current main commit cf96593002da49b28f3c5267ce01f2b66b4a75b5.
+- At time of check, Render deployment status was build_in_progress; production activation is not yet confirmed.
+- Important: current deployed main contains the existing GROQ_MODEL setting and will use llama-3.1-8b-instant after the environment deployment succeeds. Multi-model fallback behavior (GROQ_FALLBACK_MODELS parsing and retry chain) is in PR #17 and will not be active until that PR is merged and deployed.
+- Botpress routing is also in PR #17 and remains inactive in production. It still requires the real Botpress Chat Integration ID and manual-auth encryption key to be configured as Render secrets, plus BOTPRESS_PRIMARY_ENABLED=true after safe configuration.
+- Next: verify Render deployment dep-dbrd9mtg1s2s7385mblg reaches live; configure/validate Botpress Chat Integration ID and encryption key; run real chat smoke tests; user decides when to merge PR #17.
