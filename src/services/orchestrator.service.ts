@@ -1,4 +1,6 @@
 import { prisma } from '../lib/prisma.js';
+import { env } from '../config/env.js';
+import { generateBotpressResponse } from './botpress.service.js';
 import { continueGeminiInteraction, generateGeminiResponseWithTools, streamGeminiInteraction, streamGeminiResponseWithTools, type ChatTurn } from './ai.service.js';
 import { createPendingAction } from './confirmation.service.js';
 import { executeTool, getGeminiTools, getGoogleCalendarEventForConfirmation, resolveGeminiTool, validateToolInput } from './tools.service.js';
@@ -253,6 +255,31 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
+
+  // Botpress handles ordinary conversational turns. MAX's native tool executor
+  // remains authoritative for actions, permissions, confirmations and connected apps.
+  if (intent === 'general' && env.BOTPRESS_PRIMARY_ENABLED) {
+    try {
+      const memoryContext = memories.map((memory) => `- ${memory.type.toLowerCase()}: ${memory.key} = ${memory.value}`).join('\\n');
+      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns, memoryContext);
+      if (primary.text.trim()) {
+        return {
+          text: primary.text,
+          provider: primary.provider,
+          model: primary.model,
+          intent,
+          tools: [],
+          confirmations: [],
+          connections: [],
+          interactionId: null
+        };
+      }
+      throw new Error('Botpress returned an empty response');
+    } catch (error) {
+      console.warn('[MAX provider] Botpress failed; falling back to Groq/model chain:', error instanceof Error ? error.message : 'unknown error');
+    }
+  }
+
   const generated = await runToolLoop(user, conversationId, turns, system);
   return {
     text: generated.text,
@@ -311,6 +338,28 @@ export async function orchestrateStream(
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
+
+  if (intent === 'general' && env.BOTPRESS_PRIMARY_ENABLED) {
+    try {
+      const memoryContext = memories.map((memory) => `- ${memory.type.toLowerCase()}: ${memory.key} = ${memory.value}`).join('\\n');
+      const primary = await generateBotpressResponse(user.id, conversationId, user.displayName, turns, memoryContext);
+      if (!primary.text.trim()) throw new Error('Botpress returned an empty response');
+      onText(primary.text);
+      return {
+        text: primary.text,
+        provider: primary.provider,
+        model: primary.model,
+        intent,
+        tools: [],
+        confirmations: [],
+        connections: [],
+        interactionId: null
+      };
+    } catch (error) {
+      console.warn('[MAX provider] Botpress streaming request failed; falling back to Groq/model chain:', error instanceof Error ? error.message : 'unknown error');
+    }
+  }
+
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
