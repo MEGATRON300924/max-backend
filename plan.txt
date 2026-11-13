@@ -96,3 +96,14 @@ CI VERIFICATION UPDATE — 2026-11-13
 - No unit/integration test suite is configured in this CI workflow; no Botpress live API request or Groq live rate-limit failover test was performed.
 - PR #17 remains draft/open/unmerged pending production environment setup and end-to-end provider verification.
 - Render environment update was not applied: workspace selection is required. The only workspace returned for the Zion Opaaje Render connection is “Zion's workspace” (tea-d3ekt6adbo4c738cvjrg); ask the user to confirm before applying GROQ_MODEL=llama-3.1-8b-instant and GROQ_FALLBACK_MODELS=openai/gpt-oss-20b.
+
+
+RENDER GROQ PRIMARY MODEL CONFIGURATION — 2026-11-13
+- User explicitly approved applying production Groq model settings in Zion's workspace.
+- Updated Render service max-backend (srv-d7eeuc0sfn5c738tml3g) in workspace tea-d3ekt6adbo4c738cvjrg using the Zion Opaaje Render account.
+- Set GROQ_MODEL=llama-3.1-8b-instant and GROQ_FALLBACK_MODELS=openai/gpt-oss-20b. Existing environment variables were merged, not replaced.
+- Render accepted the update and triggered deployment dep-dbrd9mtg1s2s7385mblg from current main commit cf96593002da49b28f3c5267ce01f2b66b4a75b5.
+- At time of check, Render deployment status was build_in_progress; production activation is not yet confirmed.
+- Important: current deployed main contains the existing GROQ_MODEL setting and will use llama-3.1-8b-instant after the environment deployment succeeds. Multi-model fallback behavior (GROQ_FALLBACK_MODELS parsing and retry chain) is in PR #17 and will not be active until that PR is merged and deployed.
+- Botpress routing is also in PR #17 and remains inactive in production. It still requires the real Botpress Chat Integration ID and manual-auth encryption key to be configured as Render secrets, plus BOTPRESS_PRIMARY_ENABLED=true after safe configuration.
+- Next: verify Render deployment dep-dbrd9mtg1s2s7385mblg reaches live; configure/validate Botpress Chat Integration ID and encryption key; run real chat smoke tests; user decides when to merge PR #17.
