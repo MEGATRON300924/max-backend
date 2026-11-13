@@ -87,3 +87,12 @@ GROQ MODEL FALLBACK + BOTPRESS MAINLINE REBUILD — 2026-11-13
 - Render service max-backend (srv-d7eeuc0sfn5c738tml3g) is in Zion's workspace, main branch, auto-deploy enabled. Attempted to update GROQ_MODEL and GROQ_FALLBACK_MODELS directly; Render requires workspace selection confirmation. Available workspace is Zion's workspace (tea-d3ekt6adbo4c738cvjrg); waiting for user confirmation before environment update.
 - Botpress production activation remains blocked until the exact Botpress Chat Integration ID is supplied/confirmed and the manual-auth encryption key is configured directly in Render. Do not use the earlier webhook.botpress.cloud ID as the Chat API ID.
 - Next: run typecheck/build/tests on this branch, open draft PR, configure Render model variables after workspace confirmation, set Botpress secrets and enable BOTPRESS_PRIMARY_ENABLED, then deploy and verify a general chat request reports provider=botpress. Verify action intents still report the MAX/Groq provider and preserve confirmations/tools.
+
+
+CI VERIFICATION UPDATE — 2026-11-13
+- Opened draft PR #17: https://github.com/MEGATRON300924/max-backend/pull/17
+- PR head at first CI run: 33225914796f79e36d612acf38bed39ae35c5733.
+- GitHub Actions run #274 (ID 43394931224) completed successfully. Dependency installation, Prisma client generation, TypeScript typecheck, and production TypeScript build all passed.
+- No unit/integration test suite is configured in this CI workflow; no Botpress live API request or Groq live rate-limit failover test was performed.
+- PR #17 remains draft/open/unmerged pending production environment setup and end-to-end provider verification.
+- Render environment update was not applied: workspace selection is required. The only workspace returned for the Zion Opaaje Render connection is “Zion's workspace” (tea-d3ekt6adbo4c738cvjrg); ask the user to confirm before applying GROQ_MODEL=llama-3.1-8b-instant and GROQ_FALLBACK_MODELS=openai/gpt-oss-20b.
