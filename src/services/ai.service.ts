@@ -63,15 +63,21 @@ function pruneGroqStates() {
 }
 
 function selectedProvider() {
-  return env.GROQ_API_KEY ? 'groq' : 'gemini';
+  if (env.OPENROUTER_API_KEY) return 'openrouter';
+  if (env.GROQ_API_KEY) return 'groq';
+  return 'gemini';
 }
 
 function assertConfigured() {
-  if (selectedProvider() === 'groq' && !env.GROQ_API_KEY) {
+  const provider = selectedProvider();
+  if (provider === 'openrouter' && !env.OPENROUTER_API_KEY) {
+    throw new ApiError(503, 'AI_NOT_CONFIGURED', 'OpenRouter is not configured');
+  }
+  if (provider === 'groq' && !env.GROQ_API_KEY) {
     throw new ApiError(503, 'AI_NOT_CONFIGURED', 'Groq is not configured');
   }
-  if (selectedProvider() === 'gemini' && !env.GEMINI_API_KEY) {
-    throw new ApiError(503, 'AI_NOT_CONFIGURED', 'Set GROQ_API_KEY to use Groq, or configure GEMINI_API_KEY for the legacy provider');
+  if (provider === 'gemini' && !env.GEMINI_API_KEY) {
+    throw new ApiError(503, 'AI_NOT_CONFIGURED', 'Configure OPENROUTER_API_KEY (recommended), GROQ_API_KEY, or GEMINI_API_KEY');
   }
 }
 
@@ -85,7 +91,8 @@ function groqMessages(turns: ChatTurn[], systemInstruction?: string): GroqMessag
   // Groq recommends putting GPT-OSS instructions in user content rather than
   // using a system role. Keep conversation history intact and attach the
   // current MAX instructions to the latest user turn.
-  if (env.GROQ_MODEL.startsWith('openai/gpt-oss-')) {
+  const model = selectedProvider() === 'openrouter' ? env.OPENROUTER_MODEL : env.GROQ_MODEL;
+  if (model.startsWith('openai/gpt-oss-')) {
     let latestUserIndex = -1;
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       if (messages[i].role === 'user') { latestUserIndex = i; break; }
@@ -120,31 +127,36 @@ function parseGroqToolCalls(calls: GroqToolCall[] | undefined): GeminiFunctionCa
       const parsed: unknown = JSON.parse(call.function.arguments || '{}');
       if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) args = parsed as Record<string, unknown>;
     } catch {
-      throw new ApiError(502, 'AI_INVALID_TOOL_ARGUMENTS', 'Groq returned invalid tool arguments');
+      throw new ApiError(502, 'AI_INVALID_TOOL_ARGUMENTS', 'AI provider returned invalid tool arguments');
     }
     return { id: call.id, name: call.function.name, args };
   });
 }
 
 function groqError(status: number, message: string) {
-  return new ApiError(502, 'AI_PROVIDER_ERROR', `Groq request failed (${status}): ${message.slice(0, 400) || 'provider error'}`);
+  return new ApiError(502, 'AI_PROVIDER_ERROR', `AI provider request failed (${status}): ${message.slice(0, 400) || 'provider error'}`);
 }
 
 async function groqRequest(messages: GroqMessage[], functions: GeminiFunctionDeclaration[], stream = false) {
   assertConfigured();
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const provider = selectedProvider();
+  const isOpenRouter = provider === 'openrouter';
+  const model = isOpenRouter ? env.OPENROUTER_MODEL : env.GROQ_MODEL;
+  const apiKey = isOpenRouter ? env.OPENROUTER_API_KEY : env.GROQ_API_KEY;
+  const response = await fetch(isOpenRouter ? 'https://openrouter.ai/api/v1/chat/completions' : 'https://api.groq.com/openai/v1/chat/completions', {
     method: 'POST',
     headers: {
-      authorization: `Bearer ${env.GROQ_API_KEY}`,
+      authorization: `Bearer ${apiKey}`,
       'content-type': 'application/json',
+      ...(isOpenRouter ? { 'HTTP-Referer': 'https://max-ai.name.ng', 'X-Title': 'MAX AI' } : {}),
       ...(stream ? { accept: 'text/event-stream' } : {})
     },
     signal: AbortSignal.timeout(60_000),
     body: JSON.stringify({
-      model: env.GROQ_MODEL,
+      model,
       messages,
       ...(functions.length ? { tools: groqTools(functions), tool_choice: 'auto' } : {}),
-      ...(env.GROQ_MODEL.startsWith('openai/gpt-oss-') ? { include_reasoning: false } : {}),
+      ...(model.startsWith('openai/gpt-oss-') ? { include_reasoning: false } : {}),
       ...(stream ? { stream: true } : {}),
       temperature: 0.3,
       max_completion_tokens: 4096
@@ -220,7 +232,7 @@ async function runGroq(turns: ChatTurn[], functions: GeminiFunctionDeclaration[]
   const response = await groqRequest(messages, functions);
   const payload = await response.json() as ProviderPayload;
   const message = payload.choices?.[0]?.message;
-  if (!message) throw new ApiError(502, 'AI_EMPTY_RESPONSE', 'Groq returned no response');
+  if (!message) throw new ApiError(502, 'AI_EMPTY_RESPONSE', 'AI provider returned no response');
   const functionCalls = parseGroqToolCalls(message.tool_calls);
   pruneGroqStates();
   const interactionId = crypto.randomUUID();
@@ -229,11 +241,11 @@ async function runGroq(turns: ChatTurn[], functions: GeminiFunctionDeclaration[]
     content: message.content ?? null,
     ...(message.tool_calls?.length ? { tool_calls: message.tool_calls } : {})
   }];
-  groqStates.set(interactionId, { messages: stateMessages, model: payload.model ?? env.GROQ_MODEL, updatedAt: Date.now() });
+  groqStates.set(interactionId, { messages: stateMessages, model: payload.model ?? (selectedProvider() === 'openrouter' ? env.OPENROUTER_MODEL : env.GROQ_MODEL), updatedAt: Date.now() });
   return {
     text: message.content?.trim() ?? '',
     functionCalls,
-    provider: 'groq',
+    provider: selectedProvider(),
     model: payload.model ?? env.GROQ_MODEL,
     interactionId
   };
@@ -258,7 +270,7 @@ async function continueGroq(
   const response = await groqRequest(messages, functions);
   const payload = await response.json() as ProviderPayload;
   const message = payload.choices?.[0]?.message;
-  if (!message) throw new ApiError(502, 'AI_EMPTY_RESPONSE', 'Groq returned no response after the tool call');
+  if (!message) throw new ApiError(502, 'AI_EMPTY_RESPONSE', 'AI provider returned no response after the tool call');
   const functionCalls = parseGroqToolCalls(message.tool_calls);
   groqStates.delete(interactionId);
   const nextId = crypto.randomUUID();
@@ -323,7 +335,7 @@ async function streamGroq(
   onText: (text: string) => void
 ): Promise<StreamResult & { provider: string; model: string }> {
   const response = await groqRequest(messages, functions, true);
-  if (!response.body) throw new ApiError(502, 'AI_STREAM_UNAVAILABLE', 'Groq did not provide a response stream');
+  if (!response.body) throw new ApiError(502, 'AI_STREAM_UNAVAILABLE', 'AI provider did not provide a response stream');
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   const toolCalls = new Map<number, GroqToolCall>();
@@ -403,11 +415,11 @@ async function streamGroq(
   };
   groqStates.set(interactionId, {
     messages: [...messages, assistantMessage],
-    model: env.GROQ_MODEL,
+    model: selectedProvider() === 'openrouter' ? env.OPENROUTER_MODEL : env.GROQ_MODEL,
     updatedAt: Date.now()
   });
   if (!fullText.trim() && !functionCalls.length) {
-    throw new ApiError(502, 'AI_EMPTY_RESPONSE', `Groq stream ended without a response${finishReason ? ` (${finishReason})` : ''}`);
+    throw new ApiError(502, 'AI_EMPTY_RESPONSE', `AI provider stream ended without a response${finishReason ? ` (${finishReason})` : ''}`);
   }
   return { text: fullText, functionCalls, interactionId, status: finishReason, provider: 'groq', model: env.GROQ_MODEL };
 }
