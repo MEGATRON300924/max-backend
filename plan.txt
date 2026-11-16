@@ -116,3 +116,13 @@ GROQ EMPTY-STREAM RECOVERY MERGED — 2026-11-16
 - The change adapts GPT-OSS prompts by moving MAX instructions into the latest user message and retries an empty SSE response once through non-streaming Groq chat completions, preserving the same tools and model.
 - Latest Render deployment listing still shows dep-dbtkcntbedkc73c9btk0 (commit c4db8a2f914565a641b9e6e74104bb76d0cc7fb4) as LIVE; no deployment for PR #20 merge commit was present in the latest check. Service autoDeployTrigger remains checksPass.
 - TypeScript build and authenticated production retest are still pending. Do not claim the new recovery is live until a Render deployment for the merge commit is confirmed. Botpress remains untouched.
+
+
+OPENROUTER PROVIDER MIGRATION — 2026-11-16
+- Read the current main plan.txt, AI service, environment schema, example environment, and orchestration integration before changing provider routing.
+- Added OpenRouter as the preferred OpenAI-compatible gateway in src/services/ai.service.ts. When OPENROUTER_API_KEY is configured, normal, streaming, tool-call, continuation, and fallback requests use https://openrouter.ai/api/v1/chat/completions.
+- Added OPENROUTER_API_KEY and OPENROUTER_MODEL (default openai/gpt-oss-20b) to environment validation and .env.example. OpenRouter requests include the MAX site referrer and app title headers.
+- Groq remains as a compatibility fallback only when OPENROUTER_API_KEY is absent; Gemini remains the final legacy fallback. No credentials or API keys are committed.
+- Branch: feat/openrouter-provider. Changes are being prepared for PR review; TypeScript build, automated tests, OpenRouter model availability, authenticated MAX Chat streaming, MAX Home tool calls, and Render deployment are not yet verified.
+- After merge, add OPENROUTER_API_KEY and optionally OPENROUTER_MODEL to the Render max-backend service environment, then verify deployment and run end-to-end tests. Never paste the API key into GitHub or this chat.
+- Botpress was not accessed or modified.
