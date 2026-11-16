@@ -63,15 +63,15 @@ function pruneGroqStates() {
 }
 
 function selectedProvider() {
-  return env.GROQ_API_KEY ? 'groq' : 'gemini';
+  return env.GEMINI_API_KEY ? 'gemini' : 'groq';
 }
 
 function assertConfigured() {
-  if (selectedProvider() === 'groq' && !env.GROQ_API_KEY) {
-    throw new ApiError(503, 'AI_NOT_CONFIGURED', 'Groq is not configured');
-  }
   if (selectedProvider() === 'gemini' && !env.GEMINI_API_KEY) {
-    throw new ApiError(503, 'AI_NOT_CONFIGURED', 'Set GROQ_API_KEY to use Groq, or configure GEMINI_API_KEY for the legacy provider');
+    throw new ApiError(503, 'AI_NOT_CONFIGURED', 'Gemini is not configured. Set GEMINI_API_KEY.');
+  }
+  if (selectedProvider() === 'groq' && !env.GROQ_API_KEY) {
+    throw new ApiError(503, 'AI_NOT_CONFIGURED', 'Neither GEMINI_API_KEY nor GROQ_API_KEY is configured.');
   }
 }
 

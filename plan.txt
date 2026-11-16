@@ -116,3 +116,12 @@ GROQ EMPTY-STREAM RECOVERY MERGED — 2026-11-16
 - The change adapts GPT-OSS prompts by moving MAX instructions into the latest user message and retries an empty SSE response once through non-streaming Groq chat completions, preserving the same tools and model.
 - Latest Render deployment listing still shows dep-dbtkcntbedkc73c9btk0 (commit c4db8a2f914565a641b9e6e74104bb76d0cc7fb4) as LIVE; no deployment for PR #20 merge commit was present in the latest check. Service autoDeployTrigger remains checksPass.
 - TypeScript build and authenticated production retest are still pending. Do not claim the new recovery is live until a Render deployment for the merge commit is confirmed. Botpress remains untouched.
+
+
+GEMINI PRIMARY PROVIDER MIGRATION — 2026-11-16
+- User changed provider decision from OpenRouter to Google Gemini. OpenRouter PR #21 was closed without merging; do not configure OPENROUTER_API_KEY for this migration.
+- New branch feat/gemini-primary-provider selects Gemini whenever GEMINI_API_KEY is present. Groq remains a compatibility fallback only when Gemini is not configured.
+- Existing Gemini implementation and GEMINI_MODEL default (gemini-3.7-flash) are retained. No API keys or credentials are committed.
+- TypeScript build, automated tests, Gemini model availability, authenticated MAX Chat streaming, MAX Home tool calls, and Render deployment remain pending.
+- After merge, ensure GEMINI_API_KEY is set in Render max-backend and keep GROQ_API_KEY available as a fallback until Gemini is verified in production.
+- Botpress was not accessed or modified.
