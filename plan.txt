@@ -95,3 +95,9 @@ GROQ SSE / MAX HOME ROUTING FIX MERGED — 2026-11-16
 - Source review confirms the MAX Home device-list tool is registered and its backend handler calls listHomeDevices() using the authenticated MAX Auth token. Actual production device count remains unknown until that tool returns data.
 - Render auto-deployment for the merge commit was not yet visible in the latest deploy listing at the time of this update. No production fix is claimed yet.
 - Pending: confirm Render deploy for the merged code is live and TypeScript build succeeds; run npm test if CI becomes available; then have the user repeat a MAX Home device-count query and inspect the authenticated tool result. Botpress remains out of scope.
+
+
+RENDER DEPLOYMENT GATE CHECK — 2026-11-16
+- Inspected Render service srv-d7eeuc0sfn5c738tml3g after PR #19 merge. Service tracks main and autoDeploy=yes, but autoDeployTrigger=checksPass.
+- GitHub returned no workflow runs and no combined status checks for the PR #19 head; Render has not created a deployment for merge commit aa7efb7adfc9f0639cf9804a87d367bd2af54fe1. The currently live deployment is still dep-dbtkamec6qcc73bvjfsg at merge commit 89f94c28e4104885a44ec0bab9615b3cdd8c193d (PR #18), which does not include the follow-up EOF flush correction or MAX Home routing change.
+- Do not report the production issue as fixed. Deployment is blocked by the checksPass auto-deploy gate with no CI status available. Next action requires either enabling deploy-on-commit in Render or an explicitly authorized manual deploy; then verify build and production stream.
