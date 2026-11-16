@@ -58,6 +58,7 @@ function classifyIntent(content: string) {
   const value = content.toLowerCase();
   // Named account/product context takes priority over generic nouns such as 'device'.
   if (/\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\b/.test(value)) return 'account';
+  if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
   if (/\b(watched|watch history|playback progress|continue watching|stopped at|video progress|last watched)\b/.test(value)) return 'media';
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
   if (/\b(turn on|turn off|switch on|switch off|dim|brighten|set .* thermostat|lock|unlock|open|close)\b/.test(value)) return 'home';
@@ -106,6 +107,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'For YouTube research, use google.youtube.videos when needed to inspect video category metadata; YouTube categoryId 10 is Music. A request to check, search, or list uploads is research only: do not start playback. Offer playback and wait for an explicit play request.',
     'If a user asks what you think about a show, game, creator, or community, give a useful, grounded assessment and invite discussion instead of refusing to have an opinion.',
     'Use registered tools when an actual backend action is required.',
+    'For questions about MAX Home devices, device counts, online/offline status, or connected devices, always call home.devices.list and base the answer only on its returned device data. Do not guess counts or status.',
     'Never claim an action was completed unless the backend returned a successful tool result.',
     'Never invent devices, homes, accounts, files, purchases, payments, integrations, or tool results.',
     'Sensitive actions such as home control and memory deletion require explicit confirmation and must never be bypassed.',

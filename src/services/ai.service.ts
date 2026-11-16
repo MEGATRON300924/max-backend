@@ -349,7 +349,11 @@ async function streamGroq(
   }
   consume(decoder.decode());
   // Flush a final SSE data line even when the provider closes without a trailing newline.
-  if (buffer.trim()) consume(`${buffer}\n`);
+  if (buffer.trim()) {
+    const finalLine = buffer;
+    buffer = '';
+    consume(`${finalLine}\n`);
+  }
   const calls = [...toolCalls.values()];
   const functionCalls = parseGroqToolCalls(calls);
   const interactionId = crypto.randomUUID();
