@@ -76,13 +76,30 @@ function assertConfigured() {
 }
 
 function groqMessages(turns: ChatTurn[], systemInstruction?: string): GroqMessage[] {
-  return [
-    ...(systemInstruction ? [{ role: 'system' as const, content: systemInstruction }] : []),
-    ...turns.map((turn): GroqMessage => ({
-      role: turn.role === 'user' ? 'user' : 'assistant',
-      content: turn.content
-    }))
-  ];
+  const messages: GroqMessage[] = turns.map((turn) => ({
+    role: turn.role === 'user' ? 'user' : 'assistant',
+    content: turn.content
+  }));
+  if (!systemInstruction) return messages;
+
+  // Groq recommends putting GPT-OSS instructions in user content rather than
+  // using a system role. Keep conversation history intact and attach the
+  // current MAX instructions to the latest user turn.
+  if (env.GROQ_MODEL.startsWith('openai/gpt-oss-')) {
+    let latestUserIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      if (messages[i].role === 'user') { latestUserIndex = i; break; }
+    }
+    if (latestUserIndex >= 0) {
+      const userContent = messages[latestUserIndex].content ?? '';
+      messages[latestUserIndex].content = `MAX assistant instructions:\n${systemInstruction}\n\nUser request:\n${userContent}`;
+    } else {
+      messages.push({ role: 'user', content: systemInstruction });
+    }
+    return messages;
+  }
+
+  return [{ role: 'system', content: systemInstruction }, ...messages];
 }
 
 function groqTools(functions: GeminiFunctionDeclaration[]) {
@@ -354,8 +371,29 @@ async function streamGroq(
     buffer = '';
     consume(`${finalLine}\n`);
   }
-  const calls = [...toolCalls.values()];
-  const functionCalls = parseGroqToolCalls(calls);
+  let calls = [...toolCalls.values()];
+  let functionCalls = parseGroqToolCalls(calls);
+
+  // Some provider streams can close without delivering a content/tool delta.
+  // Retry that turn once as a regular completion before surfacing an empty
+  // response to the client. This preserves the same model, prompt and tools.
+  if (!fullText.trim() && !functionCalls.length) {
+    const fallbackResponse = await groqRequest(messages, functions, false);
+    const fallbackPayload = await fallbackResponse.json() as ProviderPayload;
+    const fallbackChoice = fallbackPayload.choices?.[0];
+    const fallbackMessage = fallbackChoice?.message;
+    if (fallbackChoice?.finish_reason) finishReason = fallbackChoice.finish_reason;
+    if (fallbackMessage) {
+      const fallbackText = fallbackMessage.content ?? '';
+      if (fallbackText.trim()) {
+        fullText = fallbackText;
+        onText(fallbackText);
+      }
+      calls = fallbackMessage.tool_calls ?? [];
+      functionCalls = parseGroqToolCalls(calls);
+    }
+  }
+
   const interactionId = crypto.randomUUID();
   pruneGroqStates();
   const assistantMessage: GroqMessage = {
