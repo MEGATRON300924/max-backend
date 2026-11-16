@@ -156,10 +156,10 @@ async function groqRequest(messages: GroqMessage[], functions: GeminiFunctionDec
       model,
       messages,
       ...(functions.length ? { tools: groqTools(functions), tool_choice: 'auto' } : {}),
-      ...(model.startsWith('openai/gpt-oss-') ? { include_reasoning: false } : {}),
+      ...(!isOpenRouter && model.startsWith('openai/gpt-oss-') ? { include_reasoning: false } : {}),
       ...(stream ? { stream: true } : {}),
       temperature: 0.3,
-      max_completion_tokens: 4096
+      max_tokens: 4096
     })
   });
   if (!response.ok) {
@@ -246,7 +246,7 @@ async function runGroq(turns: ChatTurn[], functions: GeminiFunctionDeclaration[]
     text: message.content?.trim() ?? '',
     functionCalls,
     provider: selectedProvider(),
-    model: payload.model ?? env.GROQ_MODEL,
+    model: payload.model ?? (selectedProvider() === 'openrouter' ? env.OPENROUTER_MODEL : env.GROQ_MODEL),
     interactionId
   };
 }
@@ -421,7 +421,7 @@ async function streamGroq(
   if (!fullText.trim() && !functionCalls.length) {
     throw new ApiError(502, 'AI_EMPTY_RESPONSE', `AI provider stream ended without a response${finishReason ? ` (${finishReason})` : ''}`);
   }
-  return { text: fullText, functionCalls, interactionId, status: finishReason, provider: 'groq', model: env.GROQ_MODEL };
+  return { text: fullText, functionCalls, interactionId, status: finishReason, provider: selectedProvider(), model: selectedProvider() === 'openrouter' ? env.OPENROUTER_MODEL : env.GROQ_MODEL };
 }
 
 async function streamGemini(
