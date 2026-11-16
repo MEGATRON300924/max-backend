@@ -101,3 +101,10 @@ RENDER DEPLOYMENT GATE CHECK — 2026-11-16
 - Inspected Render service srv-d7eeuc0sfn5c738tml3g after PR #19 merge. Service tracks main and autoDeploy=yes, but autoDeployTrigger=checksPass.
 - GitHub returned no workflow runs and no combined status checks for the PR #19 head; Render has not created a deployment for merge commit aa7efb7adfc9f0639cf9804a87d367bd2af54fe1. The currently live deployment is still dep-dbtkamec6qcc73bvjfsg at merge commit 89f94c28e4104885a44ec0bab9615b3cdd8c193d (PR #18), which does not include the follow-up EOF flush correction or MAX Home routing change.
 - Do not report the production issue as fixed. Deployment is blocked by the checksPass auto-deploy gate with no CI status available. Next action requires either enabling deploy-on-commit in Render or an explicitly authorized manual deploy; then verify build and production stream.
+
+
+GROQ EMPTY-STREAM RECOVERY MERGED — 2026-11-16
+- PR #20 was reported merged by GitHub: https://github.com/MEGATRON300924/max-backend/pull/20 (merge commit bc75f89c6adbff656d90fe36541f6c1ce9efd977).
+- The change adapts GPT-OSS prompts by moving MAX instructions into the latest user message and retries an empty SSE response once through non-streaming Groq chat completions, preserving the same tools and model.
+- Latest Render deployment listing still shows dep-dbtkcntbedkc73c9btk0 (commit c4db8a2f914565a641b9e6e74104bb76d0cc7fb4) as LIVE; no deployment for PR #20 merge commit was present in the latest check. Service autoDeployTrigger remains checksPass.
+- TypeScript build and authenticated production retest are still pending. Do not claim the new recovery is live until a Render deployment for the merge commit is confirmed. Botpress remains untouched.
