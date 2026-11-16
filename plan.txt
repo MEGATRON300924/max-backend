@@ -78,3 +78,12 @@ GROQ GPT-OSS STREAM OUTPUT FIX — 2026-11-16
 - Updated src/services/ai.service.ts on fix/groq-gpt-oss-stream-output to set include_reasoning:false for openai/gpt-oss-* requests and flush a final unterminated SSE data line at end-of-stream.
 - Commit: 6a936d96e2a058e3d292bf81e68366c86894ffc3.
 - Validation pending: run TypeScript build/tests and verify an authenticated MAX Chat stream produces a non-empty assistant response. Do not merge or claim production fixed until checks and end-to-end verification pass.
+
+
+GROQ STREAM FLUSH / MAX HOME DEVICE ROUTING FOLLOW-UP — 2026-11-16
+- User retested production MAX Chat and still received “Groq stream ended without a response” for “am good how many devices are online in my max home account”. Botpress remains out of scope by user instruction; do not call Botpress tools or spend Botpress quota.
+- Render logs confirmed the production request reached POST /api/v1/conversations/:id/messages/stream and returned HTTP 200 SSE; the client then recorded the failed assistant turn. The deployment was live, so HTTP 200 alone did not establish valid streamed assistant output.
+- Found a concrete bug in src/services/ai.service.ts: the EOF flush called consume(`${buffer}\\n`) while consume itself prepends each chunk to the existing buffer, duplicating an unterminated final SSE line and causing its JSON parse to fail. Fixed by copying the final line, clearing buffer, then passing the line back through consume.
+- Found MAX Home device-count phrasing was not classified as home intent. Updated classifyIntent() to route MAX Home / home-device / online-offline-connected device questions to home intent and added an explicit system instruction requiring home.devices.list for counts/status, with no invented device data.
+- Changes are on fix/groq-gpt-oss-stream-output. Commits are recorded in the branch history; CI/build and authenticated production retest are pending. Do not merge or claim fixed until validated.
+- Next: run npm run build, npm test, inspect PR #18 checks, then deploy only after successful validation. Confirm MAX_HOME_API_URL and actual device-list endpoint behavior before answering any count.
