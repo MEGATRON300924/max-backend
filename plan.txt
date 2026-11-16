@@ -111,3 +111,8 @@ GROQ EMPTY-STREAM FOLLOW-UP — 2026-11-16
 - Groq's current GPT-OSS guidance recommends avoiding system-role prompts and putting instructions into user content. MAX currently passes the large orchestration instruction as a system message.
 - New branch fix/groq-empty-stream-recovery; commit 96a89279f86ea8b0c96a5c796a309a27cfcca5fb. For GPT-OSS, move MAX instructions into the latest user turn while preserving conversation history. If the stream still closes without text/tool calls, retry once using a non-streaming completion with the same model/messages/tools and forward its final text/tool calls. No Botpress changes.
 - Validation still required: run TypeScript build and tests, inspect PR checks, then deploy and verify greeting plus MAX Home tool query. Do not claim fixed until real production stream returns content.
+GROQ EMPTY-STREAM RECOVERY MERGED — 2026-11-16
+- PR #20 was reported merged by GitHub: https://github.com/MEGATRON300924/max-backend/pull/20 (merge commit bc75f89c6adbff656d90fe36541f6c1ce9efd977).
+- The change adapts GPT-OSS prompts by moving MAX instructions into the latest user message and retries an empty SSE response once through non-streaming Groq chat completions, preserving the same tools and model.
+- Latest Render deployment listing still shows dep-dbtkcntbedkc73c9btk0 (commit c4db8a2f914565a641b9e6e74104bb76d0cc7fb4) as LIVE; no deployment for PR #20 merge commit was present in the latest check. Service autoDeployTrigger remains checksPass.
+- TypeScript build and authenticated production retest are still pending. Do not claim the new recovery is live until a Render deployment for the merge commit is confirmed. Botpress remains untouched.
