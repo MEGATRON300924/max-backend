@@ -127,6 +127,7 @@ async function groqRequest(messages: GroqMessage[], functions: GeminiFunctionDec
       model: env.GROQ_MODEL,
       messages,
       ...(functions.length ? { tools: groqTools(functions), tool_choice: 'auto' } : {}),
+      ...(env.GROQ_MODEL.startsWith('openai/gpt-oss-') ? { include_reasoning: false } : {}),
       ...(stream ? { stream: true } : {}),
       temperature: 0.3,
       max_completion_tokens: 4096
@@ -347,6 +348,8 @@ async function streamGroq(
     consume(decoder.decode(value, { stream: true }));
   }
   consume(decoder.decode());
+  // Flush a final SSE data line even when the provider closes without a trailing newline.
+  if (buffer.trim()) consume(`${buffer}\n`);
   const calls = [...toolCalls.values()];
   const functionCalls = parseGroqToolCalls(calls);
   const interactionId = crypto.randomUUID();

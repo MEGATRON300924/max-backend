@@ -70,3 +70,11 @@ BOTPRESS PR #12 MAINLINE COMPATIBILITY CHECK — 2026-11-12
 - No successful workflow run/check was returned for repaired head 550ab51dc15ad40dfb7a8d078db323805ecb5044; combined status is empty. Previous CI failure is fixed in source but not yet proven by a new build.
 - Returned PR #12 to draft while it is being reconciled with current main. Do not merge this stale branch. Next: rebuild the Botpress changes on top of current main without dropping newer orchestration behavior, run typecheck/build/tests, then merge only after green checks.
 - Backend deployment and Botpress production activation remain pending. BOTPRESS_PRIMARY_ENABLED defaults false and Render Botpress credentials have not been verified. CORS, YouTube public upload lookup, and real authenticated chat are still not end-to-end verified.
+
+
+GROQ GPT-OSS STREAM OUTPUT FIX — 2026-11-16
+- Investigated production MAX Chat failures reported as “Groq stream ended without a response”. Render deployment dep-dbtk3ho8v5cc7398g4ag is LIVE with GROQ_MODEL=openai/gpt-oss-20b; production requests reached POST /api/v1/conversations/:id/messages/stream and returned HTTP 200 SSE, but the client received no usable assistant text.
+- Read Groq's current reasoning-model documentation: GPT-OSS can emit reasoning separately from assistant content, and Groq supports include_reasoning=false to suppress that separate reasoning output.
+- Updated src/services/ai.service.ts on fix/groq-gpt-oss-stream-output to set include_reasoning:false for openai/gpt-oss-* requests and flush a final unterminated SSE data line at end-of-stream.
+- Commit: 6a936d96e2a058e3d292bf81e68366c86894ffc3.
+- Validation pending: run TypeScript build/tests and verify an authenticated MAX Chat stream produces a non-empty assistant response. Do not merge or claim production fixed until checks and end-to-end verification pass.
