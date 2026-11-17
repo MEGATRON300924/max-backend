@@ -338,3 +338,6 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - GitHub Actions CI run `44078673556` was observed in progress for the PR head. Await completion before considering the backend change validated.
 
 - First PR CI run `44078784645` failed during strict TypeScript typecheck at `src/services/orchestrator.service.ts(175,30)` because indexed provider label access could be undefined. Replaced `provider[0]` with `provider.charAt(0)`; this is a type-safety correction only. Follow-up CI is pending.
+
+- Follow-up GitHub Actions CI run `44078984558` passed on source commit `f6e054212f413f174b80699b41cb99d45124b809`: dependency install, Prisma generation, TypeScript typecheck and build all passed. The branch's latest commit is a plan-only update; application source is unchanged from the passing CI commit.
+- PR #33 currently reports mergeable=true. It remains open/unmerged and has not been deployed. Live OAuth session creation and browser rendering remain unverified.
