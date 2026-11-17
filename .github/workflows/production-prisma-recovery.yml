@@ -43,10 +43,10 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve the known failed add-pending-actions migration as rolled back
+      - name: Resolve the known failed pending-action execution-states migration as rolled back
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma migrate resolve --rolled-back 20260904230000_add_pending_actions --schema prisma/schema.prisma
+        run: npx prisma migrate resolve --rolled-back 20260904230000_pending_action_execution_states --schema prisma/schema.prisma
 
       - name: Apply remaining migrations
         env:
