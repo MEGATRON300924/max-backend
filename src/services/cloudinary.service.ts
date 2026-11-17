@@ -17,12 +17,11 @@ function signatureFor(params: Record<string, string | number>, secret: string) {
 
 export function createChatImageUploadSignature(userId: string, conversationId: string, attachmentId: string) {
   const { cloudName, apiKey, apiSecret } = credentials();
-  const folder = 'max-ai/chat/' + userId + '/' + conversationId;
-  const publicId = folder + '/' + attachmentId;
+  const publicId = 'max-ai/chat/' + userId + '/' + conversationId + '/' + attachmentId;
   const timestamp = Math.floor(Date.now() / 1000);
   const type = 'authenticated';
-  const signature = signatureFor({ folder, public_id: publicId, timestamp, type }, apiSecret);
-  return { cloudName, apiKey, timestamp, signature, folder, publicId, type };
+  const signature = signatureFor({ public_id: publicId, timestamp, type }, apiSecret);
+  return { cloudName, apiKey, timestamp, signature, publicId, type };
 }
 
 export function verifyChatImageUpload(input: { userId: string; conversationId: string; attachmentId: string; publicId: string; version: number; signature: string }) {
