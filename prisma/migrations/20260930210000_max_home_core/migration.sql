@@ -1,9 +1,54 @@
 -- MAX Home core domain migration
-CREATE TYPE "max_backend"."max_backend"."HomeMemberRole" AS ENUM ('OWNER','ADMIN','MEMBER','CHILD','GUEST','SUPPORT');
-CREATE TYPE "max_backend"."max_backend"."HomeModeType" AS ENUM ('STUDY','WORSHIP','VISITOR','DINNER','FAMILY_TIME','SLEEP','MOVIE','TRAVEL','CLEANING','EMERGENCY','CUSTOM');
-CREATE TYPE "max_backend"."max_backend"."AutomationStatus" AS ENUM ('ENABLED','PAUSED','DISABLED','FAILED');
-CREATE TYPE "max_backend"."max_backend"."IncidentStatus" AS ENUM ('OPEN','ACKNOWLEDGED','RESOLVED','CANCELLED');
-CREATE TYPE "max_backend"."max_backend"."NotificationStatus" AS ENUM ('PENDING','SENT','DELIVERED','FAILED','READ','ACKNOWLEDGED');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'HomeMemberRole' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."HomeMemberRole" AS ENUM (''OWNER'',''ADMIN'',''MEMBER'',''CHILD'',''GUEST'',''SUPPORT'')';
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'HomeModeType' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."HomeModeType" AS ENUM (''STUDY'',''WORSHIP'',''VISITOR'',''DINNER'',''FAMILY_TIME'',''SLEEP'',''MOVIE'',''TRAVEL'',''CLEANING'',''EMERGENCY'',''CUSTOM'')';
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'AutomationStatus' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."AutomationStatus" AS ENUM (''ENABLED'',''PAUSED'',''DISABLED'',''FAILED'')';
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'IncidentStatus' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."IncidentStatus" AS ENUM (''OPEN'',''ACKNOWLEDGED'',''RESOLVED'',''CANCELLED'')';
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'NotificationStatus' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."NotificationStatus" AS ENUM (''PENDING'',''SENT'',''DELIVERED'',''FAILED'',''READ'',''ACKNOWLEDGED'')';
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS "max_backend"."homes" (
  "id" UUID NOT NULL DEFAULT gen_random_uuid(),"owner_id" UUID NOT NULL,"name" TEXT NOT NULL,"timezone" TEXT,"latitude" DOUBLE PRECISION,"longitude" DOUBLE PRECISION,"settings" JSONB,"created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,"updated_at" TIMESTAMP(3) NOT NULL,
