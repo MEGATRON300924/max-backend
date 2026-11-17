@@ -33,5 +33,5 @@ BEGIN
       REFERENCES "max_backend"."ecosystem_users"("id")
       ON DELETE SET NULL ON UPDATE CASCADE;
   END IF;
-END
-$$;
+END;
+$;
