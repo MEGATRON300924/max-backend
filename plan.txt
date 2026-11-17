@@ -276,3 +276,51 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 
 - Branch hygiene: the original PR #30 was closed as superseded after the clean current-main branch was created. New PR #31 is the only backend integration PR to review: https://github.com/MEGATRON300924/max-backend/pull/31.
 - Compare against current main: status ahead, 5 commits ahead, 0 behind. No MAX Auth/MAX Home mainline commits are being removed.
+
+## Cloudinary-backed MAX Chat image attachments — 2026-11-17
+- User requested Cloudinary image storage so conversation records keep references rather than image binaries/base64.
+- Existing MAX Backend uses authenticated PostgreSQL CloudFile records and local/MediaFire providers; MAX Chat attachment previews use browser object URLs. Vision requests separately prepare temporary compressed data URLs for model analysis.
+- Implementing direct browser-to-Cloudinary signed image uploads. MAX Backend signs a per-user/per-conversation public ID; API secret stays server-side. Cloudinary upload response signature is verified server-side before recording attachment metadata.
+- Added account-owned ConversationAttachment model with user/conversation/message foreign keys; stores Cloudinary public ID, secure URL, filename, MIME type, size and dimensions. Message history returns attachment metadata; message record endpoint links only attachments owned by the same user and conversation.
+- Required Render environment variables: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET. No credentials in source.
+- Image types: JPEG, PNG, WebP, GIF, AVIF; maximum 10 MB each; maximum 5 per message. Image bytes upload directly to Cloudinary. Temporary compressed data is sent to the vision endpoint for analysis only, not persisted in PostgreSQL.
+- Branch: feat/cloudinary-chat-attachments. Prisma generation, TypeScript/build, tests, PR and live Cloudinary verification pending.
+- Remaining: ensure Cloudinary assets are deleted when conversations are deleted; complete frontend direct-upload and message-reference integration.
+
+### Cloudinary security hardening — 2026-11-17
+- Chat uploads use Cloudinary's authenticated delivery type, not public upload URLs. The browser receives a signed delivery URL; API secret remains server-side.
+- Completion now verifies Cloudinary's upload response signature and fetches authoritative asset metadata through the Cloudinary Admin API. File size/format are not trusted from browser-supplied values; oversized or unsupported assets are deleted.
+- Conversation deletion removes its Cloudinary objects before cascading the database records. Assistant-generated images may also be linked to assistant messages.
+
+### Cloudinary cleanup correction — 2026-11-17
+- Cloudinary deletion requests now explicitly target the authenticated delivery type, matching the type used at upload; this avoids leaving assets behind by accidentally calling destroy against the default public upload type.
+- Conversation delete removes remote Cloudinary assets before database cascade; attachment delete removes one owner-verified asset.
+
+### Implementation checkpoint — 2026-11-17
+- Added Prisma ConversationAttachment model and SQL migration `20261117120000_conversation_attachments`.
+- Added authenticated Cloudinary signed upload endpoint, completion verification, owner-scoped attachment deletion and conversation cleanup.
+- Cloudinary API secret stays in Render environment only. Uploads use authenticated delivery type; the completion endpoint validates the upload response signature and verifies actual format/size/version using Cloudinary Admin API.
+- Message history includes attachment records; message persistence links attachment IDs only when they belong to the same MAX user and conversation. Retry-safe duplicate message persistence is included.
+- Supported images JPEG/PNG/WebP/GIF/AVIF, max 10 MB each; max 5 refs per message.
+- Static review confirms endpoint/schema/migration and source wiring. Full Prisma generation/typecheck/build and live Cloudinary verification pending.
+- Render secrets not configured by this code change: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- Branch: `feat/cloudinary-chat-attachments`. No merge or production deployment.
+
+### Cloudinary public ID path correction — 2026-11-17
+- Removed the legacy `folder` upload parameter to avoid Cloudinary fixed-folder mode automatically prefixing a full path twice. The signed public ID itself now carries the deterministic `max-ai/chat/{userId}/{conversationId}/{attachmentId}` namespace.
+
+### PR and CI verification — 2026-11-17
+- Opened backend PR #32: https://github.com/MEGATRON300924/max-backend/pull/32 (open, not merged).
+- GitHub Actions CI run `44075428986` completed successfully on current backend PR head `cfa537dda2e67667bc0b8f7f5a2fbc2230fd7a3b`: dependency install, Prisma Client generation, TypeScript typecheck and TypeScript build all passed.
+- Live Cloudinary upload, authenticated delivery and deletion tests remain pending because Render Cloudinary credentials are not configured/available in this workspace.
+- No deployment or merge.
+
+### Sync with current main after MAX Hotels merge — 2026-11-17
+- Main advanced while this PR was in progress because MAX Hotels PR #31 merged. Compared current main and the Cloudinary branch; preserved the new `MAX_HOTELS_API_URL` configuration and the complete MAX Hotels plan history while retaining Cloudinary changes.
+- Created a two-parent merge commit `8a054f41c20fb4ec10b809f180586b6483579fa8` with current main as first parent and the Cloudinary branch as second parent. The branch now includes both sets of changes; PR #32 reports mergeable=true.
+- Earlier CI run `44075428986` passed Prisma generation, typecheck and build on the Cloudinary code before this sync. Revalidation on the synced head is pending.
+
+### Synced-head CI result — 2026-11-17
+- GitHub Actions CI run `44075841281` passed on merge commit `8a054f41c20fb4ec10b809f180586b6483579fa8`, which includes current main (including MAX Hotels PR #31) plus Cloudinary changes: dependency install, Prisma Client generation, TypeScript typecheck and build all passed.
+- The latest branch commit after that run is a plan.txt-only checkpoint; application source is unchanged from the successful CI commit.
+- PR #32 remains open and unmerged; no Render deployment or live Cloudinary test has been performed.

@@ -58,6 +58,7 @@ model EcosystemUser {
   pendingActions   PendingAction[]
   auditEvents      AuditEvent[]
   cloudFiles       CloudFile[]
+  conversationAttachments ConversationAttachment[]
   devices          Device[]
   deviceSessions   DeviceSession[]
   events           MaxEvent[]
@@ -80,6 +81,7 @@ model Conversation {
   updatedAt   DateTime            @updatedAt @map("updated_at")
   user        EcosystemUser       @relation(fields: [userId], references: [id], onDelete: Cascade)
   messages    Message[]
+  attachments  ConversationAttachment[]
   pendingActions PendingAction[]
 
   @@index([userId, updatedAt])
@@ -98,6 +100,7 @@ model Message {
   metadata       Json?
   createdAt      DateTime     @default(now()) @map("created_at")
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  attachments    ConversationAttachment[]
 
   @@index([conversationId, createdAt])
   @@map("messages")
@@ -164,6 +167,29 @@ model AuditEvent {
   @@index([eventType, createdAt])
   @@index([correlationId])
   @@map("audit_events")
+  @@schema("max_backend")
+}
+
+model ConversationAttachment {
+  id             String       @id @default(uuid()) @db.Uuid
+  userId         String       @map("user_id") @db.Uuid
+  conversationId String       @map("conversation_id") @db.Uuid
+  messageId      String?      @map("message_id") @db.Uuid
+  publicId       String       @unique @map("public_id")
+  secureUrl      String       @map("secure_url")
+  originalName   String       @map("original_name")
+  mimeType       String       @map("mime_type")
+  sizeBytes      BigInt       @map("size_bytes")
+  width          Int?
+  height         Int?
+  createdAt      DateTime     @default(now()) @map("created_at")
+  user           EcosystemUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  message        Message?      @relation(fields: [messageId], references: [id], onDelete: SetNull)
+
+  @@index([userId, conversationId, createdAt])
+  @@index([messageId])
+  @@map("conversation_attachments")
   @@schema("max_backend")
 }
 
