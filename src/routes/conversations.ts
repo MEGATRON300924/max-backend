@@ -149,20 +149,22 @@ conversationsRouter.post('/:id/attachments/complete', async (req: AuthenticatedR
       filename: z.string().trim().min(1).max(255),
       publicId: z.string().min(1).max(500),
       version: z.number().int().positive(),
-      signature: z.string().regex(/^[a-f0-9]{40}$/i),
-      format: z.enum(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']),
-      bytes: z.number().int().positive().max(10 * 1024 * 1024),
-      width: z.number().int().positive().max(50000).optional(),
-      height: z.number().int().positive().max(50000).optional()
+      signature: z.string().regex(/^[a-f0-9]{40}$/i)
     }).parse(req.body);
     verifyChatImageUpload({ userId: user.id, conversationId, attachmentId: input.attachmentId, publicId: input.publicId, version: input.version, signature: input.signature });
-    const mimeType = input.format === 'jpg' || input.format === 'jpeg' ? 'image/jpeg' : 'image/' + input.format;
-    const secureUrl = cloudinaryImageUrl(input.publicId, input.version, input.format);
+    const cloudAsset = await getCloudinaryImageDetails(input.publicId);
+    const allowedFormats = new Set(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']);
+    if (cloudAsset.version !== input.version || !allowedFormats.has(cloudAsset.format) || cloudAsset.bytes < 1 || cloudAsset.bytes > 10 * 1024 * 1024) {
+      await deleteCloudinaryImage(input.publicId).catch(() => undefined);
+      throw new ApiError(413, 'CLOUDINARY_ASSET_LIMIT', 'The uploaded image format or size is not allowed.');
+    }
+    const mimeType = cloudAsset.format === 'jpg' || cloudAsset.format === 'jpeg' ? 'image/jpeg' : 'image/' + cloudAsset.format;
+    const secureUrl = cloudinaryImageUrl(input.publicId, input.version, cloudAsset.format);
     const attachment = await prisma.conversationAttachment.create({
       data: {
         id: input.attachmentId, userId: user.id, conversationId, publicId: input.publicId,
-        secureUrl, originalName: input.filename.replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 255) || 'image.' + input.format, mimeType, sizeBytes: input.bytes,
-        width: input.width, height: input.height
+        secureUrl, originalName: input.filename.replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 255) || 'image.' + cloudAsset.format,
+        mimeType, sizeBytes: cloudAsset.bytes, width: cloudAsset.width, height: cloudAsset.height
       },
       select: { id: true, secureUrl: true, originalName: true, mimeType: true, sizeBytes: true, width: true, height: true, createdAt: true }
     });
@@ -192,7 +194,6 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
 
     const allAttachmentIds = input.messages.flatMap(message => message.attachmentIds || []);
     if (new Set(allAttachmentIds).size !== allAttachmentIds.length) throw new ApiError(400, 'DUPLICATE_ATTACHMENT_REFERENCE', 'An attachment can only be linked once per message batch');
-    if (input.messages.some(message => message.role !== 'user' && message.attachmentIds?.length)) throw new ApiError(400, 'INVALID_ATTACHMENT_ROLE', 'Images can only be attached to user messages');
     const saved = await prisma.$transaction(async (tx) => {
       if (allAttachmentIds.length) {
         const owned = await tx.conversationAttachment.findMany({
