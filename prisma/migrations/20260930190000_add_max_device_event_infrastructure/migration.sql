@@ -1,7 +1,43 @@
-CREATE TYPE "max_backend"."max_backend"."DeviceType" AS ENUM ('MOBILE', 'TABLET', 'TV', 'DESKTOP', 'SPEAKER', 'CAR', 'OTHER');
-CREATE TYPE "max_backend"."max_backend"."DeviceSessionStatus" AS ENUM ('ACTIVE', 'REVOKED', 'EXPIRED');
-CREATE TYPE "max_backend"."max_backend"."MaxEventType" AS ENUM ('ANNOUNCEMENT', 'BROADCAST', 'SECURITY_ALERT', 'COMMAND', 'MEDIA_ACTION', 'NOTIFICATION', 'AUTOMATION_EVENT', 'DEVICE_CHANGED', 'ACCOUNT_UPDATED', 'SUBSCRIPTION_UPDATED');
-CREATE TYPE "max_backend"."max_backend"."EventPriority" AS ENUM ('INFO', 'NORMAL', 'IMPORTANT', 'CRITICAL');
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'DeviceType' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."DeviceType" AS ENUM (''MOBILE'', ''TABLET'', ''TV'', ''DESKTOP'', ''SPEAKER'', ''CAR'', ''OTHER'')';
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'DeviceSessionStatus' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."DeviceSessionStatus" AS ENUM (''ACTIVE'', ''REVOKED'', ''EXPIRED'')';
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'MaxEventType' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."MaxEventType" AS ENUM (''ANNOUNCEMENT'', ''BROADCAST'', ''SECURITY_ALERT'', ''COMMAND'', ''MEDIA_ACTION'', ''NOTIFICATION'', ''AUTOMATION_EVENT'', ''DEVICE_CHANGED'', ''ACCOUNT_UPDATED'', ''SUBSCRIPTION_UPDATED'')';
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_type t JOIN pg_namespace n ON n.oid = t.typnamespace
+    WHERE n.nspname = 'max_backend' AND t.typname = 'EventPriority' AND t.typtype = 'e'
+  ) THEN
+    EXECUTE 'CREATE TYPE "max_backend"."EventPriority" AS ENUM (''INFO'', ''NORMAL'', ''IMPORTANT'', ''CRITICAL'')';
+  END IF;
+END;
+$$;
 
 CREATE TABLE IF NOT EXISTS "max_backend"."devices" (
   "id" UUID NOT NULL,
