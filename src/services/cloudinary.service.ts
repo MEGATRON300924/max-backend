@@ -20,8 +20,9 @@ export function createChatImageUploadSignature(userId: string, conversationId: s
   const folder = 'max-ai/chat/' + userId + '/' + conversationId;
   const publicId = folder + '/' + attachmentId;
   const timestamp = Math.floor(Date.now() / 1000);
-  const signature = signatureFor({ folder, public_id: publicId, timestamp }, apiSecret);
-  return { cloudName, apiKey, timestamp, signature, folder, publicId };
+  const type = 'authenticated';
+  const signature = signatureFor({ folder, public_id: publicId, timestamp, type }, apiSecret);
+  return { cloudName, apiKey, timestamp, signature, folder, publicId, type };
 }
 
 export function verifyChatImageUpload(input: { userId: string; conversationId: string; attachmentId: string; publicId: string; version: number; signature: string }) {
@@ -35,9 +36,26 @@ export function verifyChatImageUpload(input: { userId: string; conversationId: s
 }
 
 export function cloudinaryImageUrl(publicId: string, version: number, format: string) {
-  const { cloudName } = credentials();
+  const { cloudName, apiSecret } = credentials();
   const encodedId = publicId.split('/').map(encodeURIComponent).join('/');
-  return 'https://res.cloudinary.com/' + encodeURIComponent(cloudName) + '/image/upload/v' + version + '/' + encodedId + '.' + encodeURIComponent(format);
+  const deliveryPath = 'v' + version + '/' + publicId + '.' + format;
+  const digest = crypto.createHash('sha1').update(deliveryPath + apiSecret).digest();
+  const urlSignature = digest.toString('base64').replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '').slice(0, 8);
+  return 'https://res.cloudinary.com/' + encodeURIComponent(cloudName) + '/image/authenticated/s--' + urlSignature + '--/v' + version + '/' + encodedId + '.' + encodeURIComponent(format);
+}
+
+export async function getCloudinaryImageDetails(publicId: string) {
+  const { cloudName, apiKey, apiSecret } = credentials();
+  const encodedId = publicId.split('/').map(encodeURIComponent).join('/');
+  const response = await fetch('https://api.cloudinary.com/v1_1/' + encodeURIComponent(cloudName) + '/resources/image/upload/' + encodedId, {
+    headers: { Authorization: 'Basic ' + Buffer.from(apiKey + ':' + apiSecret).toString('base64'), Accept: 'application/json' },
+    signal: AbortSignal.timeout(15000)
+  });
+  const payload = await response.json().catch(() => ({})) as { public_id?: string; version?: number; format?: string; bytes?: number; width?: number; height?: number; error?: { message?: string } };
+  if (!response.ok || payload.public_id !== publicId || !payload.version || !payload.format || !payload.bytes) {
+    throw new ApiError(502, 'CLOUDINARY_ASSET_LOOKUP_FAILED', payload.error?.message || 'Cloudinary could not verify the uploaded image.');
+  }
+  return { version: Number(payload.version), format: String(payload.format).toLowerCase(), bytes: Number(payload.bytes), width: payload.width ? Number(payload.width) : undefined, height: payload.height ? Number(payload.height) : undefined };
 }
 
 export async function deleteCloudinaryImage(publicId: string) {
