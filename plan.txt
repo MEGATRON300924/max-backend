@@ -288,3 +288,6 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - Static review confirms endpoint/schema/migration and source wiring. Full Prisma generation/typecheck/build and live Cloudinary verification pending.
 - Render secrets not configured by this code change: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
 - Branch: `feat/cloudinary-chat-attachments`. No merge or production deployment.
+
+### Cloudinary public ID path correction — 2026-11-17
+- Removed the legacy `folder` upload parameter to avoid Cloudinary fixed-folder mode automatically prefixing a full path twice. The signed public ID itself now carries the deterministic `max-ai/chat/{userId}/{conversationId}/{attachmentId}` namespace.
