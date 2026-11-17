@@ -341,3 +341,10 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 
 - Follow-up GitHub Actions CI run `44078984558` passed on source commit `f6e054212f413f174b80699b41cb99d45124b809`: dependency install, Prisma generation, TypeScript typecheck and build all passed. The branch's latest commit is a plan-only update; application source is unchanged from the passing CI commit.
 - PR #33 currently reports mergeable=true. It remains open/unmerged and has not been deployed. Live OAuth session creation and browser rendering remain unverified.
+
+## Production conversation attachment migration failure — 2026-11-17
+- Investigated the live "An unexpected error occurred" report using Render logs. MAX Backend returns Prisma P2021 on conversation read and message record/stream requests: `max_backend.conversation_attachments` does not exist. The active backend deployment is on commit `6b99c95be41fa0cdde4522fb726c8f0a7efd371d` (Cloudinary PR #32 merge).
+- Confirmed Render's configured start command was only `npm start`, and package.json start only launched `node dist/server.js`; no Prisma migration command was run during startup. The merged attachment migration was therefore not automatically applied.
+- Also found the hand-authored migration SQL did not qualify the table/index/foreign-key targets with the Prisma schema `max_backend`. Updated the migration to explicitly create `max_backend.conversation_attachments` and reference the existing tables in that schema.
+- Changed the backend start script to run `prisma migrate deploy` before starting the server. This applies pending migrations on each deployment/start and fails startup rather than serving requests against an incomplete schema.
+- Branch: `fix/apply-cloudinary-attachment-migration`. Typecheck/build, Prisma migration validation, deployment and live conversation/Google-link tests pending. No production migration or deployment executed yet.
