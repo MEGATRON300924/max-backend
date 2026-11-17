@@ -151,8 +151,8 @@ export async function listHotelRequests(
     const requests = Array.isArray(requestsData.serviceRequests) ? requestsData.serviceRequests : [];
     const rooms = Array.isArray(roomsData.rooms) ? roomsData.rooms : [];
     const guests = Array.isArray(guestsData.guestSessions) ? guestsData.guestSessions : [];
-    const roomNumbers = new Map(rooms.map((room: Record<string, any>) => [room.id, room.roomNumber]));
-    const guestsByRoom = new Map(guests.map((guest: Record<string, any>) => [guest.roomId, guest.guestName]));
+    const roomNumbers = new Map<string, string>(rooms.map((room: Record<string, any>) => [String(room.id), String(room.roomNumber)] as [string, string]));
+    const guestsByRoom = new Map<string, string>(guests.map((guest: Record<string, any>) => [String(guest.roomId), String(guest.guestName)] as [string, string]));
     return requests
       .filter((request: Record<string, any>) => !options.status || request.status === options.status)
       .map((request: Record<string, any>) => ({
