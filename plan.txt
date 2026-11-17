@@ -231,3 +231,31 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - The official API catalog documents YouTube player/embed and Data APIs, but does not document a native YouTube Music playback API. Do not represent an embedded YouTube video as native YouTube Music playback.
 - Proposed compliant implementation: resolve the requested track to a public YouTube video, show an embedded YouTube player inside MAX Chat, and let the user initiate playback through the player's native controls. This is YouTube video playback, not a YouTube Music account/player integration.
 - No playback code or provider settings changed. Await user confirmation that the embedded YouTube player is an acceptable playback experience before implementation. Keep Spotify optional and do not reintroduce Groq or touch Botpress.
+
+
+## MAX Chat conversational integration linking — 2026-11-17
+- User request: when the user says “connect my Google account” or asks to link another available integration, MAX must initiate a real MAX Auth OAuth authorization session and present an in-chat Continue/Cancel card instead of telling the user to visit settings.
+- Inspected existing MAX Auth routes. This implementation uses the existing Google Calendar, Spotify, Discord, Microsoft, and GitHub connect endpoints. The Google route requires a Google identity already linked to the MAX Auth account; MAX Auth remains the OAuth/session authority.
+- Added Gemini tool `integrations_connect` in `src/services/tools.service.ts`. It maps only these supported providers to existing MAX Auth endpoints, calls them with the user's server-held MAX Auth access token, validates the returned HTTPS authorization URL, and returns a structured `connectionRequired` result for MAX Chat.
+- Updated Gemini system instructions to call this tool for explicit connect/link requests and prohibit settings-navigation advice. Connection completion must still be verified by MAX Auth; the assistant must not claim success merely because a session was created.
+- Branch: `feat/chat-integration-link-sessions`. Source changes, typecheck, tests, PR and production deployment are pending.
+- No MAX Auth route/controller changes, no secrets, no provider credential changes, and no Botpress changes.
+- Next: run backend typecheck/build/tests; inspect authorization-session behavior for each provider; open PR and wait for checks. Verify the Google identity prerequisite and provider availability with live MAX Auth before production.
+
+### PR / CI checkpoint — 2026-11-17
+- PR #29 opened: https://github.com/MEGATRON300924/max-backend/pull/29 (open; not merged). Head `b874b11fb37882b0214f4374cfa91605578242c9`.
+- GitHub Actions CI run `44067805416` is in progress. At checkpoint, dependency installation was running; Prisma generation, TypeScript typecheck and build were pending.
+- GitHub reports mergeable=false at PR creation. No merge or production deployment performed.
+
+### CI failure and type correction — 2026-11-17
+- CI run `44067921826` failed at TypeScript typecheck; Prisma generation passed and build was skipped. Exact diagnostic: `src/services/tools.service.ts(668,70): error TS2345` because indexing a `Record<string, string>` produced `string | undefined` for the authenticated MAX Auth request path.
+- Corrected the provider route map to a `Record` keyed by the exact Zod provider union. New source commit: `bb3e12910e098a97e35bdbdd0e6d8913b2843fe9`.
+- Awaiting the new PR-head CI run. No merge or deployment performed.
+
+### CI verification update — 2026-11-17
+- After correcting the provider-map type, GitHub Actions CI run `44068229089` completed successfully: dependency installation, Prisma client generation, TypeScript typecheck and build all passed.
+- Current branch head includes the CI-fix commit and the plan checkpoint. PR #29 remains open/unmerged. Live MAX Auth OAuth calls and production deployment remain pending.
+
+### Latest CI verification — 2026-11-17
+- Follow-up CI run `44068404931` also completed successfully: Prisma generation, TypeScript typecheck and build passed on the updated branch head.
+- PR #29 remains open/unmerged and depends on MAX Auth PR #34 for first-time Google linking. Live OAuth and deployment tests remain pending.

@@ -47,6 +47,7 @@ export type MaxTool = {
 };
 
 const githubFileInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), path: z.string().trim().min(1).max(400), ref: z.string().trim().max(200).optional() });
+const integrationConnectInput = z.object({ provider: z.enum(['google', 'spotify', 'discord', 'microsoft', 'github']) });
 const githubPullRequestInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), baseBranch: z.string().trim().min(1).max(200), branchName: z.string().trim().min(1).max(200), title: z.string().trim().min(1).max(250), body: z.string().max(10000).default(''), files: z.array(z.object({ path: z.string().min(1).max(400), content: z.string().max(100000) })).min(1).max(30) });
 
 const memoryInput = z.object({
@@ -302,6 +303,7 @@ const tools: MaxTool[] = [
       parameters: { type: 'object', properties: {} }
     }
   },
+  { name: 'integrations.connect', capability: 'connect', description: 'Create a MAX Auth OAuth authorization session for a supported connected account when the user asks to connect or link an integration.', enabled: true, requiresConfirmation: false, declaration: { name: 'integrations_connect', description: 'Start a secure MAX Auth connection flow for Google, Spotify, Discord, Microsoft, or GitHub. Call this when the user asks to connect or link one of these accounts. Do not tell the user to visit settings; the frontend will show a Continue card.', parameters: { type: 'object', properties: { provider: { type: 'string', enum: ['google', 'spotify', 'discord', 'microsoft', 'github'] } }, required: ['provider'] } } },
   { name: 'github.repositories', capability: 'github', description: 'List repositories from the authenticated user\'s GitHub account linked through MAX Auth. If it is not linked, return the MAX Auth connection URL.', enabled: true, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List all repositories in the user\'s GitHub account through MAX Auth. If GitHub is not connected, request its authorization URL instead of failing silently.', parameters: { type: 'object', properties: {} } } },
   { name: 'github.file.get', capability: 'github', description: 'Read a file from an allowlisted repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
   { name: 'github.create_pull_request', capability: 'github', description: 'Create a branch, commit code changes, and open a pull request.', enabled: githubEnabled, requiresConfirmation: true, declaration: { name: 'github_create_pull_request', description: 'After explicit user confirmation, create a new branch and one commit with proposed files, then open a pull request. Never commit directly to the base branch. Read relevant files first, keep changes minimal, and do not modify GitHub Actions workflows.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, baseBranch: { type: 'string' }, branchName: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, files: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path','content'] } } }, required: ['owner','repo','baseBranch','branchName','title','body','files'] } } },
@@ -601,6 +603,7 @@ export function resolveGeminiTool(name: string) {
 }
 
 export function validateToolInput(name: string, input: unknown) {
+  if (name === 'integrations.connect') return integrationConnectInput.parse(input);
   if (name === 'github.file.get') return githubFileInput.parse(input);
   if (name === 'github.create_pull_request') return githubPullRequestInput.parse(input);
   if (name === 'calendar.events') return calendarInput.parse(input);
@@ -653,7 +656,27 @@ export async function executeTool(name: string, context: ToolContext, input: unk
   try {
     let result: unknown;
 
-    if (name === 'media.continue') {
+    if (name === 'integrations.connect') {
+      const { provider } = integrationConnectInput.parse(input);
+      const connectPaths: Record<z.infer<typeof integrationConnectInput>['provider'], string> = {
+        google: '/connected-accounts/google/calendar/connect',
+        spotify: '/connected-accounts/spotify/connect',
+        discord: '/connected-accounts/discord/connect',
+        microsoft: '/connected-accounts/microsoft/connect',
+        github: '/connected-accounts/github/connect'
+      };
+      const response = await maxAuthUserGet(context.authAccessToken, connectPaths[provider]);
+      if (!response.ok) {
+        const code = String(response.payload?.error?.code || response.payload?.code || 'MAX_AUTH_CONNECT_FAILED');
+        const message = String(response.payload?.error?.message || response.payload?.message || 'MAX Auth could not start this connection.');
+        throw new ApiError(response.status, code, message);
+      }
+      const authorizationUrl = response.payload?.data?.authorizationUrl || response.payload?.authorizationUrl;
+      if (typeof authorizationUrl !== 'string' || !authorizationUrl.startsWith('https://')) {
+        throw new ApiError(502, 'MAX_AUTH_CONNECT_URL_MISSING', 'MAX Auth did not return a valid authorization URL.');
+      }
+      result = { success: false, tool: name, connectionRequired: true, provider, authorizationUrl, message: 'A MAX Auth authorization session is ready. Ask the user to continue in the connection card.' };
+    } else if (name === 'media.continue') {
       const data = z.object({ contentId: z.string().max(500).optional(), limit: z.number().int().min(1).max(50).default(20) }).parse(input);
       const items = await prisma.mediaState.findMany({
         where: { userId: context.userId, ...(data.contentId ? { contentId: data.contentId } : {}) },
