@@ -147,9 +147,9 @@ type IntegrationProvider = 'google' | 'spotify' | 'discord' | 'microsoft' | 'git
 
 function detectExplicitIntegrationConnect(content: string): IntegrationProvider | null {
   const value = String(content || '').trim().toLowerCase();
-  if (!/\\b(connect|link|authorize|reconnect)\\b/.test(value)) return null;
+  if (!/\b(connect|link|authorize|reconnect)\b/.test(value)) return null;
   const providers: IntegrationProvider[] = ['google', 'spotify', 'discord', 'microsoft', 'github'];
-  return providers.find((provider) => new RegExp('\\\\b' + provider + '\\\\b', 'i').test(value)) ?? null;
+  return providers.find((provider) => new RegExp('\\b' + provider + '\\b', 'i').test(value)) ?? null;
 }
 
 async function createIntegrationConnectionResult(
