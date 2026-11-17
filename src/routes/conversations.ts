@@ -207,13 +207,13 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
     const allAttachmentIds = input.messages.flatMap(message => message.attachmentIds || []);
     if (new Set(allAttachmentIds).size !== allAttachmentIds.length) throw new ApiError(400, 'DUPLICATE_ATTACHMENT_REFERENCE', 'An attachment can only be linked once per message batch');
     const saved = await prisma.$transaction(async (tx) => {
-      if (allAttachmentIds.length) {
-        const owned = await tx.conversationAttachment.findMany({
-          where: { id: { in: allAttachmentIds }, userId: user.id, conversationId: conversation.id },
-          select: { id: true, messageId: true }
-        });
-        if (owned.length !== allAttachmentIds.length) throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'One or more uploaded images do not belong to this conversation');
-      }
+      const ownedAttachments = allAttachmentIds.length
+        ? await tx.conversationAttachment.findMany({
+            where: { id: { in: allAttachmentIds }, userId: user.id, conversationId: conversation.id },
+            select: { id: true, messageId: true }
+          })
+        : [];
+      if (ownedAttachments.length !== allAttachmentIds.length) throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'One or more uploaded images do not belong to this conversation');
       const created = [];
       for (const message of input.messages) {
         let savedMessage;
@@ -234,7 +234,7 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
           });
         }
         if (message.attachmentIds?.length) {
-          const linkedElsewhere = owned.some(item => message.attachmentIds?.includes(item.id) && item.messageId && item.messageId !== savedMessage.id);
+          const linkedElsewhere = ownedAttachments.some(item => message.attachmentIds?.includes(item.id) && item.messageId && item.messageId !== savedMessage.id);
           if (linkedElsewhere) throw new ApiError(409, 'ATTACHMENT_ALREADY_LINKED', 'An image is already attached to another message');
           await tx.conversationAttachment.updateMany({
             where: { id: { in: message.attachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
