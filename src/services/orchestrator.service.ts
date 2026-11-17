@@ -172,7 +172,7 @@ async function createIntegrationConnectionResult(
   }
 
   return {
-    text: 'Continue with ' + provider[0].toUpperCase() + provider.slice(1) + ' using the connection card below. MAX will verify the link before continuing.',
+    text: 'Continue with ' + provider.charAt(0).toUpperCase() + provider.slice(1) + ' using the connection card below. MAX will verify the link before continuing.',
     provider: 'max-backend',
     model: 'max-auth-oauth',
     intent,
