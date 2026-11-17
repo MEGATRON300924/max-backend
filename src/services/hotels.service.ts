@@ -83,6 +83,7 @@ function guestSummary(guest: Record<string, any>) {
 }
 
 export async function getHotelOverview(context: HotelToolContext, workspaceId?: string) {
+  const businessData = await hotelGet(context, '/business/context');
   const allWorkspaces = await getWorkspaces(context);
   const workspaces = ensureWorkspace(allWorkspaces, workspaceId);
 
@@ -97,48 +98,33 @@ export async function getHotelOverview(context: HotelToolContext, workspaceId?: 
     const rooms = Array.isArray(roomsData.rooms) ? roomsData.rooms : [];
     const devices = Array.isArray(devicesData.devices) ? devicesData.devices : [];
     const requests = Array.isArray(requestsData.serviceRequests) ? requestsData.serviceRequests : [];
-    const guests = Array.isArray(guestsData.guestSessions) ? guestsData.guestSessions : [];
-    const roomNumbers = new Map(rooms.map((room: Record<string, any>) => [room.id, room.roomNumber]));
     const activeRequests = requests.filter((request: Record<string, any>) => !['completed', 'cancelled'].includes(String(request.status)));
 
     return {
-      property: {
-        id: workspace.id,
-        name: workspace.propertyName,
-        type: workspace.propertyType,
-        country: workspace.country,
-        configuredRoomCount: rooms.length,
-        registeredRoomCount: workspace.roomCount,
-        activeDeviceCount: devices.filter((device: Record<string, any>) => device.status === 'active').length,
-        currentGuestCount: guests.length,
-        openRequestCount: activeRequests.length,
-        requestCountReturned: requests.length
-      },
-      currentGuests: guests.map((guest: Record<string, any>) => guestSummary(guest)),
-      requests: requests.map((request: Record<string, any>) => ({
-        id: request.id,
-        requestType: request.requestType,
-        roomId: request.roomId,
-        roomNumber: roomNumbers.get(request.roomId) ?? null,
-        details: request.details,
-        status: request.status,
-        createdAt: request.createdAt,
-        updatedAt: request.updatedAt
-      }))
+      id: workspace.id,
+      name: workspace.propertyName,
+      type: workspace.propertyType,
+      country: workspace.country,
+      configuredRoomCount: rooms.length,
+      registeredRoomCount: workspace.roomCount,
+      activeDeviceCount: devices.filter((device: Record<string, any>) => device.status === 'active').length,
+      currentGuestCount: Number(guestsData.currentGuestCount ?? guestsData.guestSessions?.length ?? 0),
+      openRequestCount: Number(requestsData.openCount ?? activeRequests.length),
+      totalRequestCount: Number(requestsData.totalCount ?? requests.length)
     };
   }));
 
   return {
     success: true,
     tool: 'hotels.overview',
-    business: 'The business returned by the authenticated MAX Auth business context',
+    business: businessData.business ?? null,
     propertyCount: properties.length,
-    currentGuestCount: properties.reduce((total, item) => total + item.property.currentGuestCount, 0),
-    openRequestCount: properties.reduce((total, item) => total + item.property.openRequestCount, 0),
+    currentGuestCount: properties.reduce((total, item) => total + item.currentGuestCount, 0),
+    openRequestCount: properties.reduce((total, item) => total + item.openRequestCount, 0),
     properties,
     dataCoverage: {
-      guests: 'Active guest sessions currently stored by MAX Hotels',
-      requests: 'The latest service requests returned by each property API (up to 200 per property)',
+      guests: 'Exact active guest-session counts; guest roster endpoint returns up to 300 current records per property',
+      requests: 'Exact total and open counts; request detail endpoint returns the latest 200 records per property',
       finances: 'unavailable',
       orders: 'unavailable',
       publicRegistrations: 'unavailable'
@@ -197,12 +183,23 @@ export async function listHotelGuests(
   const grouped = await Promise.all(workspaces.map(async (workspace) => {
     const data = await hotelGet(context, `/business/workspaces/${encodeURIComponent(workspace.id)}/guest-sessions`);
     const guests = Array.isArray(data.guestSessions) ? data.guestSessions : [];
-    return guests.map((guest: Record<string, any>) => ({
-      ...guestSummary(guest),
-      propertyName: workspace.propertyName
-    }));
+    return {
+      currentGuestCount: Number(data.currentGuestCount ?? guests.length),
+      guests: guests.map((guest: Record<string, any>) => ({
+        ...guestSummary(guest),
+        propertyName: workspace.propertyName
+      }))
+    };
   }));
 
-  const guests = grouped.flat().sort((a, b) => Date.parse(b.checkedInAt) - Date.parse(a.checkedInAt)).slice(0, limit);
-  return { success: true, tool: 'hotels.guests.list', currentGuestCount: guests.length, guests };
+  const guests = grouped.flatMap((item) => item.guests)
+    .sort((a, b) => Date.parse(b.checkedInAt) - Date.parse(a.checkedInAt))
+    .slice(0, limit);
+  return {
+    success: true,
+    tool: 'hotels.guests.list',
+    currentGuestCount: grouped.reduce((total, item) => total + item.currentGuestCount, 0),
+    guestsReturned: guests.length,
+    guests
+  };
 }
