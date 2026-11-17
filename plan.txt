@@ -273,3 +273,6 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - Commits on the clean branch: 69b2ad6 (hotel service), 97940dd (API config), 46c7a2f (tool registration), c2b15fb (intent and assistant policy).
 - Pending: TypeScript build/tests, authenticated business-token tool test, PR review, Render deployment and end-to-end Ask Max test. No production deployment or merge performed.
 - The original stale PR #30 is not to be merged; replace it with a PR from this clean branch after validation.
+
+- Branch hygiene: the original PR #30 was closed as superseded after the clean current-main branch was created. New PR #31 is the only backend integration PR to review: https://github.com/MEGATRON300924/max-backend/pull/31.
+- Compare against current main: status ahead, 5 commits ahead, 0 behind. No MAX Auth/MAX Home mainline commits are being removed.
