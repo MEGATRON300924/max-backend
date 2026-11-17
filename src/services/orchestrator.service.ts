@@ -58,7 +58,7 @@ const capabilities = {
 function classifyIntent(content: string) {
   const value = content.toLowerCase();
   // Explicit hotel context takes priority over generic request, guest, payment and property language.
-  if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds)\b/.test(value)) return 'hotels';
+  if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds|hotel registration|sign[- ]?up requests?|onboarding leads?)\b/.test(value)) return 'hotels';
   // Named account/product context takes priority over generic nouns such as 'device'.
   if (/\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\b/.test(value)) return 'account';
   if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
@@ -113,6 +113,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'Use registered tools when an actual backend action is required.',
     'For questions about MAX Home devices, device counts, online/offline status, or connected devices, always call home.devices.list and base the answer only on its returned device data. Do not guess counts or status.',
     'For MAX Hotels business questions, use hotels.overview for live property, room, device, current guest-session and open-request counts; use hotels.requests.list for request details; use hotels.guests.list for the current guest roster. The tools only return records allowed by the currently authenticated MAX Auth business context.',
+    'For hotel sign-up and onboarding lead questions, use hotels.registrations.list. The MAX Hotels API restricts this platform-wide lead list to explicitly allowlisted platform administrators; if access is denied, explain the restriction and do not infer lead counts.',
     'Never infer a hotel guest count from room capacity. Count only active guest sessions returned by MAX Hotels. State the property and data scope when reporting counts.',
     'MAX Hotels currently has no live order ledger, public registration-lead read API, payment ledger or finance records exposed to this assistant. Do not invent or estimate orders, revenue, expenses, balances or payments; clearly say when those data sources are not connected.',
     'Hotel guest-session details are operational data, not durable user memory. Never save guest names or stay details as personal memory, and do not expose one business property to another.',
