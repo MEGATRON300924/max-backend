@@ -40,6 +40,7 @@ const capabilities = {
   media: true,
   account: true,
   home: Boolean(env.MAX_HOME_API_URL),
+  hotels: Boolean(env.MAX_HOTELS_API_URL),
   music: Boolean(env.MAX_AUTH_SERVICE_TOKEN),
   cloud: true,
   browser: Boolean(env.GEMINI_API_KEY),
@@ -59,6 +60,7 @@ function classifyIntent(content: string) {
   // Named account/product context takes priority over generic nouns such as 'device'.
   if (/\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\b/.test(value)) return 'account';
   if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
+  if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds|hotel registration|sign[- ]?up requests?|onboarding leads?)\b/.test(value)) return 'hotels';
   if (/\b(watched|watch history|playback progress|continue watching|stopped at|video progress|last watched)\b/.test(value)) return 'media';
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
   if (/\b(turn on|turn off|switch on|switch off|dim|brighten|set .* thermostat|lock|unlock|open|close)\b/.test(value)) return 'home';
@@ -73,6 +75,7 @@ function classifyIntent(content: string) {
 }
 
 function unavailableCapability(intent: string) {
+  if (intent === 'hotels' && !capabilities.hotels) return 'MAX Hotels is not configured for this backend.';
   if (intent === 'home' && !capabilities.home) return 'MAX Home is not configured for this backend.';
   if (intent === 'calendar' && !capabilities.calendar) return 'Google Calendar is not configured for this backend.';
   if (intent === 'google' && !capabilities.google) return 'Google services are not configured for this backend.';
@@ -109,6 +112,11 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'Use registered tools when an actual backend action is required.',
     'When the user asks to connect, link, or authorize Google, Spotify, Discord, Microsoft, or GitHub, call integrations_connect with the matching provider. Never tell the user to go to settings or manually find Connected Accounts. The frontend will present a MAX Auth Continue card. Do not say the account is connected until MAX Auth confirms it.',
     'For questions about MAX Home devices, device counts, online/offline status, or connected devices, always call home.devices.list and base the answer only on its returned device data. Do not guess counts or status.',
+    'For MAX Hotels business questions, use hotels.overview for live property, room, device, current guest-session and open-request counts; use hotels.requests.list for request details; use hotels.guests.list for the current guest roster. The tools only return records allowed by the currently authenticated MAX Auth business context.',
+    'Never infer a hotel guest count from room capacity. Count only active guest sessions returned by MAX Hotels. State the property and data scope when reporting counts.',
+    'For hotel sign-up and onboarding lead questions, use hotels.registrations.list. The MAX Hotels API restricts this platform-wide lead list to explicitly allowlisted platform administrators; if access is denied, explain the restriction and do not infer lead counts.',
+    'MAX Hotels currently has no live order ledger, payment ledger or finance records exposed to this assistant. Do not invent or estimate orders, revenue, expenses, balances or payments; clearly say when those data sources are not connected.',
+    'Hotel guest-session details are operational data, not durable user memory. Never save guest names or stay details as personal memory, and do not expose one business property to another.',
     'Never claim an action was completed unless the backend returned a successful tool result.',
     'Never invent devices, homes, accounts, files, purchases, payments, integrations, or tool results.',
     'Sensitive actions such as home control and memory deletion require explicit confirmation and must never be bypassed.',
