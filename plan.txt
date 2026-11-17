@@ -198,3 +198,12 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - PR head: `c4eeb93afc5e797a0aa4fa6e4019482d467cf66f`.
 - GitHub Actions run: `44046532975`; current status: Typecheck in progress; Build pending.
 - No production deployment performed.
+
+## Final Groq removal — document generation — 2026-11-17
+- PR #25 removed Groq from the primary chat service and runtime config, but CI exposed remaining Groq usage in MAX Browser, orchestration/tool declarations, and document generation.
+- PR #26 was merged (merge commit `1b4bef49931bf8ea2893a7edbcd164e51dbe192a`) to migrate MAX Browser to Gemini Google Search/URL Context, remove stale Groq config references from orchestration/tool routing, and enforce the MAX Auth `account:read` scope for account-device access. MAX Auth tokens remain server-side; Gemini receives tool declarations only.
+- PR #26 CI still failed TypeScript validation because `src/routes/files.ts` retained the Groq document-generation endpoint and referenced removed `GROQ_API_KEY` / `GROQ_MODEL`.
+- On branch `fix/remove-final-groq-file-generation`, replaced document generation with Gemini `generateContent` using `GEMINI_API_KEY` and `GEMINI_MODEL`, JSON response mode, response validation, and provider metadata `gemini`. No Groq fallback remains in this route.
+- Source commit: `8a08b8ba5fa4d81042e5d4dba265554d54231bcc`.
+- CI run `44046532975` failed only at typecheck on the remaining `src/routes/files.ts` references; Prisma generation succeeded. The earlier PR #25 run `44035238569` also failed on Groq config references in files.ts, browser.service.ts, orchestrator.service.ts and tools.service.ts. PR #26 addressed all but files.ts.
+- Next: search the full default-branch source for any remaining Groq names/endpoints/provider strings; run typecheck/build; open a focused PR; merge only after checks pass. Render is still running the pre-Gemini-only commit `13d0059365f411f3376ab9d736e398296bf15dae`; production deployment and live Gemini chat/document/browser/tool verification remain pending. Remove obsolete Render Groq variables only after Gemini-only deployment is confirmed. Botpress remains untouched.
