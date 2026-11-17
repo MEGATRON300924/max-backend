@@ -47,7 +47,7 @@ export function cloudinaryImageUrl(publicId: string, version: number, format: st
 export async function getCloudinaryImageDetails(publicId: string) {
   const { cloudName, apiKey, apiSecret } = credentials();
   const encodedId = publicId.split('/').map(encodeURIComponent).join('/');
-  const response = await fetch('https://api.cloudinary.com/v1_1/' + encodeURIComponent(cloudName) + '/resources/image/upload/' + encodedId, {
+  const response = await fetch('https://api.cloudinary.com/v1_1/' + encodeURIComponent(cloudName) + '/resources/image/authenticated/' + encodedId, {
     headers: { Authorization: 'Basic ' + Buffer.from(apiKey + ':' + apiSecret).toString('base64'), Accept: 'application/json' },
     signal: AbortSignal.timeout(15000)
   });
