@@ -40,7 +40,7 @@ export function cloudinaryImageUrl(publicId: string, version: number, format: st
   const encodedId = publicId.split('/').map(encodeURIComponent).join('/');
   const deliveryPath = 'v' + version + '/' + publicId + '.' + format;
   const digest = crypto.createHash('sha1').update(deliveryPath + apiSecret).digest();
-  const urlSignature = digest.toString('base64').replace(/\\+/g, '-').replace(/\\//g, '_').replace(/=+$/g, '').slice(0, 8);
+  const urlSignature = digest.toString('base64').replaceAll('+', '-').replaceAll('/', '_').replaceAll('=', '').slice(0, 8);
   return 'https://res.cloudinary.com/' + encodeURIComponent(cloudName) + '/image/authenticated/s--' + urlSignature + '--/v' + version + '/' + encodedId + '.' + encodeURIComponent(format);
 }
 
