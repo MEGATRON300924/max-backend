@@ -333,3 +333,6 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - The normal Gemini tool path remains available for integration requests arising from other workflows.
 - Branch: `fix/deterministic-integration-connect`; source commits: `2732ce8e068a2537aea9a9c3214a61d0432a9e5d`, `b56e1f79c6f14d4080628620448106010a7cd3a5`.
 - Validation pending: TypeScript typecheck/build, focused provider-intent tests, authenticated live MAX Auth OAuth creation, SSE response and browser card rendering. No deployment or merge.
+
+- PR #33 opened: https://github.com/MEGATRON300924/max-backend/pull/33 (open, not merged); latest recorded head at creation `9d0459478431476b158c39d85def36c7dbc38cfb`.
+- GitHub Actions CI run `44078673556` was observed in progress for the PR head. Await completion before considering the backend change validated.
