@@ -278,3 +278,13 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 ### Cloudinary cleanup correction — 2026-11-17
 - Cloudinary deletion requests now explicitly target the authenticated delivery type, matching the type used at upload; this avoids leaving assets behind by accidentally calling destroy against the default public upload type.
 - Conversation delete removes remote Cloudinary assets before database cascade; attachment delete removes one owner-verified asset.
+
+### Implementation checkpoint — 2026-11-17
+- Added Prisma ConversationAttachment model and SQL migration `20261117120000_conversation_attachments`.
+- Added authenticated Cloudinary signed upload endpoint, completion verification, owner-scoped attachment deletion and conversation cleanup.
+- Cloudinary API secret stays in Render environment only. Uploads use authenticated delivery type; the completion endpoint validates the upload response signature and verifies actual format/size/version using Cloudinary Admin API.
+- Message history includes attachment records; message persistence links attachment IDs only when they belong to the same MAX user and conversation. Retry-safe duplicate message persistence is included.
+- Supported images JPEG/PNG/WebP/GIF/AVIF, max 10 MB each; max 5 refs per message.
+- Static review confirms endpoint/schema/migration and source wiring. Full Prisma generation/typecheck/build and live Cloudinary verification pending.
+- Render secrets not configured by this code change: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- Branch: `feat/cloudinary-chat-attachments`. No merge or production deployment.
