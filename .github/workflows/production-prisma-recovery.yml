@@ -43,12 +43,12 @@ jobs:
             exit 1
           fi
 
-      - name: Resolve the known failed migration as rolled back
+      - name: Resolve the known failed audit-events migration as rolled back
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: npx prisma migrate resolve --rolled-back 20260904134000_pending_action_conversation_context --schema prisma/schema.prisma
+        run: npx prisma migrate resolve --rolled-back 20260904163000_audit_events --schema prisma/schema.prisma
 
-      - name: Apply all remaining migrations
+      - name: Apply remaining migrations
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: npx prisma migrate deploy --schema prisma/schema.prisma
