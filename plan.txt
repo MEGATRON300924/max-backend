@@ -231,3 +231,13 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - The official API catalog documents YouTube player/embed and Data APIs, but does not document a native YouTube Music playback API. Do not represent an embedded YouTube video as native YouTube Music playback.
 - Proposed compliant implementation: resolve the requested track to a public YouTube video, show an embedded YouTube player inside MAX Chat, and let the user initiate playback through the player's native controls. This is YouTube video playback, not a YouTube Music account/player integration.
 - No playback code or provider settings changed. Await user confirmation that the embedded YouTube player is an acceptable playback experience before implementation. Keep Spotify optional and do not reintroduce Groq or touch Botpress.
+
+
+## MAX Chat conversational integration linking — 2026-11-17
+- User request: when the user says “connect my Google account” or asks to link another available integration, MAX must initiate a real MAX Auth OAuth authorization session and present an in-chat Continue/Cancel card instead of telling the user to visit settings.
+- Inspected existing MAX Auth routes. This implementation uses the existing Google Calendar, Spotify, Discord, Microsoft, and GitHub connect endpoints. The Google route requires a Google identity already linked to the MAX Auth account; MAX Auth remains the OAuth/session authority.
+- Added Gemini tool `integrations_connect` in `src/services/tools.service.ts`. It maps only these supported providers to existing MAX Auth endpoints, calls them with the user's server-held MAX Auth access token, validates the returned HTTPS authorization URL, and returns a structured `connectionRequired` result for MAX Chat.
+- Updated Gemini system instructions to call this tool for explicit connect/link requests and prohibit settings-navigation advice. Connection completion must still be verified by MAX Auth; the assistant must not claim success merely because a session was created.
+- Branch: `feat/chat-integration-link-sessions`. Source changes, typecheck, tests, PR and production deployment are pending.
+- No MAX Auth route/controller changes, no secrets, no provider credential changes, and no Botpress changes.
+- Next: run backend typecheck/build/tests; inspect authorization-session behavior for each provider; open PR and wait for checks. Verify the Google identity prerequisite and provider availability with live MAX Auth before production.
