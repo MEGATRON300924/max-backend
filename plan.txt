@@ -153,3 +153,48 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - Static inspection confirms no Groq references remain in ai.service.ts, src/config/env.ts, .env.example or README.md. Build/tests and Render production verification remain pending; do not claim deployed until Render confirms the new commit is live.
 - PR #24 was merged while this Gemini-only work was being prepared (merge commit 13d0059365f411f3376ab9d736e398296bf15dae); its indexed-access guard is harmless. PR #25 removes the Groq implementation entirely. Keep Botpress untouched.
 - Opened PR #25: https://github.com/MEGATRON300924/max-backend/pull/25 (head 58970085eb34141fb5d71113bc1d436fac44c55f; GitHub reports mergeable=true; no GitHub Actions workflow runs were returned). Next: validate TypeScript build/tests, merge after checks, then verify Render deploy and authenticated plain chat, streaming, Gemini function calls and MAX Home device query. Ensure GEMINI_API_KEY and GEMINI_MODEL=gemini-3.5-flash-lite are present in Render. Remove obsolete GROQ_API_KEY/GROQ_MODEL Render variables after Gemini deployment is confirmed.
+
+
+## Gemini-only MAX Auth tool access and provider cleanup — 2026-11-17
+
+### User request
+- Remove the remaining Groq execution path and ensure Gemini can use the authenticated user's MAX Auth account data through the MAX Backend.
+
+### Findings
+- PR #25 was merged, and `src/services/ai.service.ts` already used Gemini Interactions API for chat, streaming and function-call continuation.
+- Groq code remained in `src/services/browser.service.ts`, including direct Groq API calls and provider selection.
+- `src/services/orchestrator.service.ts` and `src/services/tools.service.ts` still referenced removed `GROQ_API_KEY` / `GROQ_MODEL` config fields. This could break strict TypeScript builds and incorrectly keep Browser tools enabled based on obsolete configuration.
+- MAX Auth access is already passed through the authenticated request context: middleware introspects the bearer token, conversations preserve that user's token and scopes server-side, Gemini receives tool declarations, and the backend executes calls with the user's token. The raw token is not sent to Gemini.
+- MAX Chat did not request `account:read`, so the MAX Auth account-device tool did not have an explicit account-read permission to rely on.
+
+### Changes on `fix/gemini-max-auth-access`
+- Replaced the Groq browser-search and URL-reading implementation with Gemini Google Search and URL Context only.
+- Removed the final Groq config references and descriptions from the orchestration capability map and Gemini browser tool declarations.
+- Added an explicit `account:read` scope check to the `max_auth.devices` tool before reading the user's MAX Auth device inventory.
+- Changed the fallback provider label for legacy recorded chat messages from `botpress` to `gemini`; generated assistant messages continue to store the actual provider returned by Gemini.
+- Confirmed the MAX Auth access token remains server-side and is used only by the backend tool executor after MAX Auth introspection.
+
+### Commits
+- Gemini-only MAX Browser: `59c48dfb7bbfd39161811a1786df7beed225d95d`.
+- Gemini-only capability and tool routing: `5a8d8c2a940e3ae58b78d68784f279de79f5d24a`.
+- MAX Auth account scope enforcement: `5f7fc3d15596a45c7847fbc8cefc2a68219464eb`.
+- Remove final Groq browser declaration: `8ea5a7cafd67ede101f4d38f73d6a7dd65742004`.
+- Legacy message provider default: `59eccb46ceb5eb1b9b88147b3bd5d1965ef65f54`.
+
+### Verification
+- Source review confirms no Groq references remain in the edited backend orchestration, tool registry, or browser service files.
+- TypeScript build, automated tests, live Gemini chat, streaming, account-device tool execution and Render deployment verification: pending.
+- No API keys or credentials were changed or committed.
+- No merge or production deployment performed.
+
+### Next steps
+- Confirm MAX Chat requests `account:read` and MAX Auth permits that scope for the official MAX Chat OAuth client.
+- Run build/tests, open PR, and verify the Gemini tool call can list the authenticated user's account devices using the account-read scope.
+- Deploy only after CI passes; verify Render is running the merged Gemini-only commit.
+
+
+### PR / CI checkpoint — 2026-11-17
+- PR #26 opened: https://github.com/MEGATRON300924/max-backend/pull/26 (open; not merged).
+- PR head: `c4eeb93afc5e797a0aa4fa6e4019482d467cf66f`.
+- GitHub Actions run: `44046532975`; current status: Typecheck in progress; Build pending.
+- No production deployment performed.

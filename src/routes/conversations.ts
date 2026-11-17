@@ -145,7 +145,7 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
             conversationId: conversation.id,
             role: message.role === 'user' ? 'USER' : 'ASSISTANT',
             content: message.content,
-            provider: message.provider || 'botpress',
+            provider: message.provider || 'gemini',
             metadata: message.id ? { clientMessageId: message.id, source: 'MAX Chat' } : { source: 'MAX Chat' }
           }
         }));

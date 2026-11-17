@@ -42,7 +42,7 @@ const capabilities = {
   home: Boolean(env.MAX_HOME_API_URL),
   music: Boolean(env.MAX_AUTH_SERVICE_TOKEN),
   cloud: true,
-  browser: Boolean(env.GEMINI_API_KEY || env.GROQ_API_KEY),
+  browser: Boolean(env.GEMINI_API_KEY),
   voice: Boolean(env.ELEVENLABS_API_KEY && env.ELEVENLABS_VOICE_ID),
   calendar: true,
   google: true,
