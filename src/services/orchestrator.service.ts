@@ -143,6 +143,46 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
   ].filter(Boolean).join('\n');
 }
 
+type IntegrationProvider = 'google' | 'spotify' | 'discord' | 'microsoft' | 'github';
+
+function detectExplicitIntegrationConnect(content: string): IntegrationProvider | null {
+  const value = String(content || '').trim().toLowerCase();
+  if (!/\b(connect|link|authorize|reconnect)\b/.test(value)) return null;
+  const providers: IntegrationProvider[] = ['google', 'spotify', 'discord', 'microsoft', 'github'];
+  return providers.find((provider) => new RegExp('\\b' + provider + '\\b', 'i').test(value)) ?? null;
+}
+
+async function createIntegrationConnectionResult(
+  user: UserContext,
+  provider: IntegrationProvider,
+  intent: string
+): Promise<OrchestrationResult> {
+  const output = await executeTool('integrations.connect', {
+    userId: user.id,
+    authSubject: user.authSubject,
+    authAccessToken: user.authAccessToken,
+    scopes: user.scopes,
+    timezone: user.timezone,
+    tier: user.tier,
+    confirmed: false
+  }, { provider }) as Record<string, unknown>;
+
+  if (output.connectionRequired !== true || output.provider !== provider || typeof output.authorizationUrl !== 'string') {
+    throw new Error('MAX Auth did not return a valid connection session. Please try again.');
+  }
+
+  return {
+    text: 'Continue with ' + provider.charAt(0).toUpperCase() + provider.slice(1) + ' using the connection card below. MAX will verify the link before continuing.',
+    provider: 'max-backend',
+    model: 'max-auth-oauth',
+    intent,
+    tools: ['integrations.connect'],
+    confirmations: [],
+    connections: [{ provider, authorizationUrl: output.authorizationUrl }],
+    interactionId: null
+  };
+}
+
 async function processToolCalls(
   user: UserContext,
   conversationId: string,
@@ -260,6 +300,10 @@ async function runToolLoop(user: UserContext, conversationId: string, turns: Cha
 }
 
 export async function orchestrate(user: UserContext, conversationId: string, turns: ChatTurn[], latestContent: string): Promise<OrchestrationResult> {
+  const explicitConnectionProvider = detectExplicitIntegrationConnect(latestContent);
+  if (explicitConnectionProvider) {
+    return createIntegrationConnectionResult(user, explicitConnectionProvider, 'connect');
+  }
   const intent = classifyIntent(latestContent);
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
@@ -318,6 +362,12 @@ export async function orchestrateStream(
   latestContent: string,
   onText: (text: string) => void
 ): Promise<OrchestrationResult> {
+  const explicitConnectionProvider = detectExplicitIntegrationConnect(latestContent);
+  if (explicitConnectionProvider) {
+    const connection = await createIntegrationConnectionResult(user, explicitConnectionProvider, 'connect');
+    onText(connection.text);
+    return connection;
+  }
   const intent = classifyIntent(latestContent);
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
