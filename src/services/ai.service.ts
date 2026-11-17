@@ -176,9 +176,14 @@ async function streamGemini(
         interactionId = event.interaction.id ?? interactionId;
         status = event.interaction.status ?? status;
       } else if (eventType === 'step.start' && event.step?.type === 'function_call' && typeof event.index === 'number' && event.step.name) {
+        // Interactions API starts streamed function calls with arguments: {}.
+        // That is a placeholder, not a JSON prefix: appending argument deltas
+        // to the literal "{}" corrupts an otherwise valid function call.
         let args = '';
         if (typeof event.step.arguments === 'string') args = event.step.arguments;
-        else if (event.step.arguments && typeof event.step.arguments === 'object') args = JSON.stringify(event.step.arguments);
+        else if (event.step.arguments && typeof event.step.arguments === 'object' && Object.keys(event.step.arguments).length > 0) {
+          args = JSON.stringify(event.step.arguments);
+        }
         calls.set(event.index, { id: event.step.call_id ?? event.step.id ?? crypto.randomUUID(), name: event.step.name, arguments: args });
       } else if (eventType === 'step.delta' && typeof event.index === 'number' && event.delta) {
         if (event.delta.type === 'text') {
@@ -186,7 +191,14 @@ async function streamGemini(
           if (text) { fullText += text; onText(text); }
         } else if (event.delta.type === 'arguments_delta' || event.delta.type === 'arguments') {
           const call = calls.get(event.index);
-          if (call) call.arguments += event.delta.arguments ?? '';
+          // The API has used both arguments_delta/arguments and
+          // arguments/partial_arguments event shapes across its examples.
+          const fragment = typeof event.delta.arguments === 'string'
+            ? event.delta.arguments
+            : typeof event.delta.partial_arguments === 'string'
+              ? event.delta.partial_arguments
+              : '';
+          if (call) call.arguments += fragment;
         }
       }
     }
