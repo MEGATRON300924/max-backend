@@ -209,8 +209,8 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
     const saved = await prisma.$transaction(async (tx) => {
       if (allAttachmentIds.length) {
         const owned = await tx.conversationAttachment.findMany({
-          where: { id: { in: allAttachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
-          select: { id: true }
+          where: { id: { in: allAttachmentIds }, userId: user.id, conversationId: conversation.id },
+          select: { id: true, messageId: true }
         });
         if (owned.length !== allAttachmentIds.length) throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'One or more uploaded images do not belong to this conversation');
       }
@@ -234,6 +234,8 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
           });
         }
         if (message.attachmentIds?.length) {
+          const linkedElsewhere = owned.some(item => message.attachmentIds?.includes(item.id) && item.messageId && item.messageId !== savedMessage.id);
+          if (linkedElsewhere) throw new ApiError(409, 'ATTACHMENT_ALREADY_LINKED', 'An image is already attached to another message');
           await tx.conversationAttachment.updateMany({
             where: { id: { in: message.attachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
             data: { messageId: savedMessage.id }
