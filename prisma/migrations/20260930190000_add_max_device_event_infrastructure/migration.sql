@@ -3,7 +3,7 @@ CREATE TYPE "max_backend"."max_backend"."DeviceSessionStatus" AS ENUM ('ACTIVE',
 CREATE TYPE "max_backend"."max_backend"."MaxEventType" AS ENUM ('ANNOUNCEMENT', 'BROADCAST', 'SECURITY_ALERT', 'COMMAND', 'MEDIA_ACTION', 'NOTIFICATION', 'AUTOMATION_EVENT', 'DEVICE_CHANGED', 'ACCOUNT_UPDATED', 'SUBSCRIPTION_UPDATED');
 CREATE TYPE "max_backend"."max_backend"."EventPriority" AS ENUM ('INFO', 'NORMAL', 'IMPORTANT', 'CRITICAL');
 
-CREATE TABLE "max_backend"."devices" (
+CREATE TABLE IF NOT EXISTS "max_backend"."devices" (
   "id" UUID NOT NULL,
   "user_id" UUID NOT NULL,
   "external_id" TEXT,
@@ -25,13 +25,22 @@ CREATE TABLE "max_backend"."devices" (
   "updated_at" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "devices_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "devices_user_id_external_id_key" ON "max_backend"."devices"("user_id","external_id");
-CREATE INDEX "devices_user_id_device_type_idx" ON "max_backend"."devices"("user_id","device_type");
-CREATE INDEX "devices_home_id_room_id_idx" ON "max_backend"."devices"("home_id","room_id");
-CREATE INDEX "devices_last_seen_at_idx" ON "max_backend"."devices"("last_seen_at");
-ALTER TABLE "max_backend"."devices" ADD CONSTRAINT "devices_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS "devices_user_id_external_id_key" ON "max_backend"."devices"("user_id","external_id");
+CREATE INDEX IF NOT EXISTS "devices_user_id_device_type_idx" ON "max_backend"."devices"("user_id","device_type");
+CREATE INDEX IF NOT EXISTS "devices_home_id_room_id_idx" ON "max_backend"."devices"("home_id","room_id");
+CREATE INDEX IF NOT EXISTS "devices_last_seen_at_idx" ON "max_backend"."devices"("last_seen_at");
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'devices_user_id_fkey' AND conrelid = '"max_backend"."devices"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."devices" ADD CONSTRAINT "devices_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
-CREATE TABLE "max_backend"."device_sessions" (
+CREATE TABLE IF NOT EXISTS "max_backend"."device_sessions" (
   "id" UUID NOT NULL,
   "device_id" UUID NOT NULL,
   "user_id" UUID NOT NULL,
@@ -44,13 +53,31 @@ CREATE TABLE "max_backend"."device_sessions" (
   "expires_at" TIMESTAMP(3),
   CONSTRAINT "device_sessions_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "device_sessions_session_key_key" ON "max_backend"."device_sessions"("session_key");
-CREATE INDEX "device_sessions_user_id_status_idx" ON "max_backend"."device_sessions"("user_id","status");
-CREATE INDEX "device_sessions_device_id_status_idx" ON "max_backend"."device_sessions"("device_id","status");
-ALTER TABLE "max_backend"."device_sessions" ADD CONSTRAINT "device_sessions_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "max_backend"."devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "max_backend"."device_sessions" ADD CONSTRAINT "device_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS "device_sessions_session_key_key" ON "max_backend"."device_sessions"("session_key");
+CREATE INDEX IF NOT EXISTS "device_sessions_user_id_status_idx" ON "max_backend"."device_sessions"("user_id","status");
+CREATE INDEX IF NOT EXISTS "device_sessions_device_id_status_idx" ON "max_backend"."device_sessions"("device_id","status");
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_sessions_device_id_fkey' AND conrelid = '"max_backend"."device_sessions"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."device_sessions" ADD CONSTRAINT "device_sessions_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "max_backend"."devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'device_sessions_user_id_fkey' AND conrelid = '"max_backend"."device_sessions"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."device_sessions" ADD CONSTRAINT "device_sessions_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
-CREATE TABLE "max_backend"."max_events" (
+CREATE TABLE IF NOT EXISTS "max_backend"."max_events" (
   "id" UUID NOT NULL,
   "user_id" UUID,
   "device_id" UUID,
@@ -66,14 +93,32 @@ CREATE TABLE "max_backend"."max_events" (
   "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "max_events_pkey" PRIMARY KEY ("id")
 );
-CREATE INDEX "max_events_user_id_created_at_idx" ON "max_backend"."max_events"("user_id","created_at");
-CREATE INDEX "max_events_device_id_created_at_idx" ON "max_backend"."max_events"("device_id","created_at");
-CREATE INDEX "max_events_home_id_created_at_idx" ON "max_backend"."max_events"("home_id","created_at");
-CREATE INDEX "max_events_event_type_created_at_idx" ON "max_backend"."max_events"("event_type","created_at");
-ALTER TABLE "max_backend"."max_events" ADD CONSTRAINT "max_events_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "max_backend"."max_events" ADD CONSTRAINT "max_events_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "max_backend"."devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX IF NOT EXISTS "max_events_user_id_created_at_idx" ON "max_backend"."max_events"("user_id","created_at");
+CREATE INDEX IF NOT EXISTS "max_events_device_id_created_at_idx" ON "max_backend"."max_events"("device_id","created_at");
+CREATE INDEX IF NOT EXISTS "max_events_home_id_created_at_idx" ON "max_backend"."max_events"("home_id","created_at");
+CREATE INDEX IF NOT EXISTS "max_events_event_type_created_at_idx" ON "max_backend"."max_events"("event_type","created_at");
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'max_events_user_id_fkey' AND conrelid = '"max_backend"."max_events"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."max_events" ADD CONSTRAINT "max_events_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'max_events_device_id_fkey' AND conrelid = '"max_backend"."max_events"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."max_events" ADD CONSTRAINT "max_events_device_id_fkey" FOREIGN KEY ("device_id") REFERENCES "max_backend"."devices"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
-CREATE TABLE "max_backend"."profiles" (
+CREATE TABLE IF NOT EXISTS "max_backend"."profiles" (
   "id" UUID NOT NULL,
   "user_id" UUID NOT NULL,
   "name" TEXT NOT NULL,
@@ -85,10 +130,19 @@ CREATE TABLE "max_backend"."profiles" (
   "updated_at" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "profiles_pkey" PRIMARY KEY ("id")
 );
-CREATE INDEX "profiles_user_id_idx" ON "max_backend"."profiles"("user_id");
-ALTER TABLE "max_backend"."profiles" ADD CONSTRAINT "profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+CREATE INDEX IF NOT EXISTS "profiles_user_id_idx" ON "max_backend"."profiles"("user_id");
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'profiles_user_id_fkey' AND conrelid = '"max_backend"."profiles"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."profiles" ADD CONSTRAINT "profiles_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
 
-CREATE TABLE "max_backend"."media_states" (
+CREATE TABLE IF NOT EXISTS "max_backend"."media_states" (
   "id" UUID NOT NULL,
   "user_id" UUID NOT NULL,
   "content_id" TEXT NOT NULL,
@@ -100,7 +154,25 @@ CREATE TABLE "max_backend"."media_states" (
   "updated_at" TIMESTAMP(3) NOT NULL,
   CONSTRAINT "media_states_pkey" PRIMARY KEY ("id")
 );
-CREATE UNIQUE INDEX "media_states_user_id_content_id_key" ON "max_backend"."media_states"("user_id","content_id");
-CREATE INDEX "media_states_user_id_updated_at_idx" ON "max_backend"."media_states"("user_id","updated_at");
-ALTER TABLE "max_backend"."media_states" ADD CONSTRAINT "media_states_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
-ALTER TABLE "max_backend"."media_states" ADD CONSTRAINT "media_states_source_device_id_fkey" FOREIGN KEY ("source_device_id") REFERENCES "max_backend"."devices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+CREATE UNIQUE INDEX IF NOT EXISTS "media_states_user_id_content_id_key" ON "max_backend"."media_states"("user_id","content_id");
+CREATE INDEX IF NOT EXISTS "media_states_user_id_updated_at_idx" ON "max_backend"."media_states"("user_id","updated_at");
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'media_states_user_id_fkey' AND conrelid = '"max_backend"."media_states"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."media_states" ADD CONSTRAINT "media_states_user_id_fkey" FOREIGN KEY ("user_id") REFERENCES "max_backend"."ecosystem_users"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conname = 'media_states_source_device_id_fkey' AND conrelid = '"max_backend"."media_states"'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."media_states" ADD CONSTRAINT "media_states_source_device_id_fkey" FOREIGN KEY ("source_device_id") REFERENCES "max_backend"."devices"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END;
+$$;
