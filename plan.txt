@@ -324,3 +324,12 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - GitHub Actions CI run `44075841281` passed on merge commit `8a054f41c20fb4ec10b809f180586b6483579fa8`, which includes current main (including MAX Hotels PR #31) plus Cloudinary changes: dependency install, Prisma Client generation, TypeScript typecheck and build all passed.
 - The latest branch commit after that run is a plan.txt-only checkpoint; application source is unchanged from the successful CI commit.
 - PR #32 remains open and unmerged; no Render deployment or live Cloudinary test has been performed.
+
+
+## Deterministic MAX Auth connection-card routing — 2026-11-17
+- User reported that MAX claimed it had displayed a Google connection card, but no card appeared. The frontend only renders a card when the streaming response includes a structured `connections[]` payload; natural-language claims do not create UI.
+- Confirmed the connection-card UI and click handlers are present on main after MAX Chat PR #28 was merged. Confirmed the OAuth tool and structured SSE connections payload are present after MAX Backend PR #29 and MAX Auth PR #34 were merged.
+- Added deterministic backend routing for explicit connect/link/authorize requests for Google, Spotify, Discord, Microsoft and GitHub. These requests now create the MAX Auth OAuth session directly before Gemini is called, then return both the user-facing text and the structured connection object needed by the chat card. This prevents Gemini from merely claiming a card exists without invoking the tool.
+- The normal Gemini tool path remains available for integration requests arising from other workflows.
+- Branch: `fix/deterministic-integration-connect`; source commits: `2732ce8e068a2537aea9a9c3214a61d0432a9e5d`, `b56e1f79c6f14d4080628620448106010a7cd3a5`.
+- Validation pending: TypeScript typecheck/build, focused provider-intent tests, authenticated live MAX Auth OAuth creation, SSE response and browser card rendering. No deployment or merge.
