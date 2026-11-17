@@ -32,7 +32,19 @@ async function getConversationForUser(id: string, userId: string) {
     include: { messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } }
   });
   if (!conversation) throw new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Conversation not found');
-  return conversation;
+  return {
+    ...conversation,
+    messages: conversation.messages.map(message => ({
+      ...message,
+      attachments: message.attachments.map(attachment => ({
+        ...attachment,
+        sizeBytes: Number(attachment.sizeBytes),
+        url: attachment.secureUrl,
+        name: attachment.originalName,
+        type: attachment.mimeType
+      }))
+    }))
+  };
 }
 
 function turnsFromConversation(messages: Array<{ role: string; content: string }>) {
