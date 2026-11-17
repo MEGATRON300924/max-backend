@@ -203,3 +203,15 @@ export async function listHotelGuests(
     guests
   };
 }
+
+export async function listHotelRegistrations(context: HotelToolContext, limit = 50) {
+  const data = await hotelGet(context, '/admin/registration-requests');
+  const registrations = Array.isArray(data.registrationRequests) ? data.registrationRequests : [];
+  const cappedLimit = Math.min(Math.max(limit, 1), 100);
+  return {
+    success: true,
+    tool: 'hotels.registrations.list',
+    count: Number(data.count ?? registrations.length),
+    registrations: registrations.slice(0, cappedLimit)
+  };
+}
