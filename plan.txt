@@ -291,3 +291,9 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 
 ### Cloudinary public ID path correction — 2026-11-17
 - Removed the legacy `folder` upload parameter to avoid Cloudinary fixed-folder mode automatically prefixing a full path twice. The signed public ID itself now carries the deterministic `max-ai/chat/{userId}/{conversationId}/{attachmentId}` namespace.
+
+### PR and CI verification — 2026-11-17
+- Opened backend PR #32: https://github.com/MEGATRON300924/max-backend/pull/32 (open, not merged).
+- GitHub Actions CI run `44075428986` completed successfully on current backend PR head `cfa537dda2e67667bc0b8f7f5a2fbc2230fd7a3b`: dependency install, Prisma Client generation, TypeScript typecheck and TypeScript build all passed.
+- Live Cloudinary upload, authenticated delivery and deletion tests remain pending because Render Cloudinary credentials are not configured/available in this workspace.
+- No deployment or merge.
