@@ -376,3 +376,11 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - This confirms the corrected SQL is deployed in source, but production migration recovery has not happened. The prior failed migration ledger entry must first be resolved as rolled back, then `prisma migrate deploy` rerun.
 - No production database mutation has been performed. Do not change Render Build Command or Start Command; the build succeeded and the start command is correctly invoking migrations. Obtain explicit user approval before running production Prisma recovery commands.
 - Next: after approval, run `npx prisma migrate resolve --rolled-back 20260904134000_pending_action_conversation_context --schema prisma/schema.prisma`, then `npx prisma migrate deploy --schema prisma/schema.prisma`; verify the migration ledger, `max_backend.conversation_attachments`, indexes/FKs, Render startup, and authenticated conversation retrieval. Do not manually edit the migration ledger, mark the failed migration applied, reset the database, or drop tables.
+
+
+### Production recovery workflow prepared — 2026-11-17
+- User explicitly approved the two-step production recovery sequence. Render Shell is unavailable on the current plan, so added a manually triggered GitHub Actions workflow at `.github/workflows/production-prisma-recovery.yml`.
+- Workflow commit: `6e07509d9e939470d55dc8f7da88cddc11722e27`.
+- The workflow requires the exact manual confirmation string `RECOVER-MAX-BACKEND-PRODUCTION`, reads the production connection only from the GitHub Actions secret `DATABASE_URL`, and runs only the approved Prisma commands: resolve the known failed migration as rolled back, then deploy pending migrations. It does not print the secret and has a non-cancelling concurrency lock.
+- Workflow has been committed but NOT run. The GitHub Actions secret `DATABASE_URL` has not been verified as configured; the workflow will stop safely if it is missing.
+- No production database mutation has occurred from this workflow yet. After the secret is configured, manually dispatch the workflow with the required confirmation. Then verify migration history, attachment table/indexes/FKs, Render startup, and authenticated conversation retrieval. Do not claim recovery until these checks pass.
