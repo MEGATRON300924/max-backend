@@ -191,3 +191,10 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - Confirm MAX Chat requests `account:read` and MAX Auth permits that scope for the official MAX Chat OAuth client.
 - Run build/tests, open PR, and verify the Gemini tool call can list the authenticated user's account devices using the account-read scope.
 - Deploy only after CI passes; verify Render is running the merged Gemini-only commit.
+
+
+### PR / CI checkpoint — 2026-11-17
+- PR #26 opened: https://github.com/MEGATRON300924/max-backend/pull/26 (open; not merged).
+- PR head: `c4eeb93afc5e797a0aa4fa6e4019482d467cf66f`.
+- GitHub Actions run: `44046532975`; current status: Typecheck in progress; Build pending.
+- No production deployment performed.
