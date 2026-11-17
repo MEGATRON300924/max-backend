@@ -215,3 +215,11 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - Updated function-call parsing to ignore an empty object placeholder in `step.start`, preserve non-empty initial arguments, and accept both documented delta shapes: `arguments_delta` + `arguments`, and `arguments` + `partial_arguments`. No music-provider, Spotify, MAX Auth, or credential behavior was changed.
 - Branch: `fix/gemini-stream-tool-argument-assembly`. Source change is prepared; validation, PR, and deployment are pending.
 - Next: run TypeScript build and tests, add/execute a regression check for the empty-object placeholder followed by argument fragments, inspect the music tool declaration and playback execution path, then open a PR. Do not merge or claim production fixed until checks pass and MAX Chat successfully executes a music request. Botpress remains untouched.
+
+
+## Gemini streamed function-call fix — deployment confirmation — 2026-11-17
+- PR #28 is merged to main at commit `97e54f150e781f7918a7b1d49fb26b71d53600e0`.
+- Render deployment `dep-dbu28irbc2fs73fni8c0` completed successfully and is LIVE. Render build event reports `buildStatus=succeeded`; the application started and Render health checks returned HEAD / and GET / with HTTP 200. Deployment finished at 2026-11-17T09:55:10Z.
+- GitHub Actions workflow-run lookup returned no runs for this merge commit; do not claim a separate GitHub CI suite passed. Render's production build did succeed.
+- The exact authenticated Gemini function-call regression has not yet been reproduced against the live deployment. Render logs show earlier chat streams returning HTTP 200, but those requests predate this deployment; an HTTP 200 alone does not prove a valid function call or playback.
+- Next: ask the user to retry the original tool-triggering request in MAX Chat (for example, “play Big by Juice WRLD”) and inspect the resulting stream/tool execution. If it still fails, capture the exact new error and trace the emitted function-call event shape. Botpress remains untouched; no music provider integration was changed in this deployment.
