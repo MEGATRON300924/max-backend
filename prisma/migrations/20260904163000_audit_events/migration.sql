@@ -1,4 +1,4 @@
-CREATE TABLE "audit_events" (
+CREATE TABLE IF NOT EXISTS "max_backend"."audit_events" (
   "id" UUID NOT NULL,
   "user_id" UUID,
   "correlation_id" TEXT,
@@ -12,10 +12,26 @@ CREATE TABLE "audit_events" (
   CONSTRAINT "audit_events_pkey" PRIMARY KEY ("id")
 );
 
-CREATE INDEX "audit_events_user_id_created_at_idx" ON "audit_events"("user_id", "created_at");
-CREATE INDEX "audit_events_event_type_created_at_idx" ON "audit_events"("event_type", "created_at");
-CREATE INDEX "audit_events_correlation_id_idx" ON "audit_events"("correlation_id");
+CREATE INDEX IF NOT EXISTS "audit_events_user_id_created_at_idx"
+  ON "max_backend"."audit_events"("user_id", "created_at");
+CREATE INDEX IF NOT EXISTS "audit_events_event_type_created_at_idx"
+  ON "max_backend"."audit_events"("event_type", "created_at");
+CREATE INDEX IF NOT EXISTS "audit_events_correlation_id_idx"
+  ON "max_backend"."audit_events"("correlation_id");
 
-ALTER TABLE "audit_events"
-  ADD CONSTRAINT "audit_events_user_id_fkey"
-  FOREIGN KEY ("user_id") REFERENCES "ecosystem_users"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'audit_events_user_id_fkey'
+      AND conrelid = 'max_backend.audit_events'::regclass
+  ) THEN
+    ALTER TABLE "max_backend"."audit_events"
+      ADD CONSTRAINT "audit_events_user_id_fkey"
+      FOREIGN KEY ("user_id")
+      REFERENCES "max_backend"."ecosystem_users"("id")
+      ON DELETE SET NULL ON UPDATE CASCADE;
+  END IF;
+END
+$$;
