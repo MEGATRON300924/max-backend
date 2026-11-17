@@ -103,6 +103,8 @@ conversationsRouter.delete('/:id', async (req: AuthenticatedRequest, res, next) 
     const user = await getUser(req);
     const conversationId = conversationIdSchema.parse(req.params.id);
     await getConversationForUser(conversationId, user.id);
+    const attachments = await prisma.conversationAttachment.findMany({ where: { conversationId, userId: user.id }, select: { id: true, publicId: true } });
+    for (const attachment of attachments) await deleteCloudinaryImage(attachment.publicId);
     await prisma.conversation.delete({ where: { id: conversationId } });
     res.status(204).send();
   } catch (error) {
@@ -144,6 +146,7 @@ conversationsRouter.post('/:id/attachments/complete', async (req: AuthenticatedR
     await getConversationForUser(conversationId, user.id);
     const input = z.object({
       attachmentId: z.string().uuid(),
+      filename: z.string().trim().min(1).max(255),
       publicId: z.string().min(1).max(500),
       version: z.number().int().positive(),
       signature: z.string().regex(/^[a-f0-9]{40}$/i),
@@ -158,7 +161,7 @@ conversationsRouter.post('/:id/attachments/complete', async (req: AuthenticatedR
     const attachment = await prisma.conversationAttachment.create({
       data: {
         id: input.attachmentId, userId: user.id, conversationId, publicId: input.publicId,
-        secureUrl, originalName: 'image.' + input.format, mimeType, sizeBytes: input.bytes,
+        secureUrl, originalName: input.filename.replace(/[^a-zA-Z0-9._ -]/g, '_').slice(0, 255) || 'image.' + input.format, mimeType, sizeBytes: input.bytes,
         width: input.width, height: input.height
       },
       select: { id: true, secureUrl: true, originalName: true, mimeType: true, sizeBytes: true, width: true, height: true, createdAt: true }
