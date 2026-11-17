@@ -251,3 +251,7 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - CI run `44067921826` failed at TypeScript typecheck; Prisma generation passed and build was skipped. Exact diagnostic: `src/services/tools.service.ts(668,70): error TS2345` because indexing a `Record<string, string>` produced `string | undefined` for the authenticated MAX Auth request path.
 - Corrected the provider route map to a `Record` keyed by the exact Zod provider union. New source commit: `bb3e12910e098a97e35bdbdd0e6d8913b2843fe9`.
 - Awaiting the new PR-head CI run. No merge or deployment performed.
+
+### CI verification update — 2026-11-17
+- After correcting the provider-map type, GitHub Actions CI run `44068229089` completed successfully: dependency installation, Prisma client generation, TypeScript typecheck and build all passed.
+- Current branch head includes the CI-fix commit and the plan checkpoint. PR #29 remains open/unmerged. Live MAX Auth OAuth calls and production deployment remain pending.
