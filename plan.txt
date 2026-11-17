@@ -403,3 +403,12 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - Commits on main: migration SQL `0121867544c389bc528e1b507d6f07252ae58bf0`, workflow `944ca0e25105ed674eba89b837b0bed66726d5a8`, SQL terminator correction `05e2dd0c8f871aca5494df5cf88e887e742009fa`.
 - Production database has not been modified during this repair. The updated workflow has not been dispatched; GitHub connector does not expose workflow_dispatch. User must manually run it from Actions with the same confirmation phrase and existing DATABASE_URL secret.
 - After the run, verify migration ledger, conversation_attachments table/indexes/FKs, Render startup, and authenticated conversation retrieval. Do not claim production recovery until these checks pass.
+
+
+### Audit-events SQL terminator correction — 2026-11-17
+- Inspected failed recovery workflow run 44182349387 and fetched the exact migration file from main.
+- Root cause confirmed: the conditional FK DO block ended with a single-dollar terminator (`$;`) instead of the matching dollar-quote delimiter (`$$;`). The earlier terminator correction commit did not update the actual file correctly.
+- Corrected the migration terminator to `END; $$;`. No other SQL or production data was changed.
+- Migration file commit: 1cc0052d315ca77d0b2a8f749e29031493fe6335.
+- Recovery run 44182349387 failed at `prisma migrate deploy` with PostgreSQL 42601. The failed audit_events migration must be resolved as rolled back again, then the corrected migration and remaining migrations can be deployed using the already approved recovery sequence.
+- Production database is not yet recovered. Next: rerun the manually dispatched recovery workflow; verify the migration ledger and `max_backend.conversation_attachments`, then confirm Render starts successfully and authenticated conversation retrieval works.
