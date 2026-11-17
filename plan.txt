@@ -134,4 +134,12 @@ GEMINI 3.5 FLASH-LITE MODEL UPDATE — 2026-11-16
 - Changed the application default GEMINI_MODEL from gemini-3.7-flash to gemini-3.5-flash-lite and aligned .env.example and README configuration guidance. No secrets were read, copied, or committed.
 - MAX Auth remains the identity/connector authority: backend validates MAX Auth-issued access tokens and uses its server-side service bridge. Gemini does not receive raw MAX Auth credentials; backend executes permitted tools under the authenticated user's context.
 - Updated Render service srv-d7eeuc0sfn5c738tml3g in workspace Zion with GEMINI_MODEL=gemini-3.5-flash-lite (merged env update; no secret value exposed). Render accepted the change and started deployment dep-dbtmb48ae00c73f7aqag at 2026-11-16T20:20:33Z; status at trigger time: build_in_progress, deploying merge commit 0694866c8c45f1873bf3e6c1cd90bed9368a99a8.
-- Pending: merge model-default PR #23, confirm deployment dep-dbtmb48ae00c73f7aqag is live, run build/tests, then test plain chat, streaming, function calling, and authenticated MAX Home device listing. Retain Groq fallback until these tests pass. Botpress remains untouched.
+- PR #23 was subsequently merged by the user: merge commit d0c9775568c3ff1a3f2ac50553a220fa55717ebd. The Render deployment dep-dbtmb48ae00c73f7aqag failed while building commit 0694866c8c45f1873bf3e6c1cd90bed9368a99a8; the log reports TS2532 at src/services/ai.service.ts lines 91, 94 and 95. These are strict indexed-access errors caused by noUncheckedIndexedAccess in tsconfig.json, not Gemini credentials/model configuration. Follow-up validation and production chat/tool tests remain pending. Botpress remains untouched.
+
+
+TYPESCRIPT BUILD FIX — GROQ MESSAGE INDEXING — 2026-11-17
+- Investigated Render deployment failure from commit 0694866c8c45f1873bf3e6c1cd90bed9368a99a8. Dependency installation and Prisma generation succeeded; `npm run build` failed with TS2532 at src/services/ai.service.ts lines 91, 94 and 95.
+- Root cause: tsconfig.json enables noUncheckedIndexedAccess; the GPT-OSS instruction-placement code indexed messages[i] and messages[latestUserIndex] without narrowing the possibly undefined array elements.
+- On branch fix/groq-messages-no-unchecked-index, updated the loop to narrow each message and assigned the latest user message to a guarded local before reading/writing content. No provider behavior or MAX Auth logic changed.
+- Source commit: 10165c03d159369ccf454dafa25a2e1036cb45f3. No secrets changed; Botpress untouched.
+- Pending: create/review PR, confirm TypeScript build and tests, merge only after validation, then verify Render deploy and authenticated Gemini chat/stream/function calls and MAX Home tools.
