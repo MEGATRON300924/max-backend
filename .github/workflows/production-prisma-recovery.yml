@@ -1,0 +1,54 @@
+name: Production Prisma Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: 'Type RECOVER-MAX-BACKEND-PRODUCTION to authorize the approved migration recovery'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: max-backend-production-prisma-recovery
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    if: ${{ inputs.confirmation == 'RECOVER-MAX-BACKEND-PRODUCTION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install dependencies
+        run: npm install --include=dev
+
+      - name: Validate production database secret
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::GitHub Actions secret DATABASE_URL is not configured."
+            exit 1
+          fi
+
+      - name: Resolve the known failed migration as rolled back
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate resolve --rolled-back 20260904134000_pending_action_conversation_context --schema prisma/schema.prisma
+
+      - name: Apply all remaining migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: npx prisma migrate deploy --schema prisma/schema.prisma
