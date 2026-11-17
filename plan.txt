@@ -255,3 +255,7 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 ### CI verification update — 2026-11-17
 - After correcting the provider-map type, GitHub Actions CI run `44068229089` completed successfully: dependency installation, Prisma client generation, TypeScript typecheck and build all passed.
 - Current branch head includes the CI-fix commit and the plan checkpoint. PR #29 remains open/unmerged. Live MAX Auth OAuth calls and production deployment remain pending.
+
+### Latest CI verification — 2026-11-17
+- Follow-up CI run `44068404931` also completed successfully: Prisma generation, TypeScript typecheck and build passed on the updated branch head.
+- PR #29 remains open/unmerged and depends on MAX Auth PR #34 for first-time Google linking. Live OAuth and deployment tests remain pending.
