@@ -223,3 +223,11 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - GitHub Actions workflow-run lookup returned no runs for this merge commit; do not claim a separate GitHub CI suite passed. Render's production build did succeed.
 - The exact authenticated Gemini function-call regression has not yet been reproduced against the live deployment. Render logs show earlier chat streams returning HTTP 200, but those requests predate this deployment; an HTTP 200 alone does not prove a valid function call or playback.
 - Next: ask the user to retry the original tool-triggering request in MAX Chat (for example, “play Big by Juice WRLD”) and inspect the resulting stream/tool execution. If it still fails, capture the exact new error and trace the emitted function-call event shape. Botpress remains untouched; no music provider integration was changed in this deployment.
+
+
+## Music playback integration feasibility — 2026-11-17
+- User asked to continue after the Gemini tool-call fix deployment. The live deployment is confirmed; the user-facing function-call regression still needs a real MAX Chat retest.
+- Reviewed Google's official YouTube developer API catalog and IFrame Player API. The documented supported playback path is an embedded YouTube player controlled through the IFrame Player API; public video discovery can use YouTube Data API search.
+- The official API catalog documents YouTube player/embed and Data APIs, but does not document a native YouTube Music playback API. Do not represent an embedded YouTube video as native YouTube Music playback.
+- Proposed compliant implementation: resolve the requested track to a public YouTube video, show an embedded YouTube player inside MAX Chat, and let the user initiate playback through the player's native controls. This is YouTube video playback, not a YouTube Music account/player integration.
+- No playback code or provider settings changed. Await user confirmation that the embedded YouTube player is an acceptable playback experience before implementation. Keep Spotify optional and do not reintroduce Groq or touch Botpress.
