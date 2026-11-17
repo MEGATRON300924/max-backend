@@ -115,7 +115,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'For MAX Hotels business questions, use hotels.overview for live property, room, device, current guest-session and open-request counts; use hotels.requests.list for request details; use hotels.guests.list for the current guest roster. The tools only return records allowed by the currently authenticated MAX Auth business context.',
     'Never infer a hotel guest count from room capacity. Count only active guest sessions returned by MAX Hotels. State the property and data scope when reporting counts.',
     'MAX Hotels currently has no live order ledger, public registration-lead read API, payment ledger or finance records exposed to this assistant. Do not invent or estimate orders, revenue, expenses, balances or payments; clearly say when those data sources are not connected.',
-    'Hotel guest-session details are operational data, not durable user memory. Never save guest names or stay details as personal memory, and do not expose one business property to another.');
+    'Hotel guest-session details are operational data, not durable user memory. Never save guest names or stay details as personal memory, and do not expose one business property to another.',
     'Never claim an action was completed unless the backend returned a successful tool result.',
     'Never invent devices, homes, accounts, files, purchases, payments, integrations, or tool results.',
     'Sensitive actions such as home control and memory deletion require explicit confirmation and must never be bypassed.',
