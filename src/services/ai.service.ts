@@ -88,11 +88,13 @@ function groqMessages(turns: ChatTurn[], systemInstruction?: string): GroqMessag
   if (env.GROQ_MODEL.startsWith('openai/gpt-oss-')) {
     let latestUserIndex = -1;
     for (let i = messages.length - 1; i >= 0; i -= 1) {
-      if (messages[i].role === 'user') { latestUserIndex = i; break; }
+      const message = messages[i];
+      if (message?.role === 'user') { latestUserIndex = i; break; }
     }
-    if (latestUserIndex >= 0) {
-      const userContent = messages[latestUserIndex].content ?? '';
-      messages[latestUserIndex].content = `MAX assistant instructions:\n${systemInstruction}\n\nUser request:\n${userContent}`;
+    const latestUserMessage = latestUserIndex >= 0 ? messages[latestUserIndex] : undefined;
+    if (latestUserMessage) {
+      const userContent = latestUserMessage.content ?? '';
+      latestUserMessage.content = `MAX assistant instructions:\n${systemInstruction}\n\nUser request:\n${userContent}`;
     } else {
       messages.push({ role: 'user', content: systemInstruction });
     }
