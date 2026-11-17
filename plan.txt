@@ -246,3 +246,8 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - PR #29 opened: https://github.com/MEGATRON300924/max-backend/pull/29 (open; not merged). Head `b874b11fb37882b0214f4374cfa91605578242c9`.
 - GitHub Actions CI run `44067805416` is in progress. At checkpoint, dependency installation was running; Prisma generation, TypeScript typecheck and build were pending.
 - GitHub reports mergeable=false at PR creation. No merge or production deployment performed.
+
+### CI failure and type correction — 2026-11-17
+- CI run `44067921826` failed at TypeScript typecheck; Prisma generation passed and build was skipped. Exact diagnostic: `src/services/tools.service.ts(668,70): error TS2345` because indexing a `Record<string, string>` produced `string | undefined` for the authenticated MAX Auth request path.
+- Corrected the provider route map to a `Record` keyed by the exact Zod provider union. New source commit: `bb3e12910e098a97e35bdbdd0e6d8913b2843fe9`.
+- Awaiting the new PR-head CI run. No merge or deployment performed.
