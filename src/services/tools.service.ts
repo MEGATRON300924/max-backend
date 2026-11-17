@@ -523,7 +523,7 @@ const tools: MaxTool[] = [
     declaration: { name: 'studio_generate', description: 'Generate content, code, or a reusable prompt with MAX Studio.', parameters: { type: 'object', properties: { prompt: { type: 'string' }, type: { type: 'string', enum: ['text','code','prompt'] }, context: { type: 'string' } }, required: ['prompt'] } }
   },
   {
-    name: 'browser.search', capability: 'browser.search', description: 'Search the public web using Groq GPT-OSS browser search or Gemini grounding.', enabled: Boolean(env.GEMINI_API_KEY || env.GROQ_API_KEY), requiresConfirmation: false,
+    name: 'browser.search', capability: 'browser.search', description: 'Search the public web using Gemini grounding.', enabled: Boolean(env.GEMINI_API_KEY), requiresConfirmation: false,
     declaration: { name: 'browser_search', description: 'Search the public web for current information and return grounded sources.', parameters: { type: 'object', properties: { query: { type: 'string' }, maxResults: { type: 'number' } }, required: ['query'] } }
   },
   {
@@ -676,6 +676,7 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       };
     } else if (name === 'max_auth.devices') {
       if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'A MAX Auth account is required to list account devices');
+      if (!context.scopes?.includes('account:read')) throw new ApiError(403, 'INSUFFICIENT_SCOPE', 'The MAX Auth token does not include account:read permission');
       const response = await maxAuthUserGet(context.authAccessToken, '/devices');
       if (!response.ok) {
         const message = response.payload?.error?.message || response.payload?.message || 'MAX Auth could not retrieve account devices.';
