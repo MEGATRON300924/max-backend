@@ -658,7 +658,7 @@ export async function executeTool(name: string, context: ToolContext, input: unk
 
     if (name === 'integrations.connect') {
       const { provider } = integrationConnectInput.parse(input);
-      const connectPaths: Record<string, string> = {
+      const connectPaths: Record<z.infer<typeof integrationConnectInput>['provider'], string> = {
         google: '/connected-accounts/google/calendar/connect',
         spotify: '/connected-accounts/spotify/connect',
         discord: '/connected-accounts/discord/connect',
