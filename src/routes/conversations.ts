@@ -7,7 +7,7 @@ import { ApiError } from '../middleware/errors.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 import { orchestrate, orchestrateStream } from '../services/orchestrator.service.js';
-import { createChatImageUploadSignature, cloudinaryImageUrl, deleteCloudinaryImage, verifyChatImageUpload } from '../services/cloudinary.service.js';
+import { createChatImageUploadSignature, cloudinaryImageUrl, deleteCloudinaryImage, getCloudinaryImageDetails, verifyChatImageUpload } from '../services/cloudinary.service.js';
 
 const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
 const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(100) });
