@@ -319,3 +319,8 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - Main advanced while this PR was in progress because MAX Hotels PR #31 merged. Compared current main and the Cloudinary branch; preserved the new `MAX_HOTELS_API_URL` configuration and the complete MAX Hotels plan history while retaining Cloudinary changes.
 - Created a two-parent merge commit `8a054f41c20fb4ec10b809f180586b6483579fa8` with current main as first parent and the Cloudinary branch as second parent. The branch now includes both sets of changes; PR #32 reports mergeable=true.
 - Earlier CI run `44075428986` passed Prisma generation, typecheck and build on the Cloudinary code before this sync. Revalidation on the synced head is pending.
+
+### Synced-head CI result — 2026-11-17
+- GitHub Actions CI run `44075841281` passed on merge commit `8a054f41c20fb4ec10b809f180586b6483579fa8`, which includes current main (including MAX Hotels PR #31) plus Cloudinary changes: dependency install, Prisma Client generation, TypeScript typecheck and build all passed.
+- The latest branch commit after that run is a plan.txt-only checkpoint; application source is unchanged from the successful CI commit.
+- PR #32 remains open and unmerged; no Render deployment or live Cloudinary test has been performed.
