@@ -62,8 +62,9 @@ export async function deleteCloudinaryImage(publicId: string) {
   const { cloudName, apiKey, apiSecret } = credentials();
   const timestamp = Math.floor(Date.now() / 1000);
   const invalidate = 'true';
-  const signature = signatureFor({ invalidate, public_id: publicId, timestamp }, apiSecret);
-  const body = new URLSearchParams({ public_id: publicId, timestamp: String(timestamp), invalidate, api_key: apiKey, signature });
+  const type = 'authenticated';
+  const signature = signatureFor({ invalidate, public_id: publicId, timestamp, type }, apiSecret);
+  const body = new URLSearchParams({ public_id: publicId, timestamp: String(timestamp), invalidate, type, api_key: apiKey, signature });
   const response = await fetch('https://api.cloudinary.com/v1_1/' + encodeURIComponent(cloudName) + '/image/destroy', {
     method: 'POST', headers: { Authorization: 'Basic ' + Buffer.from(apiKey + ':' + apiSecret).toString('base64'), 'Content-Type': 'application/x-www-form-urlencoded' },
     body, signal: AbortSignal.timeout(15000)
