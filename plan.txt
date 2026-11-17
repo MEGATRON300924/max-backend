@@ -247,3 +247,6 @@ MAX HOTELS ASSISTANT INTEGRATION — 2026-11-17
 - Follow-up: added hotels.registrations.list. It calls the new MAX Hotels admin endpoint and can read sign-up lead contact/property details only for MAX Auth usernames allowlisted by MAX Hotels. Access is denied by default until Render sets MAX_HOTELS_REGISTRATION_ADMIN_USERNAMES.
 - Updated assistant policy: registration-lead queries must use the restricted tool; ordinary hotel staff must not receive platform-wide lead data. Payment/order ledgers remain unavailable.
 - Registration tool/service commits: 20804c26ea44d6eefc5c95a9b52f43cac46a74c4, 9079f017fa1c9a108233f627cc681469da608a73, 66284f8dbcee2451388b090454fb6876806d80ac, 0eab8d9629e36876e00db32a11da3d54c3957fc2.
+
+- Registration access follow-up is included in the latest branch head. PR #30 remains open/draft/mergeable. GitHub returned no workflow runs or status checks for this branch; a TypeScript build and automated tests have NOT been verified. Do not deploy/merge based on source inspection alone.
+- Render production service identified: `max-backend` (`srv-d7eeuc0sfn5c738tml3g`) in Zion's workspace; it tracks `main` and auto-deploys only when its configured checks gate permits. No production deployment has been triggered from this feature branch.
