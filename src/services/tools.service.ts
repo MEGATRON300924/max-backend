@@ -13,7 +13,7 @@ import { storeService } from './store.service.js';
 import { generateStudioAsset } from './studio.service.js';
 import { tvSearch, tvAssistant } from './tv.service.js';
 import { getGithubFile, createGithubPullRequest } from './github.service.js';
-import { getHotelOverview, listHotelGuests, listHotelRequests } from './hotels.service.js';
+import { getHotelOverview, listHotelGuests, listHotelRegistrations, listHotelRequests } from './hotels.service.js';
 
 async function maxAuthUserGet(accessToken: string | undefined, path: string) {
   if (!accessToken) throw new ApiError(401, 'MAX_AUTH_REQUIRED', 'Sign in with your MAX Auth account to use this connected service.');
@@ -161,6 +161,7 @@ const tvAssistantInput = z.object({ request: z.string().trim().min(1).max(10000)
 const hotelWorkspaceInput = z.object({ workspaceId: z.string().uuid().optional() });
 const hotelRequestsInput = z.object({ workspaceId: z.string().uuid().optional(), status: z.enum(['pending', 'accepted', 'in_progress', 'completed', 'cancelled']).optional(), limit: z.number().int().min(1).max(100).optional() });
 const hotelGuestsInput = z.object({ workspaceId: z.string().uuid().optional(), limit: z.number().int().min(1).max(200).optional() });
+const hotelRegistrationsInput = z.object({ limit: z.number().int().min(1).max(100).optional() });
 const studioInput = z.object({ prompt: z.string().trim().min(1).max(20000), type: z.enum(['text','code','prompt']).default('text'), context: z.string().max(20000).optional() });
 const storeProductInput = z.object({ slug: z.string().min(1).max(300) });
 const spotifyPlayInput = z.object({ context_uri: z.string().trim().max(500).optional(), uris: z.array(z.string().trim().min(1).max(500)).max(50).optional(), device_id: z.string().trim().max(200).optional(), offset: z.record(z.unknown()).optional(), position_ms: z.number().int().min(0).optional() });
@@ -308,6 +309,7 @@ const tools: MaxTool[] = [
   },
   { name: 'hotels.overview', capability: 'hotels', description: 'Read live hotel properties, room/device counts, current guest sessions and guest service requests for the authenticated MAX Auth business.', enabled: Boolean(env.MAX_HOTELS_API_URL), requiresConfirmation: false, declaration: { name: 'hotels_overview', description: 'Get a live operational overview of the currently connected MAX Hotels business. Use this for current guest counts, occupancy, rooms, active devices and open guest requests. Optionally scope to one workspaceId returned by MAX Hotels.', parameters: { type: 'object', properties: { workspaceId: { type: 'string', description: 'Optional property workspace ID from the authenticated business.' } } } } },
   { name: 'hotels.requests.list', capability: 'hotels', description: 'Read current guest service requests across the authenticated hotel business.', enabled: Boolean(env.MAX_HOTELS_API_URL), requiresConfirmation: false, declaration: { name: 'hotels_requests_list', description: 'List live guest service requests (room service, housekeeping, towels, maintenance, information and other requests). Filter by property workspaceId and/or status. Use returned request records only.', parameters: { type: 'object', properties: { workspaceId: { type: 'string' }, status: { type: 'string', enum: ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'] }, limit: { type: 'number' } } } } },
+  { name: 'hotels.registrations.list', capability: 'hotels', description: 'Read platform hotel sign-up requests for MAX Hotels admin accounts explicitly allowlisted by the platform.', enabled: Boolean(env.MAX_HOTELS_API_URL), requiresConfirmation: false, declaration: { name: 'hotels_registrations_list', description: 'List the latest MAX Hotels property sign-up/registration requests, including contact details, property, room count, setup mode and status. This is restricted by the MAX Hotels platform admin allowlist; ordinary hotel business users must not access other properties’ leads.', parameters: { type: 'object', properties: { limit: { type: 'number' } } } } },
   { name: 'hotels.guests.list', capability: 'hotels', description: 'Read current checked-in guest sessions for the authenticated hotel business.', enabled: Boolean(env.MAX_HOTELS_API_URL), requiresConfirmation: false, declaration: { name: 'hotels_guests_list', description: 'List current active guest sessions with guest name, property, room, language and stay timestamps. This is not a historical customer CRM. Optionally scope to one property workspaceId.', parameters: { type: 'object', properties: { workspaceId: { type: 'string' }, limit: { type: 'number' } } } } },
   { name: 'github.repositories', capability: 'github', description: 'List repositories from the authenticated user\'s GitHub account linked through MAX Auth. If it is not linked, return the MAX Auth connection URL.', enabled: true, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List all repositories in the user\'s GitHub account through MAX Auth. If GitHub is not connected, request its authorization URL instead of failing silently.', parameters: { type: 'object', properties: {} } } },
   { name: 'github.file.get', capability: 'github', description: 'Read a file from an allowlisted repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
@@ -634,6 +636,7 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'hotels.overview') return hotelWorkspaceInput.parse(input);
   if (name === 'hotels.requests.list') return hotelRequestsInput.parse(input);
   if (name === 'hotels.guests.list') return hotelGuestsInput.parse(input);
+  if (name === 'hotels.registrations.list') return hotelRegistrationsInput.parse(input);
   if (name === 'tv.search') return tvSearchInput.parse(input);
   if (name === 'tv.assistant') return tvAssistantInput.parse(input);
   if (name === 'studio.generate') return studioInput.parse(input);
@@ -703,6 +706,9 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     } else if (name === 'hotels.guests.list') {
       const data = hotelGuestsInput.parse(input);
       result = await listHotelGuests(context, data);
+    } else if (name === 'hotels.registrations.list') {
+      const data = hotelRegistrationsInput.parse(input);
+      result = await listHotelRegistrations(context, data.limit);
     } else if (name === 'github.repositories') {
       const response = await maxAuthUserGet(context.authAccessToken, '/connected-accounts/github/repos');
       if (!response.ok) {
