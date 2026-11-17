@@ -127,7 +127,7 @@ export async function getHotelOverview(context: HotelToolContext, workspaceId?: 
       requests: 'Exact total and open counts; request detail endpoint returns the latest 200 records per property',
       finances: 'unavailable',
       orders: 'unavailable',
-      publicRegistrations: 'unavailable'
+      publicRegistrations: 'available only to explicitly allowlisted MAX Hotels platform administrators'
     },
     financialDataNote: 'MAX Hotels does not currently expose a payment ledger, order ledger, or revenue records. Do not estimate or invent balances, revenue, expenses, or payments.'
   };
