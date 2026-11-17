@@ -274,3 +274,7 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - Chat uploads use Cloudinary's authenticated delivery type, not public upload URLs. The browser receives a signed delivery URL; API secret remains server-side.
 - Completion now verifies Cloudinary's upload response signature and fetches authoritative asset metadata through the Cloudinary Admin API. File size/format are not trusted from browser-supplied values; oversized or unsupported assets are deleted.
 - Conversation deletion removes its Cloudinary objects before cascading the database records. Assistant-generated images may also be linked to assistant messages.
+
+### Cloudinary cleanup correction — 2026-11-17
+- Cloudinary deletion requests now explicitly target the authenticated delivery type, matching the type used at upload; this avoids leaving assets behind by accidentally calling destroy against the default public upload type.
+- Conversation delete removes remote Cloudinary assets before database cascade; attachment delete removes one owner-verified asset.
