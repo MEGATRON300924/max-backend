@@ -243,3 +243,7 @@ MAX HOTELS ASSISTANT INTEGRATION — 2026-11-17
 - Branch: feat/max-hotels-ai-integration. Commits: 992e0cb (hotel data service), ebcf519 (API config), 77d3de2 (tool registration), f02aa8d / 0f8e3c6 / c470702 (orchestration policy and intent), 6a69dc6 / e1a6297 (exact totals and typed lookups).
 - Pending: TypeScript build/tests, authenticated business-token tool tests, PR review, Render MAX Backend deployment, and end-to-end Ask Max test from MAX Hotels.
 - Required Render environment: MAX_HOTELS_API_URL=https://max-hotels-api.onrender.com/api/v1 (default is already provided in source); existing MAX_AUTH_SERVICE_TOKEN and MAX_AUTH_API_URL remain required.
+
+- Follow-up: added hotels.registrations.list. It calls the new MAX Hotels admin endpoint and can read sign-up lead contact/property details only for MAX Auth usernames allowlisted by MAX Hotels. Access is denied by default until Render sets MAX_HOTELS_REGISTRATION_ADMIN_USERNAMES.
+- Updated assistant policy: registration-lead queries must use the restricted tool; ordinary hotel staff must not receive platform-wide lead data. Payment/order ledgers remain unavailable.
+- Registration tool/service commits: 20804c26ea44d6eefc5c95a9b52f43cac46a74c4, 9079f017fa1c9a108233f627cc681469da608a73, 66284f8dbcee2451388b090454fb6876806d80ac, 0eab8d9629e36876e00db32a11da3d54c3957fc2.
