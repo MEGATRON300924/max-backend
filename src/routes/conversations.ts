@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import crypto from 'node:crypto';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { requireAuth } from '../middleware/auth.js';
@@ -6,6 +7,7 @@ import { ApiError } from '../middleware/errors.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 import { orchestrate, orchestrateStream } from '../services/orchestrator.service.js';
+import { createChatImageUploadSignature, cloudinaryImageUrl, deleteCloudinaryImage, verifyChatImageUpload } from '../services/cloudinary.service.js';
 
 const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
 const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(100) });
@@ -27,7 +29,7 @@ async function getUser(req: AuthenticatedRequest) {
 async function getConversationForUser(id: string, userId: string) {
   const conversation = await prisma.conversation.findFirst({
     where: { id, userId },
-    include: { messages: { orderBy: { createdAt: 'asc' } } }
+    include: { messages: { orderBy: { createdAt: 'asc' }, include: { attachments: true } } }
   });
   if (!conversation) throw new ApiError(404, 'CONVERSATION_NOT_FOUND', 'Conversation not found');
   return conversation;
@@ -114,8 +116,68 @@ const recordMessagesSchema = z.object({
     id: z.string().trim().min(1).max(128).optional(),
     role: z.enum(['user', 'assistant']),
     content: z.string().trim().min(1).max(20000),
-    provider: z.string().trim().max(80).optional()
+    provider: z.string().trim().max(80).optional(),
+    attachmentIds: z.array(z.string().uuid()).max(5).optional()
   })).min(1).max(20)
+});
+
+conversationsRouter.post('/:id/attachments/sign', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const user = await getUser(req);
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    await getConversationForUser(conversationId, user.id);
+    const input = z.object({
+      filename: z.string().trim().min(1).max(255),
+      mimeType: z.enum(['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/avif']),
+      sizeBytes: z.number().int().positive().max(10 * 1024 * 1024)
+    }).parse(req.body);
+    const attachmentId = crypto.randomUUID();
+    const signed = createChatImageUploadSignature(user.id, conversationId, attachmentId);
+    res.json({ data: { attachmentId, ...signed, resourceType: 'image', filename: input.filename, mimeType: input.mimeType, sizeBytes: input.sizeBytes } });
+  } catch (error) { next(error); }
+});
+
+conversationsRouter.post('/:id/attachments/complete', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const user = await getUser(req);
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    await getConversationForUser(conversationId, user.id);
+    const input = z.object({
+      attachmentId: z.string().uuid(),
+      publicId: z.string().min(1).max(500),
+      version: z.number().int().positive(),
+      signature: z.string().regex(/^[a-f0-9]{40}$/i),
+      format: z.enum(['jpg', 'jpeg', 'png', 'webp', 'gif', 'avif']),
+      bytes: z.number().int().positive().max(10 * 1024 * 1024),
+      width: z.number().int().positive().max(50000).optional(),
+      height: z.number().int().positive().max(50000).optional()
+    }).parse(req.body);
+    verifyChatImageUpload({ userId: user.id, conversationId, attachmentId: input.attachmentId, publicId: input.publicId, version: input.version, signature: input.signature });
+    const mimeType = input.format === 'jpg' || input.format === 'jpeg' ? 'image/jpeg' : 'image/' + input.format;
+    const secureUrl = cloudinaryImageUrl(input.publicId, input.version, input.format);
+    const attachment = await prisma.conversationAttachment.create({
+      data: {
+        id: input.attachmentId, userId: user.id, conversationId, publicId: input.publicId,
+        secureUrl, originalName: 'image.' + input.format, mimeType, sizeBytes: input.bytes,
+        width: input.width, height: input.height
+      },
+      select: { id: true, secureUrl: true, originalName: true, mimeType: true, sizeBytes: true, width: true, height: true, createdAt: true }
+    });
+    res.status(201).json({ data: { ...attachment, sizeBytes: Number(attachment.sizeBytes), url: attachment.secureUrl, name: attachment.originalName, type: attachment.mimeType } });
+  } catch (error) { next(error); }
+});
+
+conversationsRouter.delete('/:id/attachments/:attachmentId', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const user = await getUser(req);
+    const conversationId = conversationIdSchema.parse(req.params.id);
+    const attachmentId = z.string().uuid().parse(req.params.attachmentId);
+    const attachment = await prisma.conversationAttachment.findFirst({ where: { id: attachmentId, conversationId, userId: user.id } });
+    if (!attachment) throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'Conversation attachment not found');
+    await deleteCloudinaryImage(attachment.publicId);
+    await prisma.conversationAttachment.delete({ where: { id: attachment.id } });
+    res.status(204).send();
+  } catch (error) { next(error); }
 });
 
 conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedRequest, res, next) => {
@@ -125,30 +187,44 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
     const conversationId = conversationIdSchema.parse(req.params.id);
     const conversation = await getConversationForUser(conversationId, user.id);
 
+    const allAttachmentIds = input.messages.flatMap(message => message.attachmentIds || []);
+    if (new Set(allAttachmentIds).size !== allAttachmentIds.length) throw new ApiError(400, 'DUPLICATE_ATTACHMENT_REFERENCE', 'An attachment can only be linked once per message batch');
+    if (input.messages.some(message => message.role !== 'user' && message.attachmentIds?.length)) throw new ApiError(400, 'INVALID_ATTACHMENT_ROLE', 'Images can only be attached to user messages');
     const saved = await prisma.$transaction(async (tx) => {
+      if (allAttachmentIds.length) {
+        const owned = await tx.conversationAttachment.findMany({
+          where: { id: { in: allAttachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
+          select: { id: true }
+        });
+        if (owned.length !== allAttachmentIds.length) throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'One or more uploaded images do not belong to this conversation');
+      }
       const created = [];
       for (const message of input.messages) {
+        let savedMessage;
         if (message.id) {
-          const duplicate = await tx.message.findFirst({
-            where: {
-              conversationId: conversation.id,
-              metadata: { path: ['clientMessageId'], equals: message.id }
-            }
+          savedMessage = await tx.message.findFirst({
+            where: { conversationId: conversation.id, metadata: { path: ['clientMessageId'], equals: message.id } },
+            include: { attachments: true }
           });
-          if (duplicate) {
-            created.push(duplicate);
-            continue;
-          }
         }
-        created.push(await tx.message.create({
-          data: {
-            conversationId: conversation.id,
-            role: message.role === 'user' ? 'USER' : 'ASSISTANT',
-            content: message.content,
-            provider: message.provider || 'gemini',
-            metadata: message.id ? { clientMessageId: message.id, source: 'MAX Chat' } : { source: 'MAX Chat' }
-          }
-        }));
+        if (!savedMessage) {
+          savedMessage = await tx.message.create({
+            data: {
+              conversationId: conversation.id, role: message.role === 'user' ? 'USER' : 'ASSISTANT',
+              content: message.content, provider: message.provider || 'gemini',
+              metadata: message.id ? { clientMessageId: message.id, source: 'MAX Chat' } : { source: 'MAX Chat' }
+            },
+            include: { attachments: true }
+          });
+        }
+        if (message.attachmentIds?.length) {
+          await tx.conversationAttachment.updateMany({
+            where: { id: { in: message.attachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
+            data: { messageId: savedMessage.id }
+          });
+          savedMessage.attachments = await tx.conversationAttachment.findMany({ where: { messageId: savedMessage.id } });
+        }
+        created.push(savedMessage);
       }
 
       const firstUserMessage = input.messages.find((message) => message.role === 'user');
@@ -164,7 +240,7 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
       return created;
     });
 
-    res.status(201).json({ data: saved });
+    res.status(201).json({ data: saved.map(message => ({ ...message, attachments: message.attachments.map(attachment => ({ ...attachment, sizeBytes: Number(attachment.sizeBytes), url: attachment.secureUrl, name: attachment.originalName, type: attachment.mimeType })) })) });
   } catch (error) {
     next(error);
   }
