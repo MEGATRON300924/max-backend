@@ -259,3 +259,20 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 ### Latest CI verification — 2026-11-17
 - Follow-up CI run `44068404931` also completed successfully: Prisma generation, TypeScript typecheck and build passed on the updated branch head.
 - PR #29 remains open/unmerged and depends on MAX Auth PR #34 for first-time Google linking. Live OAuth and deployment tests remain pending.
+
+
+
+MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
+- The first integration branch was found to be 9 commits behind and 15 ahead of current main, with newer MAX Auth/assistant orchestration changes on main. It was not merged. Created a clean branch from current main and ported only the hotel integration changes to avoid reverting newer work.
+- Current implementation branch: feat/max-hotels-ai-integration-v2.
+- Added MAX_HOTELS_API_URL configuration (default https://max-hotels-api.onrender.com/api/v1) and a server-side hotel data service that forwards the authenticated MAX Auth business token to MAX Hotels.
+- Registered read-only tools: hotels.overview, hotels.requests.list, hotels.guests.list, hotels.registrations.list. Property, guest and request reads remain business/workspace scoped by MAX Auth. Platform sign-up leads are restricted by the MAX Hotels username allowlist and business:read scope.
+- Overview reports exact current guest-session and service-request totals, configured rooms, active devices and open requests. Guest roster returns current active guest records. Registration list requires MAX_HOTELS_REGISTRATION_ADMIN_USERNAMES on MAX Hotels API.
+- Hotel intent classification and system instructions require live tool data, forbid invented guest counts/financial values, and prohibit saving guest stay details as durable personal memory.
+- No write tools were added. MAX Hotels currently has no order or payment ledger; MAX must explicitly state that financial/order analysis is unavailable until a real provider/ledger is connected.
+- Commits on the clean branch: 69b2ad6 (hotel service), 97940dd (API config), 46c7a2f (tool registration), c2b15fb (intent and assistant policy).
+- Pending: TypeScript build/tests, authenticated business-token tool test, PR review, Render deployment and end-to-end Ask Max test. No production deployment or merge performed.
+- The original stale PR #30 is not to be merged; replace it with a PR from this clean branch after validation.
+
+- Branch hygiene: the original PR #30 was closed as superseded after the clean current-main branch was created. New PR #31 is the only backend integration PR to review: https://github.com/MEGATRON300924/max-backend/pull/31.
+- Compare against current main: status ahead, 5 commits ahead, 0 behind. No MAX Auth/MAX Home mainline commits are being removed.
