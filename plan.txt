@@ -241,3 +241,8 @@ GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
 - Branch: `feat/chat-integration-link-sessions`. Source changes, typecheck, tests, PR and production deployment are pending.
 - No MAX Auth route/controller changes, no secrets, no provider credential changes, and no Botpress changes.
 - Next: run backend typecheck/build/tests; inspect authorization-session behavior for each provider; open PR and wait for checks. Verify the Google identity prerequisite and provider availability with live MAX Auth before production.
+
+### PR / CI checkpoint — 2026-11-17
+- PR #29 opened: https://github.com/MEGATRON300924/max-backend/pull/29 (open; not merged). Head `b874b11fb37882b0214f4374cfa91605578242c9`.
+- GitHub Actions CI run `44067805416` is in progress. At checkpoint, dependency installation was running; Prisma generation, TypeScript typecheck and build were pending.
+- GitHub reports mergeable=false at PR creation. No merge or production deployment performed.
