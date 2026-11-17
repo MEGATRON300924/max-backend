@@ -527,7 +527,7 @@ const tools: MaxTool[] = [
     declaration: { name: 'browser_search', description: 'Search the public web for current information and return grounded sources.', parameters: { type: 'object', properties: { query: { type: 'string' }, maxResults: { type: 'number' } }, required: ['query'] } }
   },
   {
-    name: 'browser.open', capability: 'browser.open', description: 'Open and analyze a public web URL using Groq browser search or Gemini URL Context.', enabled: Boolean(env.GEMINI_API_KEY || env.GROQ_API_KEY), requiresConfirmation: false,
+    name: 'browser.open', capability: 'browser.open', description: 'Open and analyze a public web URL using Gemini URL Context.', enabled: Boolean(env.GEMINI_API_KEY), requiresConfirmation: false,
     declaration: { name: 'browser_open', description: 'Open and analyze a public web page.', parameters: { type: 'object', properties: { url: { type: 'string' }, prompt: { type: 'string' } }, required: ['url'] } }
   },
   {
