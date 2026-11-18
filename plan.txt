@@ -658,3 +658,10 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - CI workflow is inherited from `main` and includes dependency installation, Prisma generation, typecheck, `npm test`, and production build.
 - Original PR #40 remains open pending replacement-branch validation; no merge or deployment.
 - Next: verify this branch diff contains only diagnostics changes plus plan checkpoint, then open replacement PR, run full CI, and close the superseded PR only after replacement PR is confirmed.
+
+
+### MAX Diagnostics CI failure and correction — 2026-11-18
+- First replacement PR CI run `44390089166`: dependency installation, Prisma generation and TypeScript typecheck passed; two of nine tests failed, so build was skipped.
+- Failure showed `sanitizeDiagnosticPath` did not strip query strings when called directly by error middleware. This could leave query credentials in diagnostic paths.
+- Corrected the sanitizer to strip query strings and fragments before URI decoding and identifier masking. The existing regression tests explicitly cover query removal and secret exclusion.
+- Next: rerun full CI; do not merge until tests and build pass.
