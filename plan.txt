@@ -652,6 +652,6 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Correlation middleware records a monotonic request start time. Error and not-found events now include duration, status, safe error code/category and correlation ID.
 - Removed raw exception objects/messages/stacks from error-handler logs, including streaming failures after headers have been sent. Validation diagnostic records retain only issue codes and paths, not message text.
 - Added four Vitest tests covering API errors, unhandled errors, post-header streaming failures and not-found events; tests assert sensitive error text is absent.
-- Added the same `npm test` CI step as the health-monitoring branch so pull requests execute the suite before build.
+- Left the shared CI workflow unchanged in this PR to avoid a merge conflict with health-monitoring PR #39, which independently adds the `npm test` step. Re-run this PR's checks after #39 is merged; until then, test execution remains explicitly pending.
 - Commits: request telemetry `11a7e0405b12c39eeac38810476a242423997492`; safe error logging `abaeb85611870e0bebf4898797612ecf1fbda3e1`; request timing `137670bacb1dc37bd4f6e2f2ea689995a97606f5`; tests `70f7697760a141766be28616cb133980504ffeeb`; CI `14f469c3373aaafcb92e48c6fc560f5394c8a396`; plan checkpoint `fa901f607ef5fe45e79dfaa3964d4ef327538bd3`.
 - Validation remains pending until the PR's typecheck, tests and production build complete. No deployment, merge, database migration or provider configuration change.
