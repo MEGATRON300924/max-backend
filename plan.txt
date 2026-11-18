@@ -708,3 +708,8 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Added tests verifying the endpoint, service-token header, identifier/query sanitisation and rejection of unsupported methods/status codes.
 - No new dependency, database migration or environment variable. Existing MAX_AUTH_INTERNAL_URL and MAX_AUTH_SERVICE_TOKEN are reused.
 - TypeScript build, tests, CI and live cross-service ingestion verification pending. No PR or production deployment yet.
+
+### MAX Backend telemetry delivery CI result — 2026-11-18
+- GitHub Actions CI run #404 (44394609235) passed on application implementation head ae607c53effbd4ac3d6996374f5646d6f08c8a76.
+- All pipeline stages passed: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite (including the new telemetry delivery tests) and production build.
+- Live ingestion into MAX Auth, authenticated admin dashboard verification and cross-service deployment checks remain pending. The code is not merged or deployed.
