@@ -50,16 +50,13 @@ app.use(pinoHttp({
   logger,
   serializers: {
     // Never serialize request headers or query strings into application logs.
-    req: (req) => {
-      const routePath = typeof req.route?.path === 'string'
-        ? `${req.baseUrl}${req.route.path}`
-        : req.path;
-      return {
-        id: req.id,
-        method: req.method,
-        path: sanitizeDiagnosticPath(routePath)
-      };
-    },
+    req: (req) => ({
+      id: req.id,
+      method: req.method,
+      path: typeof req.url === 'string'
+        ? sanitizeDiagnosticPath(req.url.split('?')[0])
+        : undefined
+    }),
     // Pino's default error serializer includes message and stack. Keep only the class.
     err: (err) => ({ type: err instanceof Error ? err.name : typeof err }),
     res: (res) => ({ statusCode: res.statusCode })
