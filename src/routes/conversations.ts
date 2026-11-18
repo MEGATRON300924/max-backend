@@ -21,9 +21,6 @@ const quizRequestSchema = z.object({
   secondsPerQuestion: z.number().int().min(10).max(180).default(30),
   sourceText: z.string().max(30000).optional().default('')
 });
-const quizMetadataSchema = z.object({
-  quiz: z.record(z.unknown()).optional()
-}).passthrough();
 const conversationIdSchema = z.string().uuid();
 
 export const conversationsRouter = Router();
@@ -324,6 +321,9 @@ conversationsRouter.delete('/:id/attachments/:attachmentId', async (req: Authent
 conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedRequest, res, next) => {
   try {
     const input = recordMessagesSchema.parse(req.body);
+    if (input.messages.some(message => message.metadata && JSON.stringify(message.metadata).length > 60000)) {
+      throw new ApiError(413, 'MESSAGE_METADATA_TOO_LARGE', 'Quiz data is too large to save in this conversation.');
+    }
     const user = await getUser(req);
     const conversationId = conversationIdSchema.parse(req.params.id);
     const conversation = await getConversationForUser(conversationId, user.id);
