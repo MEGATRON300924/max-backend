@@ -475,3 +475,53 @@ MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
 - Render logs confirm build successful; npm start ran prisma migrate deploy and node dist/server.js; Prisma reported 8 migrations found and “No pending migrations to apply”; server logged “MAX backend started”; Render logged “Your service is live”.
 - Render health checks returned HTTP 200. Subsequent live traffic from https://chat.max-ai.name.ng to GET /api/v1/conversations returned HTTP 304 (valid cache response) and GET /api/v1/conversations/:id returned HTTP 200. This confirms the backend is serving authenticated chat-client traffic; it does not yet prove every chat action or attachment upload/download end-to-end.
 - Production migration and Render startup recovery can now be marked complete. Remaining follow-up: end-to-end test attachment upload/download and normal chat send/response; remediate the 30-table RLS exposure with designed policies and separate approval; review dependency vulnerabilities (Render build reported 14: 2 moderate, 9 high, 3 critical).
+
+
+## MAX Quiz Mode backend support — 2026-11-18
+
+### Request
+Support interactive quizzes in the production MAX Chat frontend through authenticated MAX Backend APIs. Keep the existing Gemini provider/orchestrator; do not add a second provider or expose provider credentials to the browser.
+
+### Backend requirements
+- [ ] Add an authenticated quiz-generation endpoint scoped to an owned conversation.
+- [ ] Accept bounded source text, topic, question count, difficulty, and timer settings; treat PDF text as untrusted study material, never as instructions.
+- [ ] Generate structured multiple-choice questions with stable IDs, options, correct answer, and explanations using the existing Gemini service.
+- [ ] Validate and normalize model output server-side; reject malformed/incomplete quizzes.
+- [ ] Extend message recording to accept bounded structured quiz metadata and safely update metadata for an existing client message.
+- [ ] Include saved quiz state in subsequent model context so MAX can answer follow-up questions after completion/reload.
+- [ ] Preserve current conversation authorization, attachment ownership, and existing message behaviour.
+
+### Status
+- [x] Confirmed Message.metadata is already a JSON column and conversation messages are loaded with metadata.
+- [x] Confirmed the existing AI service exposes the configured Gemini generation function.
+- [ ] Implement endpoint, metadata persistence, and quiz context enrichment.
+- [ ] Add/execute tests and run typecheck/build/CI.
+- [ ] Deploy only after user approval; no production changes without approval.
+
+### Branch and commits
+- Working branch: feat/quiz-mode
+- Initial plan update: pending.
+
+### Next steps
+- Add a dedicated quiz-generation API and bounded metadata support in the conversations route; update this plan with every implementation/test/commit checkpoint.
+
+
+### MAX Quiz Mode implementation checkpoint — 2026-11-18
+- Working branch: `feat/quiz-mode`.
+- Added authenticated `POST /conversations/:id/quizzes/generate`, scoped to the requesting user's conversation. It uses the existing Gemini generation service, receives bounded source text/topic/count/difficulty/timer settings, and validates the exact question/option/answer/explanation structure before returning it.
+- Added bounded JSON metadata support to `/messages/record`, including metadata updates for already-recorded client messages. This allows a quiz card and answer state to be updated in the existing assistant message without a new database table/migration.
+- Enriched subsequent Gemini conversation turns with persisted quiz questions, option text, answer key, explanations, and the student's recorded selected answers/feedback. The quiz context explicitly tells MAX not to reveal answers unless asked.
+- Source material is labelled untrusted study content in the generation prompt; embedded instructions in PDFs are not to be followed.
+- Commits: initial plan `35caa9458db7a11f9675b5c9a1ec6536b1f16f74`; generation/metadata route `1101a3338295931c79ce5970d0a5158af8ac9ba8`; metadata size guard `b0130f42f0a97f9ac92ad022b4b8b31d96b95285`; answer-context correction `6d06d9a069aec43ea07b5c6bf191e6d4b7cb5d92`.
+- Tests: typecheck/build/CI and live Gemini quiz generation have not yet run. No production deployment.
+- Remaining: typecheck/build and automated tests; inspect schema validation against real Gemini output; test message metadata update/reload and follow-up answer context; review request size and timeout behaviour.
+- No merge or production deployment.
+
+
+### Validation update — 2026-11-18
+- Draft PR: [#36](https://github.com/MEGATRON300924/max-backend/pull/36); branch `feat/quiz-mode`.
+- Initial CI run 44271948092 failed at TypeScript typecheck because `existingMetadata` needed an explicit `Record<string, unknown>` annotation. Fixed in commit `be03ef92397839e968530b613463dadd50816bfd`.
+- Reopened the draft PR to trigger a fresh CI run against the updated head. CI run 44272213538 passed: dependency install, Prisma Client generation, TypeScript typecheck, and production build all succeeded.
+- No schema migration is required; quiz state uses existing `Message.metadata` JSON.
+- Live endpoint/Gemini generation, metadata reload, and follow-up conversation behaviour remain untested until the PR is merged and deployed with approval.
+- No merge or production deployment.
