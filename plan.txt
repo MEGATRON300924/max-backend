@@ -1,4 +1,617 @@
+PRODUCTION CORS ALLOWLIST UPDATE — 2026-11-12
+- Confirmed the Render CORS_ORIGINS allowlist supplied by the user omitted the production chat origin https://chat.max-ai.name.ng.
+- Updated CORS_ORIGINS on Render service srv-d7eeuc0sfn5c738tml3g, preserving existing origins https://www.max-ai.name.ng, https://max-ai.name.ng, http://localhost:3000, and http://127.0.0.1:5500; appended https://chat.max-ai.name.ng.
+- Render accepted the environment update and triggered deploy dep-dbqr083rjlhs73a6pfgg at 2026-11-12T12:25:05Z; initial status build_in_progress.
+- Pending: confirm deploy is live, inspect CORS preflight/POST logs, and complete authenticated MAX Chat test. No end-to-end success claimed yet.
 
+AI PROVIDER / BOTPRESS ROUTING AUDIT — 2026-11-12
+- Read max-backend plan.txt before investigation.
+- src/services/ai.service.ts selects Groq whenever GROQ_API_KEY is present; GROQ_MODEL defaults to openai/gpt-oss-20b. There is no Botpress provider in this AI service.
+- src/services/orchestrator.service.ts invokes generateGeminiResponseWithTools()/streamGeminiResponseWithTools() and the MAX tool loop. This is the active backend orchestration path.
+- src/routes/conversations.ts invokes orchestrate()/orchestrateStream() for chat message endpoints and persists provider/model/tool metadata.
+- src/services/tools.service.ts registers YouTube search/video/channel tools and routes them to MAX Auth internal Google endpoints using MAX_AUTH_SERVICE_TOKEN. The current YouTube search endpoint requires the user's YouTube OAuth scope.
+- No Botpress server-side adapter or Botpress provider was found in the inspected backend routes/services. Botpress code found in max-chat is client-side only and is not loaded by the current page.
+- No backend application code changed during this audit. Do not change provider selection or remove Groq until routing requirements are agreed; a direct Botpress browser switch would bypass backend tool execution and persistence.
+- Next: if Botpress is intended as primary agent, implement a server-side Botpress adapter and tool bridge while preserving MAX Auth identity, confirmation flows, MAX tools, conversation persistence, and fallback/error handling. Repair public YouTube creator upload search so it can query public channel uploads without a Google account; keep account-scoped YouTube data behind MAX Auth.
+- Pending validation: run tests for both normal chat and YouTube creator uploads, verify tool execution metadata and conversation persistence, then deploy and confirm production routing.
+
+BOTPRESS-FIRST PROVIDER MIGRATION — 2026-11-12
+- User approved provider priority: Botpress primary, Groq secondary fallback.
+- Verified production backend currently selects Groq whenever GROQ_API_KEY is present; active conversation routes call the MAX orchestrator, which directly calls the Groq/Gemini service. No Botpress adapter exists in backend source or environment schema.
+- Verified deployed Botpress bot: Max AI (78d8c527-45ce-41f3-b4d2-97c7e65698f1), deployed 2026-11-09. Botpress Chat and Webchat integrations are enabled; Groq, OpenAI and Google AI integrations are also enabled inside the bot. Botpress logs for 2026-11-12 showed Instagram traffic, not MAX Chat traffic.
+- Official Botpress Chat API supports server-side HTTP chat through its Chat integration. Implementation needs the Chat integration webhook ID (from its Webhook URL); if manual authentication is enabled, it also needs the configured encryption key. Do not expose credentials in GitHub or chat logs.
+- Migration design: backend remains the MAX Auth/persistence/tool/confirmation boundary; Botpress becomes primary conversational agent; Groq is fallback only when Botpress is unavailable or returns a retriable provider failure. Preserve MAX tool execution, identity, memory/context, SSE streaming, confirmations, and provider/model metadata. Do not embed Botpress credentials in web or APK clients.
+- BLOCKED before code implementation: obtain Botpress Chat integration webhook ID and confirm whether Chat integration Encryption Key/manual auth is configured. If not configured, configure a new strong key in Botpress and Render as coordinated secret values; never commit it.
+- Pending: implement adapter and persistent Botpress user/conversation mapping (or safe deterministic mapping if supported by the Chat API), add provider selection/fallback tests, and verify actual Botpress request + MAX tool loop end-to-end.
+
+APK STATUS CHECK — 2026-11-12
+- Native Flutter app source is under mobile/ in max-chat; mobile/pubspec.yaml confirms dependencies and app package.
+- PR #20 (Android Orb speaking-state fix) remains OPEN and unmerged. PR description requires Flutter analyze, successful release APK build, and uploaded artifact before merge.
+- The previously reported successful workflow run #177 (ID 43193362605) built the APK but skipped artifact upload because upload was gated to workflow_dispatch. No current release APK artifact has been confirmed from the checks queried in this audit.
+- Keep PR #20 open until its required checks and downloadable APK artifact are verified; do not claim the APK is ready based on an earlier compile-only run.
+
+
+BOTPRESS CONNECTOR LIMIT / IMPLEMENTATION BLOCKER — 2026-11-12
+- Continued the approved Botpress-first migration investigation and re-read this plan before work.
+- Botpress management connector reached its hosted free-tier monthly cap: 50/50 tool calls for November 2026. Subsequent Botpress conversation/issue/analytics reads were rejected before execution. This is the connector's hosted-tool allowance, not proof that the user's Botpress bot itself is over quota. Do not retry Botpress data tools until the counter resets or the user chooses to upgrade the connector.
+- Official Botpress Chat API docs confirm the Chat integration exposes a Webhook URL; the webhook ID is the final path segment. Chat API uses x-user-key authentication. For secure MAX Auth mapping, recommended approach is manual authentication with a server-only encryption key configured in Botpress and Render, using stable MAX Auth subject IDs as Botpress user IDs. Need the Chat integration webhook ID and whether manual auth is configured before implementation.
+- Official Chat API supports create/get-or-create user, create conversation, create message, list messages and SSE listenConversation. Preserve MAX's own message persistence and MAX tool/confirmation execution in the backend.
+- No source-code change made because the required Botpress endpoint ID and auth configuration are unavailable, and live Botpress verification is blocked by connector cap. Do not switch provider or claim Botpress active yet.
+- Next user action: provide Chat integration Webhook URL (or just its ID) and confirm manual auth / Encryption Key setting; never share the key itself. If user upgrades connector, rerun Botpress health/conversation checks.
+
+
+FOLLOW-UP DEPLOYMENT / CORS VERIFICATION — 2026-11-12
+- Rechecked Render service srv-d7eeuc0sfn5c738tml3g after deploy dep-dbqr083rjlhs73a6pfgg had previously reported deactivated.
+- Newer Render logs (2026-11-12 13:32:24–13:32:57 UTC) show the TypeScript build succeeded, node dist/server.js started, health HEAD / and GET / returned HTTP 200, and Render logged "Your service is live". Service is not suspended.
+- The successful startup proves the backend is live after a subsequent deployment, but the exact newer deployment ID was not identified.
+- Inspected logs did not include an OPTIONS preflight or authenticated /api/v1/conversations request. Direct curl from this execution environment could not resolve the Render hostname (DNS failure), so CORS behavior is not yet verified from a browser/client.
+- Keep CORS fix marked pending until a browser OPTIONS response includes Access-Control-Allow-Origin: https://chat.max-ai.name.ng and an authenticated chat request succeeds.
+- Botpress-first migration remains blocked on Chat integration webhook ID and confirmation of manual-auth configuration; no provider code changed.
+
+
+LEGACY BOTPRESS IMPLEMENTATION REVIEW — 2026-11-12
+- max-chat has an open PR #1 with api/botpress-chat.js, but that is a separate Vercel serverless endpoint. It authenticates MAX Auth/paired TV identity, calls @botpress/chat, and polls Botpress messages, returning a single JSON response.
+- This route does not preserve the active Render backend orchestrator's MAX tool loop, pending confirmations, SSE stream, normal conversation persistence/provider metadata, or Groq fallback. Do not merge or route production traffic through it as-is.
+- max-chat root package.json already includes @botpress/chat ^1.1.0; max-backend package.json does not. If migration is implemented in Render backend, add dependency and server-side adapter there, not Vercel-only client path.
+- Vercel production environment includes variable entries named BOTPRESS_CHAT_WEBHOOK_ID and BOTPRESS_CHAT_ENCRYPTION_KEY, but their values are redacted/not verifiable from the metadata listing. This does not establish that usable values are set in Render.
+
+
+BOTPRESS PR #12 CI REPAIR — 2026-11-12
+- User instructed to take ownership of the MAX Backend merge/build; Android APK merge remains the user's responsibility in max-chat.
+- Re-read the current main plan.txt and inspected backend PR #12 before making changes.
+- PR #12 was still a draft and its latest recorded CI run #230 (run ID 42840480386) failed during TypeScript typecheck; the exact error was src/services/botpress.service.ts(145,63): a string was passed where the turns array was expected.
+- Fixed the adapter call by passing makeContextMessage(turns) in the Botpress POST /messages payload and removed an unused Prisma import. Commit: 550ab51dc15ad40dfb7a8d078db323805ecb5044 on feat/botpress-primary-groq-fallback.
+- The fix is not yet validated; rerun CI against the new head before considering PR readiness. Keep PR draft/open and do not merge until all required checks pass.
+- Provider activation remains disabled by default (BOTPRESS_PRIMARY_ENABLED=false). Production Botpress routing still requires verified Render Chat integration ID/encryption key configuration and an end-to-end Botpress response test. Groq fallback, MAX tools/confirmations, memory persistence, CORS and YouTube public search remain separate validation items.
+
+
+BOTPRESS PR #12 MAINLINE COMPATIBILITY CHECK — 2026-11-12
+- After the typecheck repair, compared feat/botpress-primary-groq-fallback against current main. The PR branch is diverged: 11 commits ahead and 15 commits behind; GitHub reports mergeable=false. Current main includes later orchestration changes (including connections metadata and additional intent/capability handling) absent from the PR branch.
+- No successful workflow run/check was returned for repaired head 550ab51dc15ad40dfb7a8d078db323805ecb5044; combined status is empty. Previous CI failure is fixed in source but not yet proven by a new build.
+- Returned PR #12 to draft while it is being reconciled with current main. Do not merge this stale branch. Next: rebuild the Botpress changes on top of current main without dropping newer orchestration behavior, run typecheck/build/tests, then merge only after green checks.
+- Backend deployment and Botpress production activation remain pending. BOTPRESS_PRIMARY_ENABLED defaults false and Render Botpress credentials have not been verified. CORS, YouTube public upload lookup, and real authenticated chat are still not end-to-end verified.
+
+
+GROQ GPT-OSS STREAM OUTPUT FIX — 2026-11-16
+- Investigated production MAX Chat failures reported as “Groq stream ended without a response”. Render deployment dep-dbtk3ho8v5cc7398g4ag is LIVE with GROQ_MODEL=openai/gpt-oss-20b; production requests reached POST /api/v1/conversations/:id/messages/stream and returned HTTP 200 SSE, but the client received no usable assistant text.
+- Read Groq's current reasoning-model documentation: GPT-OSS can emit reasoning separately from assistant content, and Groq supports include_reasoning=false to suppress that separate reasoning output.
+- Updated src/services/ai.service.ts on fix/groq-gpt-oss-stream-output to set include_reasoning:false for openai/gpt-oss-* requests and flush a final unterminated SSE data line at end-of-stream.
+- Commit: 6a936d96e2a058e3d292bf81e68366c86894ffc3.
+- Validation pending: run TypeScript build/tests and verify an authenticated MAX Chat stream produces a non-empty assistant response. Do not merge or claim production fixed until checks and end-to-end verification pass.
+
+
+GROQ STREAM FLUSH / MAX HOME DEVICE ROUTING FOLLOW-UP — 2026-11-16
+- User retested production MAX Chat and still received “Groq stream ended without a response” for “am good how many devices are online in my max home account”. Botpress remains out of scope by user instruction; do not call Botpress tools or spend Botpress quota.
+- Render logs confirmed the production request reached POST /api/v1/conversations/:id/messages/stream and returned HTTP 200 SSE; the client then recorded the failed assistant turn. The deployment was live, so HTTP 200 alone did not establish valid streamed assistant output.
+- Found a concrete bug in src/services/ai.service.ts: the EOF flush called consume(`${buffer}\\n`) while consume itself prepends each chunk to the existing buffer, duplicating an unterminated final SSE line and causing its JSON parse to fail. Fixed by copying the final line, clearing buffer, then passing the line back through consume.
+- Found MAX Home device-count phrasing was not classified as home intent. Updated classifyIntent() to route MAX Home / home-device / online-offline-connected device questions to home intent and added an explicit system instruction requiring home.devices.list for counts/status, with no invented device data.
+- Changes are on fix/groq-gpt-oss-stream-output. Commits are recorded in the branch history; CI/build and authenticated production retest are pending. Do not merge or claim fixed until validated.
+- Next: run npm run build, npm test, inspect PR #18 checks, then deploy only after successful validation. Confirm MAX_HOME_API_URL and actual device-list endpoint behavior before answering any count.
+
+
+GROQ SSE / MAX HOME ROUTING FIX MERGED — 2026-11-16
+- Follow-up PR #19 was merged into main: https://github.com/MEGATRON300924/max-backend/pull/19
+- Merge commit: aa7efb7adfc9f0639cf9804a87d367bd2af54fe1. Changes include the corrected single-pass EOF flush and MAX Home device-count intent/tool guidance.
+- Source review confirms the MAX Home device-list tool is registered and its backend handler calls listHomeDevices() using the authenticated MAX Auth token. Actual production device count remains unknown until that tool returns data.
+- Render auto-deployment for the merge commit was not yet visible in the latest deploy listing at the time of this update. No production fix is claimed yet.
+- Pending: confirm Render deploy for the merged code is live and TypeScript build succeeds; run npm test if CI becomes available; then have the user repeat a MAX Home device-count query and inspect the authenticated tool result. Botpress remains out of scope.
+
+
+RENDER DEPLOYMENT GATE CHECK — 2026-11-16
+- Inspected Render service srv-d7eeuc0sfn5c738tml3g after PR #19 merge. Service tracks main and autoDeploy=yes, but autoDeployTrigger=checksPass.
+- GitHub returned no workflow runs and no combined status checks for the PR #19 head; Render has not created a deployment for merge commit aa7efb7adfc9f0639cf9804a87d367bd2af54fe1. The currently live deployment is still dep-dbtkamec6qcc73bvjfsg at merge commit 89f94c28e4104885a44ec0bab9615b3cdd8c193d (PR #18), which does not include the follow-up EOF flush correction or MAX Home routing change.
+- Do not report the production issue as fixed. Deployment is blocked by the checksPass auto-deploy gate with no CI status available. Next action requires either enabling deploy-on-commit in Render or an explicitly authorized manual deploy; then verify build and production stream.
+
+
+GROQ EMPTY-STREAM FOLLOW-UP — 2026-11-16
+- User retested after PR #19 deployment; both a simple greeting and a MAX Home device-count question still failed with “Groq stream ended without a response”.
+- Confirmed Render deployment dep-dbtkcntbedkc73c9btk0 is LIVE and includes PR #19 (merge commit aa7efb7adfc9f0639cf9804a87d367bd2af54fe1) plus the plan update. This is not an undeployed-code issue.
+- Render logs show authenticated POST /messages/stream requests completed HTTP 200 in 2.4s and 0.78s, followed by successful user-message record requests. The route sends HTTP 200/SSE headers before orchestration completes, so HTTP 200 does not mean a model answer was generated.
+- Traced the exact message to streamGroq(): it throws AI_EMPTY_RESPONSE when Groq stream contains neither recognised content deltas nor tool calls. The route then emits response_error after headers have already been sent.
+- Groq's current GPT-OSS guidance recommends avoiding system-role prompts and putting instructions into user content. MAX currently passes the large orchestration instruction as a system message.
+- New branch fix/groq-empty-stream-recovery; commit 96a89279f86ea8b0c96a5c796a309a27cfcca5fb. For GPT-OSS, move MAX instructions into the latest user turn while preserving conversation history. If the stream still closes without text/tool calls, retry once using a non-streaming completion with the same model/messages/tools and forward its final text/tool calls. No Botpress changes.
+- Validation still required: run TypeScript build and tests, inspect PR checks, then deploy and verify greeting plus MAX Home tool query. Do not claim fixed until real production stream returns content.
+GROQ EMPTY-STREAM RECOVERY MERGED — 2026-11-16
+- PR #20 was reported merged by GitHub: https://github.com/MEGATRON300924/max-backend/pull/20 (merge commit bc75f89c6adbff656d90fe36541f6c1ce9efd977).
+- The change adapts GPT-OSS prompts by moving MAX instructions into the latest user message and retries an empty SSE response once through non-streaming Groq chat completions, preserving the same tools and model.
+- Latest Render deployment listing still shows dep-dbtkcntbedkc73c9btk0 (commit c4db8a2f914565a641b9e6e74104bb76d0cc7fb4) as LIVE; no deployment for PR #20 merge commit was present in the latest check. Service autoDeployTrigger remains checksPass.
+- TypeScript build and authenticated production retest are still pending. Do not claim the new recovery is live until a Render deployment for the merge commit is confirmed. Botpress remains untouched.
+
+
+GEMINI PRIMARY PROVIDER MIGRATION — 2026-11-16
+- User changed provider decision from OpenRouter to Google Gemini. OpenRouter PR #21 was closed without merging; do not configure OPENROUTER_API_KEY for this migration.
+- New branch feat/gemini-primary-provider selects Gemini whenever GEMINI_API_KEY is present. Groq remains a compatibility fallback only when Gemini is not configured.
+- Existing Gemini implementation and GEMINI_MODEL default (gemini-3.7-flash) are retained. No API keys or credentials are committed.
+- TypeScript build, automated tests, Gemini model availability, authenticated MAX Chat streaming, MAX Home tool calls, and Render deployment remain pending.
+- After merge, ensure GEMINI_API_KEY is set in Render max-backend and keep GROQ_API_KEY available as a fallback until Gemini is verified in production.
+- Botpress was not accessed or modified.
+
+
+GEMINI 3.5 FLASH-LITE MODEL UPDATE — 2026-11-16
+- PR #22 was merged into main by the user: merge commit 0694866c8c45f1873bf3e6c1cd90bed9368a99a8. Gemini is now the primary provider whenever GEMINI_API_KEY is configured; Groq remains a fallback only when the Gemini key is absent.
+- User confirmed GEMINI_API_KEY has been added to the Render max-backend service and selected the lower-cost stable model gemini-3.5-flash-lite.
+- Verified Google's official Gemini API model documentation: gemini-3.5-flash-lite is a stable model and supports function calling and the Interactions API. It is optimized for low-latency, high-throughput, cost-efficient workloads. Keep the existing MAX tool orchestration; verify the model's tool-call quality and streaming behavior in production.
+- Changed the application default GEMINI_MODEL from gemini-3.7-flash to gemini-3.5-flash-lite and aligned .env.example and README configuration guidance. No secrets were read, copied, or committed.
+- MAX Auth remains the identity/connector authority: backend validates MAX Auth-issued access tokens and uses its server-side service bridge. Gemini does not receive raw MAX Auth credentials; backend executes permitted tools under the authenticated user's context.
+- Updated Render service srv-d7eeuc0sfn5c738tml3g in workspace Zion with GEMINI_MODEL=gemini-3.5-flash-lite (merged env update; no secret value exposed). Render accepted the change and started deployment dep-dbtmb48ae00c73f7aqag at 2026-11-16T20:20:33Z; status at trigger time: build_in_progress, deploying merge commit 0694866c8c45f1873bf3e6c1cd90bed9368a99a8.
+- PR #23 was subsequently merged by the user: merge commit d0c9775568c3ff1a3f2ac50553a220fa55717ebd. The Render deployment dep-dbtmb48ae00c73f7aqag failed while building commit 0694866c8c45f1873bf3e6c1cd90bed9368a99a8; the log reports TS2532 at src/services/ai.service.ts lines 91, 94 and 95. These are strict indexed-access errors caused by noUncheckedIndexedAccess in tsconfig.json, not Gemini credentials/model configuration. Follow-up validation and production chat/tool tests remain pending. Botpress remains untouched.
+
+
+TYPESCRIPT BUILD FIX — GROQ MESSAGE INDEXING — 2026-11-17
+- Investigated Render deployment failure from commit 0694866c8c45f1873bf3e6c1cd90bed9368a99a8. Dependency installation and Prisma generation succeeded; `npm run build` failed with TS2532 at src/services/ai.service.ts lines 91, 94 and 95.
+- Root cause: tsconfig.json enables noUncheckedIndexedAccess; the GPT-OSS instruction-placement code indexed messages[i] and messages[latestUserIndex] without narrowing the possibly undefined array elements.
+- On branch fix/groq-messages-no-unchecked-index, updated the loop to narrow each message and assigned the latest user message to a guarded local before reading/writing content. No provider behavior or MAX Auth logic changed.
+- Source commit: 10165c03d159369ccf454dafa25a2e1036cb45f3. No secrets changed; Botpress untouched.
+- Opened PR #24: https://github.com/MEGATRON300924/max-backend/pull/24. GitHub now reports mergeable=true; no GitHub Actions workflow runs were returned for head cf9e7fe41b14aa70cbdc362f44f7c0e5415c975b. Build/tests have not yet been run in a controlled environment. Do not merge until the TypeScript build is validated; after merge, verify Render deploy and authenticated Gemini chat/stream/function calls and MAX Home tools.
+
+
+GEMINI-ONLY PROVIDER — GROQ REMOVAL — 2026-11-17
+- User explicitly clarified that Groq must be removed entirely; Gemini is the sole AI provider. The reported production 429 came from the Groq GPT-OSS fallback path.
+- Removed Groq chat-completions implementation, provider selection/fallback, Groq streaming/SSE parser, Groq tool-call handling and in-memory continuation state from src/services/ai.service.ts. All standard, streaming and tool-continuation chat paths now call Gemini Interactions API only.
+- Removed GROQ_API_KEY and GROQ_MODEL from src/config/env.ts and .env.example. Updated README.md to state Gemini 3.5 Flash-Lite is the only supported AI provider.
+- Branch: feat/gemini-only-provider. Source commit: 297abffdf6cfe76cf491bdc4bcdcb78b33d20307. Environment config commit: 53d8fcb29d084895a358e4da4cac9860829c7b98. Example env commit: 81b7ae71915a11c6eae572d6ff976eb44f909429. README commit: a4670f84e4057e47a963be996a964a26f4c18a48.
+- Static inspection confirms no Groq references remain in ai.service.ts, src/config/env.ts, .env.example or README.md. Build/tests and Render production verification remain pending; do not claim deployed until Render confirms the new commit is live.
+- PR #24 was merged while this Gemini-only work was being prepared (merge commit 13d0059365f411f3376ab9d736e398296bf15dae); its indexed-access guard is harmless. PR #25 removes the Groq implementation entirely. Keep Botpress untouched.
+- Opened PR #25: https://github.com/MEGATRON300924/max-backend/pull/25 (head 58970085eb34141fb5d71113bc1d436fac44c55f; GitHub reports mergeable=true; no GitHub Actions workflow runs were returned). Next: validate TypeScript build/tests, merge after checks, then verify Render deploy and authenticated plain chat, streaming, Gemini function calls and MAX Home device query. Ensure GEMINI_API_KEY and GEMINI_MODEL=gemini-3.5-flash-lite are present in Render. Remove obsolete GROQ_API_KEY/GROQ_MODEL Render variables after Gemini deployment is confirmed.
+
+
+## Gemini-only MAX Auth tool access and provider cleanup — 2026-11-17
+
+### User request
+- Remove the remaining Groq execution path and ensure Gemini can use the authenticated user's MAX Auth account data through the MAX Backend.
+
+### Findings
+- PR #25 was merged, and `src/services/ai.service.ts` already used Gemini Interactions API for chat, streaming and function-call continuation.
+- Groq code remained in `src/services/browser.service.ts`, including direct Groq API calls and provider selection.
+- `src/services/orchestrator.service.ts` and `src/services/tools.service.ts` still referenced removed `GROQ_API_KEY` / `GROQ_MODEL` config fields. This could break strict TypeScript builds and incorrectly keep Browser tools enabled based on obsolete configuration.
+- MAX Auth access is already passed through the authenticated request context: middleware introspects the bearer token, conversations preserve that user's token and scopes server-side, Gemini receives tool declarations, and the backend executes calls with the user's token. The raw token is not sent to Gemini.
+- MAX Chat did not request `account:read`, so the MAX Auth account-device tool did not have an explicit account-read permission to rely on.
+
+### Changes on `fix/gemini-max-auth-access`
+- Replaced the Groq browser-search and URL-reading implementation with Gemini Google Search and URL Context only.
+- Removed the final Groq config references and descriptions from the orchestration capability map and Gemini browser tool declarations.
+- Added an explicit `account:read` scope check to the `max_auth.devices` tool before reading the user's MAX Auth device inventory.
+- Changed the fallback provider label for legacy recorded chat messages from `botpress` to `gemini`; generated assistant messages continue to store the actual provider returned by Gemini.
+- Confirmed the MAX Auth access token remains server-side and is used only by the backend tool executor after MAX Auth introspection.
+
+### Commits
+- Gemini-only MAX Browser: `59c48dfb7bbfd39161811a1786df7beed225d95d`.
+- Gemini-only capability and tool routing: `5a8d8c2a940e3ae58b78d68784f279de79f5d24a`.
+- MAX Auth account scope enforcement: `5f7fc3d15596a45c7847fbc8cefc2a68219464eb`.
+- Remove final Groq browser declaration: `8ea5a7cafd67ede101f4d38f73d6a7dd65742004`.
+- Legacy message provider default: `59eccb46ceb5eb1b9b88147b3bd5d1965ef65f54`.
+
+### Verification
+- Source review confirms no Groq references remain in the edited backend orchestration, tool registry, or browser service files.
+- TypeScript build, automated tests, live Gemini chat, streaming, account-device tool execution and Render deployment verification: pending.
+- No API keys or credentials were changed or committed.
+- No merge or production deployment performed.
+
+### Next steps
+- Confirm MAX Chat requests `account:read` and MAX Auth permits that scope for the official MAX Chat OAuth client.
+- Run build/tests, open PR, and verify the Gemini tool call can list the authenticated user's account devices using the account-read scope.
+- Deploy only after CI passes; verify Render is running the merged Gemini-only commit.
+
+
+### PR / CI checkpoint — 2026-11-17
+- PR #26 opened: https://github.com/MEGATRON300924/max-backend/pull/26 (open; not merged).
+- PR head: `c4eeb93afc5e797a0aa4fa6e4019482d467cf66f`.
+- GitHub Actions run: `44046532975`; current status: Typecheck in progress; Build pending.
+- No production deployment performed.
+
+## Final Groq removal — document generation — 2026-11-17
+- PR #25 removed Groq from the primary chat service and runtime config, but CI exposed remaining Groq usage in MAX Browser, orchestration/tool declarations, and document generation.
+- PR #26 was merged (merge commit `1b4bef49931bf8ea2893a7edbcd164e51dbe192a`) to migrate MAX Browser to Gemini Google Search/URL Context, remove stale Groq config references from orchestration/tool routing, and enforce the MAX Auth `account:read` scope for account-device access. MAX Auth tokens remain server-side; Gemini receives tool declarations only.
+- PR #26 CI still failed TypeScript validation because `src/routes/files.ts` retained the Groq document-generation endpoint and referenced removed `GROQ_API_KEY` / `GROQ_MODEL`.
+- On branch `fix/remove-final-groq-file-generation`, replaced document generation with Gemini `generateContent` using `GEMINI_API_KEY` and `GEMINI_MODEL`, JSON response mode, response validation, and provider metadata `gemini`. No Groq fallback remains in this route.
+- Source commit: `8a08b8ba5fa4d81042e5d4dba265554d54231bcc`.
+- CI run `44046532975` failed only at typecheck on the remaining `src/routes/files.ts` references; Prisma generation succeeded. The earlier PR #25 run `44035238569` also failed on Groq config references in files.ts, browser.service.ts, orchestrator.service.ts and tools.service.ts. PR #26 addressed all but files.ts.
+- Next: search the full default-branch source for any remaining Groq names/endpoints/provider strings; run typecheck/build; open a focused PR; merge only after checks pass. Render is still running the pre-Gemini-only commit `13d0059365f411f3376ab9d736e398296bf15dae`; production deployment and live Gemini chat/document/browser/tool verification remain pending. Remove obsolete Render Groq variables only after Gemini-only deployment is confirmed. Botpress remains untouched.
+
+
+## Gemini streaming function-argument assembly fix — 2026-11-17
+- User reported MAX Chat returns “Gemini returned invalid tool arguments” when requesting music playback (“play Big by Juice WRLD”). This is a tool-call parsing failure after Gemini responds, not an API-key or MAX Auth configuration failure.
+- Read the current `src/services/ai.service.ts` and Google's official Interactions streaming documentation. The parser seeded its argument buffer with any object supplied in `step.start`, including the documented empty `{}` placeholder, then appended streamed argument deltas. This can concatenate `{}` with the real JSON payload and make valid arguments fail JSON.parse.
+- Updated function-call parsing to ignore an empty object placeholder in `step.start`, preserve non-empty initial arguments, and accept both documented delta shapes: `arguments_delta` + `arguments`, and `arguments` + `partial_arguments`. No music-provider, Spotify, MAX Auth, or credential behavior was changed.
+- Branch: `fix/gemini-stream-tool-argument-assembly`. Source change is prepared; validation, PR, and deployment are pending.
+- Next: run TypeScript build and tests, add/execute a regression check for the empty-object placeholder followed by argument fragments, inspect the music tool declaration and playback execution path, then open a PR. Do not merge or claim production fixed until checks pass and MAX Chat successfully executes a music request. Botpress remains untouched.
+
+
+## Gemini streamed function-call fix — deployment confirmation — 2026-11-17
+- PR #28 is merged to main at commit `97e54f150e781f7918a7b1d49fb26b71d53600e0`.
+- Render deployment `dep-dbu28irbc2fs73fni8c0` completed successfully and is LIVE. Render build event reports `buildStatus=succeeded`; the application started and Render health checks returned HEAD / and GET / with HTTP 200. Deployment finished at 2026-11-17T09:55:10Z.
+- GitHub Actions workflow-run lookup returned no runs for this merge commit; do not claim a separate GitHub CI suite passed. Render's production build did succeed.
+- The exact authenticated Gemini function-call regression has not yet been reproduced against the live deployment. Render logs show earlier chat streams returning HTTP 200, but those requests predate this deployment; an HTTP 200 alone does not prove a valid function call or playback.
+- Next: ask the user to retry the original tool-triggering request in MAX Chat (for example, “play Big by Juice WRLD”) and inspect the resulting stream/tool execution. If it still fails, capture the exact new error and trace the emitted function-call event shape. Botpress remains untouched; no music provider integration was changed in this deployment.
+
+
+## Music playback integration feasibility — 2026-11-17
+- User asked to continue after the Gemini tool-call fix deployment. The live deployment is confirmed; the user-facing function-call regression still needs a real MAX Chat retest.
+- Reviewed Google's official YouTube developer API catalog and IFrame Player API. The documented supported playback path is an embedded YouTube player controlled through the IFrame Player API; public video discovery can use YouTube Data API search.
+- The official API catalog documents YouTube player/embed and Data APIs, but does not document a native YouTube Music playback API. Do not represent an embedded YouTube video as native YouTube Music playback.
+- Proposed compliant implementation: resolve the requested track to a public YouTube video, show an embedded YouTube player inside MAX Chat, and let the user initiate playback through the player's native controls. This is YouTube video playback, not a YouTube Music account/player integration.
+- No playback code or provider settings changed. Await user confirmation that the embedded YouTube player is an acceptable playback experience before implementation. Keep Spotify optional and do not reintroduce Groq or touch Botpress.
+
+
+## MAX Chat conversational integration linking — 2026-11-17
+- User request: when the user says “connect my Google account” or asks to link another available integration, MAX must initiate a real MAX Auth OAuth authorization session and present an in-chat Continue/Cancel card instead of telling the user to visit settings.
+- Inspected existing MAX Auth routes. This implementation uses the existing Google Calendar, Spotify, Discord, Microsoft, and GitHub connect endpoints. The Google route requires a Google identity already linked to the MAX Auth account; MAX Auth remains the OAuth/session authority.
+- Added Gemini tool `integrations_connect` in `src/services/tools.service.ts`. It maps only these supported providers to existing MAX Auth endpoints, calls them with the user's server-held MAX Auth access token, validates the returned HTTPS authorization URL, and returns a structured `connectionRequired` result for MAX Chat.
+- Updated Gemini system instructions to call this tool for explicit connect/link requests and prohibit settings-navigation advice. Connection completion must still be verified by MAX Auth; the assistant must not claim success merely because a session was created.
+- Branch: `feat/chat-integration-link-sessions`. Source changes, typecheck, tests, PR and production deployment are pending.
+- No MAX Auth route/controller changes, no secrets, no provider credential changes, and no Botpress changes.
+- Next: run backend typecheck/build/tests; inspect authorization-session behavior for each provider; open PR and wait for checks. Verify the Google identity prerequisite and provider availability with live MAX Auth before production.
+
+### PR / CI checkpoint — 2026-11-17
+- PR #29 opened: https://github.com/MEGATRON300924/max-backend/pull/29 (open; not merged). Head `b874b11fb37882b0214f4374cfa91605578242c9`.
+- GitHub Actions CI run `44067805416` is in progress. At checkpoint, dependency installation was running; Prisma generation, TypeScript typecheck and build were pending.
+- GitHub reports mergeable=false at PR creation. No merge or production deployment performed.
+
+### CI failure and type correction — 2026-11-17
+- CI run `44067921826` failed at TypeScript typecheck; Prisma generation passed and build was skipped. Exact diagnostic: `src/services/tools.service.ts(668,70): error TS2345` because indexing a `Record<string, string>` produced `string | undefined` for the authenticated MAX Auth request path.
+- Corrected the provider route map to a `Record` keyed by the exact Zod provider union. New source commit: `bb3e12910e098a97e35bdbdd0e6d8913b2843fe9`.
+- Awaiting the new PR-head CI run. No merge or deployment performed.
+
+### CI verification update — 2026-11-17
+- After correcting the provider-map type, GitHub Actions CI run `44068229089` completed successfully: dependency installation, Prisma client generation, TypeScript typecheck and build all passed.
+- Current branch head includes the CI-fix commit and the plan checkpoint. PR #29 remains open/unmerged. Live MAX Auth OAuth calls and production deployment remain pending.
+
+### Latest CI verification — 2026-11-17
+- Follow-up CI run `44068404931` also completed successfully: Prisma generation, TypeScript typecheck and build passed on the updated branch head.
+- PR #29 remains open/unmerged and depends on MAX Auth PR #34 for first-time Google linking. Live OAuth and deployment tests remain pending.
+
+
+
+MAX HOTELS AI INTEGRATION — REBASED ON CURRENT MAIN — 2026-11-17
+- The first integration branch was found to be 9 commits behind and 15 ahead of current main, with newer MAX Auth/assistant orchestration changes on main. It was not merged. Created a clean branch from current main and ported only the hotel integration changes to avoid reverting newer work.
+- Current implementation branch: feat/max-hotels-ai-integration-v2.
+- Added MAX_HOTELS_API_URL configuration (default https://max-hotels-api.onrender.com/api/v1) and a server-side hotel data service that forwards the authenticated MAX Auth business token to MAX Hotels.
+- Registered read-only tools: hotels.overview, hotels.requests.list, hotels.guests.list, hotels.registrations.list. Property, guest and request reads remain business/workspace scoped by MAX Auth. Platform sign-up leads are restricted by the MAX Hotels username allowlist and business:read scope.
+- Overview reports exact current guest-session and service-request totals, configured rooms, active devices and open requests. Guest roster returns current active guest records. Registration list requires MAX_HOTELS_REGISTRATION_ADMIN_USERNAMES on MAX Hotels API.
+- Hotel intent classification and system instructions require live tool data, forbid invented guest counts/financial values, and prohibit saving guest stay details as durable personal memory.
+- No write tools were added. MAX Hotels currently has no order or payment ledger; MAX must explicitly state that financial/order analysis is unavailable until a real provider/ledger is connected.
+- Commits on the clean branch: 69b2ad6 (hotel service), 97940dd (API config), 46c7a2f (tool registration), c2b15fb (intent and assistant policy).
+- Pending: TypeScript build/tests, authenticated business-token tool test, PR review, Render deployment and end-to-end Ask Max test. No production deployment or merge performed.
+- The original stale PR #30 is not to be merged; replace it with a PR from this clean branch after validation.
+
+- Branch hygiene: the original PR #30 was closed as superseded after the clean current-main branch was created. New PR #31 is the only backend integration PR to review: https://github.com/MEGATRON300924/max-backend/pull/31.
+- Compare against current main: status ahead, 5 commits ahead, 0 behind. No MAX Auth/MAX Home mainline commits are being removed.
+
+## Cloudinary-backed MAX Chat image attachments — 2026-11-17
+- User requested Cloudinary image storage so conversation records keep references rather than image binaries/base64.
+- Existing MAX Backend uses authenticated PostgreSQL CloudFile records and local/MediaFire providers; MAX Chat attachment previews use browser object URLs. Vision requests separately prepare temporary compressed data URLs for model analysis.
+- Implementing direct browser-to-Cloudinary signed image uploads. MAX Backend signs a per-user/per-conversation public ID; API secret stays server-side. Cloudinary upload response signature is verified server-side before recording attachment metadata.
+- Added account-owned ConversationAttachment model with user/conversation/message foreign keys; stores Cloudinary public ID, secure URL, filename, MIME type, size and dimensions. Message history returns attachment metadata; message record endpoint links only attachments owned by the same user and conversation.
+- Required Render environment variables: CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, CLOUDINARY_API_SECRET. No credentials in source.
+- Image types: JPEG, PNG, WebP, GIF, AVIF; maximum 10 MB each; maximum 5 per message. Image bytes upload directly to Cloudinary. Temporary compressed data is sent to the vision endpoint for analysis only, not persisted in PostgreSQL.
+- Branch: feat/cloudinary-chat-attachments. Prisma generation, TypeScript/build, tests, PR and live Cloudinary verification pending.
+- Remaining: ensure Cloudinary assets are deleted when conversations are deleted; complete frontend direct-upload and message-reference integration.
+
+### Cloudinary security hardening — 2026-11-17
+- Chat uploads use Cloudinary's authenticated delivery type, not public upload URLs. The browser receives a signed delivery URL; API secret remains server-side.
+- Completion now verifies Cloudinary's upload response signature and fetches authoritative asset metadata through the Cloudinary Admin API. File size/format are not trusted from browser-supplied values; oversized or unsupported assets are deleted.
+- Conversation deletion removes its Cloudinary objects before cascading the database records. Assistant-generated images may also be linked to assistant messages.
+
+### Cloudinary cleanup correction — 2026-11-17
+- Cloudinary deletion requests now explicitly target the authenticated delivery type, matching the type used at upload; this avoids leaving assets behind by accidentally calling destroy against the default public upload type.
+- Conversation delete removes remote Cloudinary assets before database cascade; attachment delete removes one owner-verified asset.
+
+### Implementation checkpoint — 2026-11-17
+- Added Prisma ConversationAttachment model and SQL migration `20261117120000_conversation_attachments`.
+- Added authenticated Cloudinary signed upload endpoint, completion verification, owner-scoped attachment deletion and conversation cleanup.
+- Cloudinary API secret stays in Render environment only. Uploads use authenticated delivery type; the completion endpoint validates the upload response signature and verifies actual format/size/version using Cloudinary Admin API.
+- Message history includes attachment records; message persistence links attachment IDs only when they belong to the same MAX user and conversation. Retry-safe duplicate message persistence is included.
+- Supported images JPEG/PNG/WebP/GIF/AVIF, max 10 MB each; max 5 refs per message.
+- Static review confirms endpoint/schema/migration and source wiring. Full Prisma generation/typecheck/build and live Cloudinary verification pending.
+- Render secrets not configured by this code change: `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`.
+- Branch: `feat/cloudinary-chat-attachments`. No merge or production deployment.
+
+### Cloudinary public ID path correction — 2026-11-17
+- Removed the legacy `folder` upload parameter to avoid Cloudinary fixed-folder mode automatically prefixing a full path twice. The signed public ID itself now carries the deterministic `max-ai/chat/{userId}/{conversationId}/{attachmentId}` namespace.
+
+### PR and CI verification — 2026-11-17
+- Opened backend PR #32: https://github.com/MEGATRON300924/max-backend/pull/32 (open, not merged).
+- GitHub Actions CI run `44075428986` completed successfully on current backend PR head `cfa537dda2e67667bc0b8f7f5a2fbc2230fd7a3b`: dependency install, Prisma Client generation, TypeScript typecheck and TypeScript build all passed.
+- Live Cloudinary upload, authenticated delivery and deletion tests remain pending because Render Cloudinary credentials are not configured/available in this workspace.
+- No deployment or merge.
+
+### Sync with current main after MAX Hotels merge — 2026-11-17
+- Main advanced while this PR was in progress because MAX Hotels PR #31 merged. Compared current main and the Cloudinary branch; preserved the new `MAX_HOTELS_API_URL` configuration and the complete MAX Hotels plan history while retaining Cloudinary changes.
+- Created a two-parent merge commit `8a054f41c20fb4ec10b809f180586b6483579fa8` with current main as first parent and the Cloudinary branch as second parent. The branch now includes both sets of changes; PR #32 reports mergeable=true.
+- Earlier CI run `44075428986` passed Prisma generation, typecheck and build on the Cloudinary code before this sync. Revalidation on the synced head is pending.
+
+### Synced-head CI result — 2026-11-17
+- GitHub Actions CI run `44075841281` passed on merge commit `8a054f41c20fb4ec10b809f180586b6483579fa8`, which includes current main (including MAX Hotels PR #31) plus Cloudinary changes: dependency install, Prisma Client generation, TypeScript typecheck and build all passed.
+- The latest branch commit after that run is a plan.txt-only checkpoint; application source is unchanged from the successful CI commit.
+- PR #32 remains open and unmerged; no Render deployment or live Cloudinary test has been performed.
+
+
+## Deterministic MAX Auth connection-card routing — 2026-11-17
+- User reported that MAX claimed it had displayed a Google connection card, but no card appeared. The frontend only renders a card when the streaming response includes a structured `connections[]` payload; natural-language claims do not create UI.
+- Confirmed the connection-card UI and click handlers are present on main after MAX Chat PR #28 was merged. Confirmed the OAuth tool and structured SSE connections payload are present after MAX Backend PR #29 and MAX Auth PR #34 were merged.
+- Added deterministic backend routing for explicit connect/link/authorize requests for Google, Spotify, Discord, Microsoft and GitHub. These requests now create the MAX Auth OAuth session directly before Gemini is called, then return both the user-facing text and the structured connection object needed by the chat card. This prevents Gemini from merely claiming a card exists without invoking the tool.
+- The normal Gemini tool path remains available for integration requests arising from other workflows.
+- Branch: `fix/deterministic-integration-connect`; source commits: `2732ce8e068a2537aea9a9c3214a61d0432a9e5d`, `b56e1f79c6f14d4080628620448106010a7cd3a5`.
+- Validation pending: TypeScript typecheck/build, focused provider-intent tests, authenticated live MAX Auth OAuth creation, SSE response and browser card rendering. No deployment or merge.
+
+- PR #33 opened: https://github.com/MEGATRON300924/max-backend/pull/33 (open, not merged); latest recorded head at creation `9d0459478431476b158c39d85def36c7dbc38cfb`.
+- GitHub Actions CI run `44078673556` was observed in progress for the PR head. Await completion before considering the backend change validated.
+
+- First PR CI run `44078784645` failed during strict TypeScript typecheck at `src/services/orchestrator.service.ts(175,30)` because indexed provider label access could be undefined. Replaced `provider[0]` with `provider.charAt(0)`; this is a type-safety correction only. Follow-up CI is pending.
+
+- Follow-up GitHub Actions CI run `44078984558` passed on source commit `f6e054212f413f174b80699b41cb99d45124b809`: dependency install, Prisma generation, TypeScript typecheck and build all passed. The branch's latest commit is a plan-only update; application source is unchanged from the passing CI commit.
+- PR #33 currently reports mergeable=true. It remains open/unmerged and has not been deployed. Live OAuth session creation and browser rendering remain unverified.
+
+## Production conversation attachment migration failure — 2026-11-17
+- Investigated the live "An unexpected error occurred" report using Render logs. MAX Backend returns Prisma P2021 on conversation read and message record/stream requests: `max_backend.conversation_attachments` does not exist. The active backend deployment is on commit `6b99c95be41fa0cdde4522fb726c8f0a7efd371d` (Cloudinary PR #32 merge).
+- Confirmed Render's configured start command was only `npm start`, and package.json start only launched `node dist/server.js`; no Prisma migration command was run during startup. The merged attachment migration was therefore not automatically applied.
+- Also found the hand-authored migration SQL did not qualify the table/index/foreign-key targets with the Prisma schema `max_backend`. Updated the migration to explicitly create `max_backend.conversation_attachments` and reference the existing tables in that schema.
+- Changed the backend start script to run `prisma migrate deploy` before starting the server. This applies pending migrations on each deployment/start and fails startup rather than serving requests against an incomplete schema.
+- Branch: `fix/apply-cloudinary-attachment-migration`. Typecheck/build, Prisma migration validation, deployment and live conversation/Google-link tests pending. No production migration or deployment executed yet.
+
+
+## MAX Backend production migration incident — 2026-11-17
+- MAX Auth is confirmed recovered; this incident is isolated to MAX Backend service `srv-d7eeuc0sfn5c738tml3g`.
+- Render startup runs `prisma migrate deploy && node dist/server.js`. Startup exits with Prisma P3018 while applying `20260904134000_pending_action_conversation_context`; PostgreSQL reports 42P01 because unqualified `pending_actions` is not found on the connection search path.
+- Read-only inspection of production confirms `max_backend.pending_actions` exists with `conversation_id`, `interaction_id`, and `call_id` already NOT NULL; the conversation foreign key already exists; row count is 0. The failed row in `public._prisma_migrations` has no `finished_at`, no `rolled_back_at`, and `applied_steps_count=0`.
+- Read-only inspection confirms `max_backend.conversation_attachments` does not exist. Its migration `20261117120000_conversation_attachments` is pending and creates the table in the correct schema.
+- Created branch `fix/repair-pending-actions-schema-migration`. Updated the failed migration SQL to schema-qualify every reference with `max_backend`, make the FK creation idempotent (the FK already exists in production), and retain safe backfill/NOT NULL checks. This change is prepared for review; it has not been applied to production.
+- Recovery sequence after review: deploy the corrected source; explicitly resolve the failed migration as rolled back using Prisma CLI; rerun `prisma migrate deploy` so the corrected migration is recorded and the conversation attachment migration runs. Do not manually edit `_prisma_migrations`, mark the failed migration applied, reset the database, or drop tables.
+- Production database has not been modified during this investigation. PR #35 is open for review. GitHub Actions CI run 44165108652 completed successfully on head 523b139fdf4c07df19065cc1cdcb214a9cad0c61. The workflow reported success; this does not by itself prove the SQL has been applied or validated against a live/staging PostgreSQL database. Production recovery remains gated on explicit approval.
+- Security finding from Supabase schema inspection: RLS is disabled on 30 tables in `max_backend`, including users, conversations, messages, memories, pending actions, and home/device/payment tables. Supabase reports these tables are exposed to anon/authenticated roles through Supabase client APIs. Do not enable RLS blindly because missing policies can break backend access; design and validate service-role-only access/policies separately.
+
+
+### PR #35 CI checkpoint — 2026-11-17
+- Rechecked PR #35: open, unmerged, mergeable=true; head `523b139fdf4c07df19065cc1cdcb214a9cad0c61`.
+- GitHub Actions CI run `44165108652` completed with conclusion `success`. Combined commit status endpoint returned no separate status entries; the Actions workflow is the positive check result.
+- Read back `schema.prisma`, the corrected pending-action migration, and the conversation-attachment migration. Prisma datasource declares `schemas = ["max_backend"]`; both migration SQL files explicitly qualify the application tables with `max_backend`.
+- Render remains on main and auto-deploys only when checks pass. The latest deployment for merge commit `9c3a2d561fa2614f6cf5dbe5e81f17eba73ca295` is `update_failed`; the currently live instance still starts but conversation detail requests return P2021 because `max_backend.conversation_attachments` is absent.
+- No production database changes, deployment trigger, PR merge, or RLS changes were made. Next: review/merge PR #35, then obtain explicit authorization before running Prisma `migrate resolve --rolled-back` and `migrate deploy` against production. Afterward verify migration ledger, attachment table/indexes/FKs, Render startup, and authenticated conversation retrieval.
+
+
+### PR #35 merge and Render deployment failure — 2026-11-17
+- Confirmed PR #35 merged into main at merge commit `6afdd6a86b691a35f88e0918ee2a851ef6fad237`.
+- Render deployment `dep-dbub7gs9v7es73fu9ksg` checked out that exact merge commit and completed the build successfully: npm install, Prisma Client generation, and TypeScript build all passed.
+- Deployment then failed during the start command `prisma migrate deploy && node dist/server.js`. Render logs show Prisma P3009: the database contains the previously failed migration `20260904134000_pending_action_conversation_context`, so Prisma refuses to apply any new migrations.
+- This confirms the corrected SQL is deployed in source, but production migration recovery has not happened. The prior failed migration ledger entry must first be resolved as rolled back, then `prisma migrate deploy` rerun.
+- No production database mutation has been performed. Do not change Render Build Command or Start Command; the build succeeded and the start command is correctly invoking migrations. Obtain explicit user approval before running production Prisma recovery commands.
+- Next: after approval, run `npx prisma migrate resolve --rolled-back 20260904134000_pending_action_conversation_context --schema prisma/schema.prisma`, then `npx prisma migrate deploy --schema prisma/schema.prisma`; verify the migration ledger, `max_backend.conversation_attachments`, indexes/FKs, Render startup, and authenticated conversation retrieval. Do not manually edit the migration ledger, mark the failed migration applied, reset the database, or drop tables.
+
+
+### Production recovery workflow prepared — 2026-11-17
+- User explicitly approved the two-step production recovery sequence. Render Shell is unavailable on the current plan, so added a manually triggered GitHub Actions workflow at `.github/workflows/production-prisma-recovery.yml`.
+- Workflow commit: `6e07509d9e939470d55dc8f7da88cddc11722e27`.
+- The workflow requires the exact manual confirmation string `RECOVER-MAX-BACKEND-PRODUCTION`, reads the production connection only from the GitHub Actions secret `DATABASE_URL`, and runs only the approved Prisma commands: resolve the known failed migration as rolled back, then deploy pending migrations. It does not print the secret and has a non-cancelling concurrency lock.
+- Workflow has been committed but NOT run. The GitHub Actions secret `DATABASE_URL` has not been verified as configured; the workflow will stop safely if it is missing.
+- No production database mutation has occurred from this workflow yet. After the secret is configured, manually dispatch the workflow with the required confirmation. Then verify migration history, attachment table/indexes/FKs, Render startup, and authenticated conversation retrieval. Do not claim recovery until these checks pass.
+
+
+### Production recovery workflow attempt 1 — 2026-11-17
+- User configured the GitHub Actions secret `DATABASE_URL` and manually dispatched Production Prisma Recovery. Run: https://github.com/MEGATRON300924/max-backend/actions/runs/44170539455 (run ID 44170539455), commit `3bcdad3a3af1dc78c8f24afff39dc2c455ec4bce`.
+- Dependency installation and secret validation passed. The approved `prisma migrate resolve --rolled-back 20260904134000_pending_action_conversation_context` command succeeded.
+- `prisma migrate deploy` reapplied `20260904134000_pending_action_conversation_context` successfully, then failed on `20260904163000_audit_events` with PostgreSQL 42P01: unqualified relation `ecosystem_users` does not exist.
+- Read-only Supabase inspection confirms `max_backend.ecosystem_users`, `max_backend.pending_actions`, and `max_backend.audit_events` exist. The audit_events table was created by the partially applied migration, but the user foreign key was not added; `max_backend.conversation_attachments` remains absent. Migration ledger shows audit_events failed with applied_steps_count=0; pending_action migration is now finished with applied_steps_count=1 and its prior failed row is marked rolled back.
+- Do not rerun the current workflow: it will encounter the audit_events failed migration and the partially created audit_events table. Next work requires repairing the audit_events migration SQL to schema-qualify references and safely tolerate the already-created table/indexes/constraint, then extend the recovery workflow to resolve this second known failed migration as rolled back before deploying. This is a new production recovery sequence; obtain explicit user approval before executing the additional Prisma resolve/deploy operations. No direct production DDL or manual migration-ledger edits were performed.
+- Render service health and authenticated conversation retrieval remain unverified; the conversation_attachments migration has not yet applied.
+
+
+### Audit-events migration repair — 2026-11-17
+- User explicitly approved repairing the audit-events migration and extending the production recovery workflow to resolve the failed migration and rerun Prisma deployment.
+- Read-only production inspection found `max_backend.audit_events` already exists with all expected columns, all three expected secondary indexes, primary key, and the `audit_events_user_id_fkey` FK to `max_backend.ecosystem_users(id)`. The failed migration ledger row remains unresolved with `finished_at=NULL`, `rolled_back_at=NULL`, `applied_steps_count=0`. `max_backend.conversation_attachments` remains absent.
+- Repaired `prisma/migrations/20260904163000_audit_events/migration.sql`: all objects are explicitly schema-qualified; table/index creation is idempotent; FK is added only if absent, checking the constraint on the exact schema table. This accommodates the partially materialized production objects without dropping or rebuilding them.
+- Updated `.github/workflows/production-prisma-recovery.yml`: it now resolves only `20260904163000_audit_events` as rolled back (the pending-action migration is already successfully applied and must not be rolled back again), then runs `prisma migrate deploy`.
+- Commits on main: migration SQL `0121867544c389bc528e1b507d6f07252ae58bf0`, workflow `944ca0e25105ed674eba89b837b0bed66726d5a8`, SQL terminator correction `05e2dd0c8f871aca5494df5cf88e887e742009fa`.
+- Production database has not been modified during this repair. The updated workflow has not been dispatched; GitHub connector does not expose workflow_dispatch. User must manually run it from Actions with the same confirmation phrase and existing DATABASE_URL secret.
+- After the run, verify migration ledger, conversation_attachments table/indexes/FKs, Render startup, and authenticated conversation retrieval. Do not claim production recovery until these checks pass.
+
+
+### Audit-events SQL terminator correction — 2026-11-17
+- Inspected failed recovery workflow run 44182349387 and fetched the exact migration file from main.
+- Root cause confirmed: the conditional FK DO block ended with a single-dollar terminator (`$;`) instead of the matching dollar-quote delimiter (`$$;`). The earlier terminator correction commit did not update the actual file correctly.
+- Corrected the migration terminator to `END; $$;`. No other SQL or production data was changed.
+- Migration file commit: 1cc0052d315ca77d0b2a8f749e29031493fe6335.
+- Recovery run 44182349387 failed at `prisma migrate deploy` with PostgreSQL 42601. The failed audit_events migration must be resolved as rolled back again, then the corrected migration and remaining migrations can be deployed using the already approved recovery sequence.
+- Production database is not yet recovered. Next: rerun the manually dispatched recovery workflow; verify the migration ledger and `max_backend.conversation_attachments`, then confirm Render starts successfully and authenticated conversation retrieval works.
+
+
+### Pending-actions migration repair and approved recovery — 2026-11-17
+- User explicitly approved repairing the failed `20260904230000_add_pending_actions` migration, updating the recovery workflow, and proceeding with the production recovery sequence.
+- Latest recovery run `44184489659` applied the corrected `20260904163000_audit_events` migration successfully, then failed at `20260904230000_add_pending_actions` with PostgreSQL 42P01 because its unqualified `ecosystem_users` reference did not resolve in the configured schema.
+- Read-only production inspection confirms `max_backend.pending_actions` already exists with the current model's required columns (`conversation_id`, `interaction_id`, `call_id` included), seven `PendingActionStatus` enum values, the expected user/conversation foreign keys, and both expected secondary indexes. The table currently has no public-schema duplicate. This existing object must be preserved.
+- Repaired `prisma/migrations/20260904230000_add_pending_actions/migration.sql`: schema-qualifies the enum, table, index, and FK references; conditionally creates the enum/table/index; and adds the user FK only if it is missing on the exact `max_backend.pending_actions` table. This makes the historical migration safe to replay against the already-existing production table without dropping or rebuilding it.
+- Updated `.github/workflows/production-prisma-recovery.yml` to resolve only the currently failed `20260904230000_add_pending_actions` migration as rolled back, then run `prisma migrate deploy`. It no longer attempts to roll back the now-successful audit-events migration or the already-successful pending-action context migration.
+- Commits on main: migration repair `f517915979b1bcfa831a884b77d52100839d31e2`; recovery workflow `b19227fff5e73cc7abd9c98c853e2ef766b5b5d3`.
+- Production DDL and Prisma migration-ledger changes have not yet been run for this new recovery step. The user approved the sequence; the manually dispatched GitHub Actions workflow must now be started with the existing `DATABASE_URL` secret and exact confirmation `RECOVER-MAX-BACKEND-PRODUCTION`. The GitHub connector in this session does not expose a workflow-dispatch action, so the user must start it from Actions.
+- After the workflow completes, verify the migration ledger, `max_backend.conversation_attachments` columns/indexes/FKs, Render startup, and authenticated conversation retrieval. Do not claim production recovery until these checks pass.
+
+
+### Full Prisma migration schema audit and repair — 2026-11-17
+- User explicitly approved the next production recovery step and requested that all errors be fixed, not only the currently failing migration.
+- Re-read the current main-branch plan, Prisma schema, recovery workflow, and all eight migration SQL files in order before editing.
+- Confirmed the active failed migration is `20260904230000_pending_action_execution_states`. Production read-only inspection from the preceding investigation showed the enum exists in `max_backend` and already contains `EXECUTING`, `COMPLETED`, and `FAILED`; the failure is caused by the migration's unqualified enum type reference.
+- Audited every later pending migration and found additional schema-qualification defects that would otherwise stop the same recovery after the enum migration: `20260930190000_add_max_device_event_infrastructure` had unqualified enum types, tables, indexes, and foreign-key references; `20260930190000_max_cloud` had unqualified table/index/FK references; and `20260930210000_max_home_core` had unqualified enum types, tables, indexes, and foreign-key references.
+- Corrected the execution-state migration to alter `max_backend."PendingActionStatus"`.
+- Corrected the device/event, MAX Cloud, and MAX Home migrations to explicitly qualify their application objects with `max_backend`. The conversation-attachment migration was already fully schema-qualified. The earlier pending-action context, audit-events, and add-pending-actions migrations were re-read and already contain their previously approved schema-qualified repairs.
+- Updated the manual production recovery workflow to resolve only the currently failed `20260904230000_pending_action_execution_states` migration as rolled back, then run `prisma migrate deploy`. It does not resolve previously successful migrations. The exact manual confirmation phrase and secret validation remain unchanged.
+- No direct production SQL/DDL, Prisma migration-ledger edits, database reset, Render command changes, or deployment actions were performed during this source repair.
+- Validation still required after commits: inspect the final SQL/workflow from main, run repository CI/build and Prisma schema validation, then the user must manually dispatch the recovery workflow with the exact confirmation phrase. After the workflow completes, verify every migration ledger row and expected schema object read-only, then confirm Render starts successfully and authenticated conversation retrieval works.
+
+
+### Production object drift and replay-safe migration hardening — 2026-11-17
+- Read-only Supabase inspection found that the production database already contains the device/event, MAX Cloud, and MAX Home tables and enum types even though their Prisma migration ledger entries are absent. Their expected foreign keys are also already present. The pending conversation-attachment table is absent.
+- This means schema qualification alone would not be enough: the later migrations would hit duplicate-type/table/index/constraint errors against the pre-existing schema objects. Hardened the device/event, MAX Cloud, and MAX Home migrations to be replay-safe: enum creation checks the exact `max_backend` schema, table/index creation uses `IF NOT EXISTS`, and each FK is added only when the named constraint is absent from the exact target table. This preserves all existing data and objects.
+- Hardened the pending conversation-attachment migration as well: table/index creation is idempotent and each FK is conditionally added, so a partial migration attempt can be safely retried after Prisma's required failed-migration resolution.
+- Read-only catalog inspection confirmed the current failed migration is the only unresolved failure; previous pending-action context, audit-events, and add-pending-actions migrations each have a successful ledger row after their earlier rolled-back attempts. The execution-state migration is the current failed row. No later migration has been recorded as applied yet.
+- Confirmed the production enum types already exist in `max_backend` with the values required by the Prisma schema, including all seven `PendingActionStatus` values. No enum value additions are needed at runtime; the corrected migration will safely no-op those values using `IF NOT EXISTS`.
+- Important separate security finding from Supabase table inspection: RLS is disabled on 30 tables in the `max_backend` schema. Supabase's advisor reports these tables are exposed to `anon` and `authenticated` roles via Supabase client APIs. Do not enable RLS without designing policies and verifying backend service-role access; this requires a separate approved security remediation and is not included in the Prisma recovery.
+
+- Additional schema alignment found during production column inspection: `HomeAccessGrant.roomIds` and `deviceIds` are intentionally unmapped Prisma field names, so the migration must create quoted camel-case columns `"roomIds"` and `"deviceIds"` rather than snake-case names. Corrected the migration to match the current Prisma schema and production catalog.
+
+- During final SQL review, caught and corrected an over-qualification in the two enum-creating migrations before production execution. Enum declarations now use one `max_backend` qualifier and conditional `pg_type` checks; column type references remain schema-qualified. The CI run was triggered by earlier commits, so final post-correction CI must be checked against the newest main SHA.
+
+
+### Final source and production preflight validation — 2026-11-17
+- Static audit of all eight Prisma migration SQL files now reports zero unqualified application table/index/FK references, zero double-qualified schema identifiers, zero unguarded CREATE TABLE/INDEX statements in the hardened migrations, and zero malformed single-dollar DO-block terminators.
+- Read-only production catalog validation confirms all 38 expected indexes and all 28 expected foreign-key constraints from the device/event, MAX Cloud, and MAX Home migrations already exist. The 10 relevant enum types exist in `max_backend` with the expected labels. The migration files now safely no-op those existing objects and preserve them.
+- Verified `HomeAccessGrant.roomIds` and `deviceIds` column names against both the Prisma model and production catalog; migration SQL now uses the correct quoted camel-case column names.
+- Verified `max_backend.conversation_attachments` is still absent and its migration is schema-qualified and replay-safe, so it remains the expected final schema addition.
+- Latest GitHub CI run `44192163577` on main commit `848e09d53b5a631d6a2fb8fa6c20c4413cdae659` completed successfully: dependency installation, Prisma Client generation, TypeScript typecheck, and production build all passed. CI does not currently contain a test suite step, and no test files were found in the repository tree.
+- Render automatically queued deployment `dep-dbudfjajnfac73bdlp00` for the same commit after CI passed; latest status at this checkpoint is `update_in_progress`. Because the production Prisma migration ledger still contains the unresolved execution-state failure, this deploy may still fail during startup until the approved recovery workflow is dispatched and completes. Do not treat the source build as proof of production recovery.
+- Production migration recovery remains pending manual dispatch of `.github/workflows/production-prisma-recovery.yml` with `RECOVER-MAX-BACKEND-PRODUCTION`. The workflow now resolves only `20260904230000_pending_action_execution_states` as rolled back, then runs `prisma migrate deploy` across the fully audited, schema-qualified, replay-safe migration chain.
+- Separate critical security issue remains open: Supabase reports RLS disabled on 30 `max_backend` tables exposed to `anon` and `authenticated`. No RLS changes were made because policies must be designed and validated before enabling RLS; obtain separate approval for that remediation.
+
+### Production Prisma recovery completed — 2026-11-17
+- User manually dispatched Production Prisma Recovery run #5: https://github.com/MEGATRON300924/max-backend/actions/runs/44192848604 (run ID 44192848604), on main commit 13b1f09f015d2c8e30ee2a0c85c45407b882c431. GitHub Actions job completed successfully.
+- Workflow logs confirm Prisma marked only 20260904230000_pending_action_execution_states as rolled back, then successfully applied all five pending migrations: pending-action execution states, MAX Device/Event infrastructure, MAX Cloud, MAX Home core, and conversation attachments. Prisma printed “All migrations have been successfully applied.”
+- Read-only production ledger verification confirms successful finished_at rows (applied_steps_count=1) for all eight audited migrations. Earlier failed attempts remain only as rolled-back historical rows; no unresolved failed row remains among these migrations.
+- Read-only catalog verification confirms max_backend.conversation_attachments exists with all 12 expected columns, three expected foreign keys, and four indexes (primary key, public_id unique, message_id, and user_id/conversation_id/created_at).
+- Render deploy dep-dbudgas9v7es73828ss0 failed with P3009 before recovery. After DB recovery, triggered a fresh no-code-change Render deploy dep-dbudlbd6e07s73faa9eg for the same main commit. At this plan update it is still being verified; do not claim service health until startup completes without migration errors.
+- GitHub CI run 44192433383 on the same commit succeeded (Prisma Client generation, TypeScript typecheck, production build); CI does not include automated tests. Authenticated conversation attachment retrieval still needs an end-to-end client test.
+- Separate high-priority security issue remains open: RLS is disabled on 30 max_backend tables exposed to anon/authenticated roles. No RLS changes were made; design policies and obtain separate approval before remediation.
+- npm install reported 11 dependency vulnerabilities (1 moderate, 8 high, 2 critical) in the recovery workflow environment; Render's later build reported 14 (2 moderate, 9 high, 3 critical). Dependency audit/remediation is separate and should be reviewed before applying potentially breaking npm audit fixes.
+
+### Render production verification — 2026-11-18
+- Rechecked Render after the Prisma recovery. Latest MAX Backend deployment dep-dbudltbbc2fs73a7ro2g is status live, on commit fa349f8835acdb91f8e47be320295de9fd378a20 (the plan.txt recovery-record commit).
+- Render logs confirm build successful; npm start ran prisma migrate deploy and node dist/server.js; Prisma reported 8 migrations found and “No pending migrations to apply”; server logged “MAX backend started”; Render logged “Your service is live”.
+- Render health checks returned HTTP 200. Subsequent live traffic from https://chat.max-ai.name.ng to GET /api/v1/conversations returned HTTP 304 (valid cache response) and GET /api/v1/conversations/:id returned HTTP 200. This confirms the backend is serving authenticated chat-client traffic; it does not yet prove every chat action or attachment upload/download end-to-end.
+- Production migration and Render startup recovery can now be marked complete. Remaining follow-up: end-to-end test attachment upload/download and normal chat send/response; remediate the 30-table RLS exposure with designed policies and separate approval; review dependency vulnerabilities (Render build reported 14: 2 moderate, 9 high, 3 critical).
+
+
+## MAX Quiz Mode backend support — 2026-11-18
+
+### Request
+Support interactive quizzes in the production MAX Chat frontend through authenticated MAX Backend APIs. Keep the existing Gemini provider/orchestrator; do not add a second provider or expose provider credentials to the browser.
+
+### Backend requirements
+- [ ] Add an authenticated quiz-generation endpoint scoped to an owned conversation.
+- [ ] Accept bounded source text, topic, question count, difficulty, and timer settings; treat PDF text as untrusted study material, never as instructions.
+- [ ] Generate structured multiple-choice questions with stable IDs, options, correct answer, and explanations using the existing Gemini service.
+- [ ] Validate and normalize model output server-side; reject malformed/incomplete quizzes.
+- [ ] Extend message recording to accept bounded structured quiz metadata and safely update metadata for an existing client message.
+- [ ] Include saved quiz state in subsequent model context so MAX can answer follow-up questions after completion/reload.
+- [ ] Preserve current conversation authorization, attachment ownership, and existing message behaviour.
+
+### Status
+- [x] Confirmed Message.metadata is already a JSON column and conversation messages are loaded with metadata.
+- [x] Confirmed the existing AI service exposes the configured Gemini generation function.
+- [ ] Implement endpoint, metadata persistence, and quiz context enrichment.
+- [ ] Add/execute tests and run typecheck/build/CI.
+- [ ] Deploy only after user approval; no production changes without approval.
+
+### Branch and commits
+- Working branch: feat/quiz-mode
+- Initial plan update: pending.
+
+### Next steps
+- Add a dedicated quiz-generation API and bounded metadata support in the conversations route; update this plan with every implementation/test/commit checkpoint.
+
+
+### MAX Quiz Mode implementation checkpoint — 2026-11-18
+- Working branch: `feat/quiz-mode`.
+- Added authenticated `POST /conversations/:id/quizzes/generate`, scoped to the requesting user's conversation. It uses the existing Gemini generation service, receives bounded source text/topic/count/difficulty/timer settings, and validates the exact question/option/answer/explanation structure before returning it.
+- Added bounded JSON metadata support to `/messages/record`, including metadata updates for already-recorded client messages. This allows a quiz card and answer state to be updated in the existing assistant message without a new database table/migration.
+- Enriched subsequent Gemini conversation turns with persisted quiz questions, option text, answer key, explanations, and the student's recorded selected answers/feedback. The quiz context explicitly tells MAX not to reveal answers unless asked.
+- Source material is labelled untrusted study content in the generation prompt; embedded instructions in PDFs are not to be followed.
+- Commits: initial plan `35caa9458db7a11f9675b5c9a1ec6536b1f16f74`; generation/metadata route `1101a3338295931c79ce5970d0a5158af8ac9ba8`; metadata size guard `b0130f42f0a97f9ac92ad022b4b8b31d96b95285`; answer-context correction `6d06d9a069aec43ea07b5c6bf191e6d4b7cb5d92`.
+- Tests: typecheck/build/CI and live Gemini quiz generation have not yet run. No production deployment.
+- Remaining: typecheck/build and automated tests; inspect schema validation against real Gemini output; test message metadata update/reload and follow-up answer context; review request size and timeout behaviour.
+- No merge or production deployment.
+
+
+### Validation update — 2026-11-18
+- Draft PR: [#36](https://github.com/MEGATRON300924/max-backend/pull/36); branch `feat/quiz-mode`.
+- Initial CI run 44271948092 failed at TypeScript typecheck because `existingMetadata` needed an explicit `Record<string, unknown>` annotation. Fixed in commit `be03ef92397839e968530b613463dadd50816bfd`.
+- Reopened the draft PR to trigger a fresh CI run against the updated head. CI run 44272213538 passed: dependency install, Prisma Client generation, TypeScript typecheck, and production build all succeeded.
+- No schema migration is required; quiz state uses existing `Message.metadata` JSON.
+- Live endpoint/Gemini generation, metadata reload, and follow-up conversation behaviour remain untested until the PR is merged and deployed with approval.
+- No merge or production deployment.
+
+
+### MAX Quiz Mode merged — 2026-11-18
+- PR #36 merged successfully into `main` using squash merge.
+- Merge commit: `68b78ec4736f8fd8349d42445f1f63bfb67b8e96`.
+- Latest pre-merge CI run `44272530297` passed on PR head `b1436939e13304754c5bb3a213b5ec1997b5b8c2`: Prisma Client generation, TypeScript typecheck, and production build.
+- No Prisma migration was added; quiz data uses existing message JSON metadata.
+- Live Gemini generation, authenticated message metadata reload, and follow-up conversation tests remain outstanding. Confirm the Render deployment on the merge commit before declaring production readiness.
+
+
+## MAX GitHub connected-account bridge — 2026-11-18
+- User confirmed GitHub is already connected in MAX Auth and instructed continuation of MAX's repository-editing capability.
+- Audited MAX Auth: GitHub OAuth connection, encrypted token storage, authenticated profile and repository-list endpoints already exist. The OAuth authorization URL currently requests no explicit scopes; do not silently broaden OAuth permissions in this task.
+- Audited MAX Backend: initial GitHub tools already exist (repository listing through the user's MAX Auth token; file reads and branch/commit/PR writes through a separately configured GitHub App installation). Writes require the existing confirmation workflow and create a branch/PR rather than writing to the base branch. GitHub Actions workflow paths are blocked.
+- Found integration/security gaps: GitHub capability is missing from orchestrator intent/capability routing; file reads and PR writes use the platform GitHub App without first proving the target repository is visible in the requesting user's MAX Auth-connected GitHub account; GitHub App owner/user allowlists also gate the existing tools.
+- Implementation on this branch: add GitHub intent/capability routing and enforce a MAX Auth connected-repository check before both file reads and pull-request writes. Preserve the existing GitHub App installation permission boundary, owner/user allowlists, explicit confirmation, branch-only writes, and workflow-file protection. Do not request broader OAuth scopes or expose provider tokens.
+- Validation pending: TypeScript build, tests, inspect confirmation execution path, PR review, Render deployment and authenticated MAX Chat tests for repository listing, file reading, confirmed PR creation, and denial when the target repository is not linked/installed.
+- No MAX Auth code, production environment variables, GitHub permissions, or database schema changed.
+
+- Implementation checkpoint: added a shared MAX Auth repository-membership check before GitHub file reads and pull-request writes. The target owner/repository must appear in the repositories returned for the currently authenticated MAX Auth user; the separate GitHub App installation must still have access and existing owner/user allowlists remain enforced.
+- Added GitHub capability detection, GitHub/repository intent classification, and an explicit unavailable-capability response when the GitHub App integration is not configured. Updated the system instructions to require repository listing through the connected MAX Auth account before any inspection or write.
+- Existing safety controls retained: file reads are read-only; pull-request creation remains confirmation-gated, writes only to a new branch, opens a PR, rejects duplicate/traversal paths, blocks .git and .github/workflows, and enforces per-file and batch limits.
+- Source-level checkpoint: verified the new repository guard is called in both github.file.get and github.create_pull_request; verified the capability and intent routing are present. Automated typecheck/tests and live GitHub App/connected-account behaviour have not yet been run.
+
+- PR opened: #37 https://github.com/MEGATRON300924/max-backend/pull/37 (head d674f4282af8d3d6ec872423db8d1081dfc0f442). Compare against main reports 5 commits ahead, 0 behind, with three changed files (tools.service.ts, orchestrator.service.ts, plan.txt).
+- GitHub Actions CI run 44279351842 was queued at the first check. Build/test result is not yet known. Do not merge or deploy until CI passes and the PR diff is reviewed.
+
+- PR #37 merged successfully into main using squash merge: https://github.com/MEGATRON300924/max-backend/pull/37. Merge commit: e36d9fdb82ebe4f84b907bb2d75804e050123bc4.
+- CI run 44279351842 completed successfully: dependency installation, Prisma Client generation, TypeScript typecheck, and production build all passed on the implementation commit. The subsequent plan-only commit did not alter application code.
+- Render deployment is not yet checked. The connected Render account exposes one workspace, Zion's workspace (tea-d3ekt6adbo4c738cvjrg); workspace selection is required before inspecting or changing services.
+- Pending: after workspace confirmation, inspect max-backend Render deployment status; then test GitHub repository listing, read, confirmation-gated PR creation, and rejection of a repository not linked to the MAX Auth user. Do not claim the capability is live until deployment and authenticated end-to-end checks pass.
+
+
+## MAX Quiz generation formatting failure — 2026-11-18
+
+### Production evidence
+- User reported that asking MAX to create a quiz about Zion Opaaje returned: "MAX could not format a question".
+- Inspected Render application logs for POST /api/v1/conversations/:id/quizzes/generate. Confirmed multiple distinct failures on 2026-11-18:
+  - 09:15:31 UTC: QUIZ_GENERATION_INVALID at conversations.js:225 while parsing Gemini output as JSON.
+  - 10:02:56 UTC: Gemini Interactions API returned HTTP 503 service_unavailable; provider message said gemini-3.5-flash-lite was experiencing high demand.
+  - 10:03:35 and 10:03:42 UTC: further JSON parsing failures.
+  - 10:04:43 UTC: QUIZ_GENERATION_INVALID at conversations.js:242 because generated quiz did not satisfy the strict Zod shape (exact count, four distinct A-D options, required fields).
+- Therefore this is a backend generation reliability issue, not a frontend quiz-card rendering issue and not specific evidence that the subject Zion Opaaje is unsupported.
+- Existing endpoint relies on prompt-only JSON instructions and then strict parse/validation. It does not request Gemini structured output.
+- Official Gemini Interactions API documentation confirms response_format with type=text, mime_type=application/json and JSON schema is supported. Application-level validation is still required; schema constraints should avoid unsupported nested array limits and retain exact count/option checks in Zod.
+
+### Planned remediation
+- Working branch: fix/quiz-structured-output.
+- Add an optional structured response format to the shared Gemini Interactions request builder without changing existing callers.
+- Request the quiz object using a JSON schema for title/questions/options/answer/explanations; keep exact question count, four unique A-D IDs and all semantic validation in application code.
+- Improve output parsing to handle the API's structured output directly and retain safe parsing for whitespace/fenced output only as a compatibility fallback.
+- Preserve current model/provider selection, authentication, conversation ownership, untrusted-source handling, and frontend API contract. Do not log prompts, generated personal content, tokens, or API keys.
+- Consider one bounded retry only for transient provider 503/429 errors if it can be implemented without creating long request stalls; do not silently switch model/provider or alter production environment variables.
+
+### Status
+- [x] Read existing backend plan.txt and inspected current quiz-generation endpoint and Gemini Interactions adapter.
+- [x] Confirmed production failure signatures in Render logs, including JSON parse failure, incomplete schema, and provider overload.
+- [ ] Implement structured JSON output request and robust response handling.
+- [ ] Add tests for valid structured response, fenced/whitespace JSON compatibility, malformed JSON, incomplete questions/options, and transient provider errors.
+- [ ] Run typecheck and production build; inspect PR and CI.
+- [ ] Deploy and verify a live quiz about Zion Opaaje using the authenticated MAX Chat flow.
+
+### Commits / tests / next steps
+- No application code changed yet. Plan checkpoint only.
+- No PR or deployment. Next: implement on fix/quiz-structured-output, then validate with CI before merging.
+
+
+### Structured-output implementation checkpoint — 2026-11-18
+- Added optional Gemini Interactions API structured-response support to src/services/ai.service.ts. Existing callers remain unchanged unless they supply a response format.
+- Updated POST /conversations/:id/quizzes/generate to request application/json output using a JSON schema for title, questions, four-option records, correct option ID and explanation.
+- Kept exact question count, four options, unique A-D IDs, string bounds and correct-answer membership in the existing Zod/application validation. The provider schema intentionally avoids nested array minItems/maxItems constraints; the application remains authoritative for exact counts.
+- Replaced brittle first-brace/last-brace extraction with a balanced JSON-object parser, retaining compatibility with whitespace and Markdown-fenced responses.
+- No provider/model switch, database change, frontend change, secret change, or change to the authenticated conversation boundary.
+- Commits: structured Gemini adapter support b1e46e0743f8f6b88ceb069527d6fb622a3e6117; quiz structured output and robust parsing 986c12a6b973ca1697be2b5559defebdd509d0c0.
+- Tests and CI are not yet run. Next: inspect diff, run GitHub Actions typecheck/build, open PR, deploy only after CI and review; then retest authenticated quiz generation and provider-overload handling.
+
+- PR #38 opened: https://github.com/MEGATRON300924/max-backend/pull/38 (head commit 62f0b91c727ce27dcacca55268944c6fc30cb072).
+- GitHub Actions run 44282302825 is running. Checkout and Node setup passed; dependency installation is in progress. Prisma generation, typecheck, and production build have not completed at this checkpoint.
+- PR #38 is not merged. No Render deployment or live authenticated quiz retest has been performed.
+
+
+### MAX Quiz structured-output fix merged — 2026-11-18
+- PR #38 merged successfully into `main`: https://github.com/MEGATRON300924/max-backend/pull/38.
+- Squash merge commit: `63976d5799cc96e7335edcb7a9062e10d64f6841`.
+- Latest PR head `438a04246c93ba9c9c6c349079a35c3065800559` has a completed successful GitHub Actions `validate` check (run 44282377957): Prisma Client generation, TypeScript typecheck, and production build all passed.
+- Render service `srv-d7eeuc0sfn5c738tml3g` was last observed live on pre-merge commit `b4ef865093fe70439bb688df67a212c9b2bd6887`; check deployment history after merge before claiming the quiz fix is live.
+- Pending: verify Render auto-deploy for merge commit, then test authenticated quiz generation in MAX Chat. Gemini 503/high-demand availability remains an external provider risk.
 
 ## MAX Reliability Phase 1 — health monitoring foundation — 2026-11-18
 
@@ -13,16 +626,15 @@
 ### Status
 - [x] Read existing plan and inspected health/logging architecture.
 - [x] Created working branch `feat/system-health-monitoring`.
-- [ ] Implement liveness and database readiness probes.
-- [ ] Add automated tests for healthy, unconfigured and failed database readiness.
+- [x] Implemented liveness and database readiness probes.
+- [x] Added automated tests for healthy, unconfigured and failed database readiness.
 - [ ] Run typecheck, build and test suite; inspect diff and CI.
-- [ ] Open PR for review. No merge, production migration or deployment without explicit approval.
+- [x] Opened PR #39 for review. No merge, production migration or deployment without explicit approval.
 
 ### Production safety
 - MAX Backend production migration recovery is recorded as complete, but this slice intentionally adds no database migration.
 - MAX Auth's separate Beta issue-report migration remains subject to its own migration-history readiness checks; do not use this task to modify or deploy that schema.
 - Health responses must not expose connection strings, provider credentials, SQL errors, stack traces, or user data.
-
 
 ### Implementation checkpoint — 2026-11-18
 - Implemented `GET /health/live` as a liveness probe that confirms the process is serving without touching the database.
@@ -30,6 +642,6 @@
 - Preserved the existing response envelope, service identifier, queue/cache/integration placeholders and correlation ID field for compatibility. The same router remains mounted at both `/health` and `/api/v1/health`.
 - Added four Vitest cases covering liveness isolation, successful database readiness, sanitised database failure and missing database configuration.
 - Updated GitHub Actions CI to execute `npm test` between typecheck and build.
-- Commits: health implementation `38651969b8291e9ba33864a8a6388841ae83cff7`; tests `c9f589ed1ddcfc33d32266574d649920f02458c7`; CI test step `cb3c53ab66a65f97e21bb5682cc876371ab84ad3`.
+- Commits: health implementation `38651969b8291e9ba33864a8a6388841ae83cff7`; tests `c9f589ed1ddcfc33d32266574d649920f02458c7`; CI test step `cb3c53ab66a65f97e21bb5682cc876371ab84ad3`; PR plan checkpoint `7c3de1bb104aa1751042d6fa124e17f27b4b07c2`.
 - Validation has not yet run in GitHub Actions. Typecheck, test suite, production build and PR checks remain pending.
 - No database migration, production configuration change, merge or deployment was performed.
