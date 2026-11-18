@@ -22,3 +22,14 @@
 - MAX Backend production migration recovery is recorded as complete, but this slice intentionally adds no database migration.
 - MAX Auth's separate Beta issue-report migration remains subject to its own migration-history readiness checks; do not use this task to modify or deploy that schema.
 - Health responses must not expose connection strings, provider credentials, SQL errors, stack traces, or user data.
+
+
+### Implementation checkpoint — 2026-11-18
+- Implemented `GET /health/live` as a liveness probe that confirms the process is serving without touching the database.
+- Implemented `GET /health/ready` and changed the legacy `GET /health` response to report actual readiness. Readiness performs a bounded `SELECT 1` database check and returns HTTP 503 when the database is unavailable or not configured; responses do not disclose exception details or connection information.
+- Preserved the existing response envelope, service identifier, queue/cache/integration placeholders and correlation ID field for compatibility. The same router remains mounted at both `/health` and `/api/v1/health`.
+- Added four Vitest cases covering liveness isolation, successful database readiness, sanitised database failure and missing database configuration.
+- Updated GitHub Actions CI to execute `npm test` between typecheck and build.
+- Commits: health implementation `38651969b8291e9ba33864a8a6388841ae83cff7`; tests `c9f589ed1ddcfc33d32266574d649920f02458c7`; CI test step `cb3c53ab66a65f97e21bb5682cc876371ab84ad3`.
+- Validation has not yet run in GitHub Actions. Typecheck, test suite, production build and PR checks remain pending.
+- No database migration, production configuration change, merge or deployment was performed.
