@@ -664,3 +664,8 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Added test coverage for numeric IDs, UUIDs, email-like identifiers, opaque tokens and query-string removal.
 - Additional commits: request/response/error serializer hardening `42deeefc30c6a09453c2e1a8e58d7a7ad5400719`; error path sanitisation `d9dc9ed6f0c4609978e3e5b475183bb7e855d6c9`; path utility `d43f5e3bfa01e6a271f429ddebaccc7bc9e5aa45`; tests `085731ae15e4a9cbca02d4284d4bbd39abdb9934`.
 - Current validation is pending on the latest head; no merge or deployment.
+
+
+### Request serializer compatibility correction — 2026-11-18
+- Kept the Pino serializer compatible with Node's IncomingMessage type: it sanitises the raw URL path without relying on Express-only route properties. Query strings remain excluded.
+- Commit: `e6a7f1d27e3ceb0cf8a564ea8e1120aec0d8ad87`. Latest typecheck/build validation is pending for this head.
