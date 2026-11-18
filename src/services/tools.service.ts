@@ -38,6 +38,28 @@ type ToolContext = {
   tier?: string | null;
 };
 
+async function ensureGithubRepositoryLinked(context: ToolContext, owner: string, repo: string) {
+  if (!context.authSubject) throw new ApiError(401, 'GITHUB_MAX_ACCOUNT_REQUIRED', 'Sign in to MAX Auth before using GitHub.');
+  const response = await maxAuthUserGet(context.authAccessToken, '/connected-accounts/github/repos');
+  if (!response.ok) {
+    const code = String(response.payload?.error?.code || response.payload?.code || 'GITHUB_ACCOUNT_REQUEST_FAILED');
+    const message = String(response.payload?.error?.message || response.payload?.message || 'MAX Auth could not verify the connected GitHub account.');
+    throw new ApiError(response.status, code, message);
+  }
+  const data = response.payload?.data ?? response.payload;
+  const repositories = data?.repos ?? data?.repositories ?? data;
+  if (!Array.isArray(repositories)) throw new ApiError(502, 'GITHUB_REPOSITORY_LIST_INVALID', 'MAX Auth returned an invalid GitHub repository list.');
+  const fullName = owner + '/' + repo;
+  const linked = repositories.some((item: any) => {
+    const candidate = typeof item?.full_name === 'string' ? item.full_name
+      : typeof item?.fullName === 'string' ? item.fullName
+      : typeof item?.name === 'string' && typeof item?.owner?.login === 'string' ? item.owner.login + '/' + item.name
+      : '';
+    return candidate.toLowerCase() === fullName.toLowerCase();
+  });
+  if (!linked) throw new ApiError(403, 'GITHUB_REPOSITORY_NOT_LINKED', 'This repository is not visible to the GitHub account connected to this MAX Auth user.');
+}
+
 export type MaxTool = {
   name: string;
   capability: string;
@@ -750,9 +772,11 @@ export async function executeTool(name: string, context: ToolContext, input: unk
       }
     } else if (name === 'github.file.get') {
       const data = validateToolInput(name, input) as z.infer<typeof githubFileInput>;
+      await ensureGithubRepositoryLinked(context, data.owner, data.repo);
       result = { success: true, tool: name, file: await getGithubFile(data.owner, data.repo, data.path, data.ref, context.authSubject) };
     } else if (name === 'github.create_pull_request') {
       const data = validateToolInput(name, input) as z.infer<typeof githubPullRequestInput>;
+      await ensureGithubRepositoryLinked(context, data.owner, data.repo);
       result = { tool: name, ...(await createGithubPullRequest(data, context.authSubject)) };
     } else if (name === 'tv.search') {
       const data = validateToolInput(name, input) as z.infer<typeof tvSearchInput>;
