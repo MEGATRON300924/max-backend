@@ -699,3 +699,12 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Send only method, sanitised path, status code, duration and event timestamp. Never send request/response bodies, headers, user identifiers, IP addresses, cookies, tokens, chat content or raw errors.
 - Flush pending batches during graceful shutdown. If MAX Auth is unavailable, cap the queue and drop excess telemetry rather than allowing memory growth.
 - Validate with TypeScript, Vitest and production build. Live ingestion verification requires the backend and MAX Auth API deployments and remains separate from this code-only PR.
+
+### MAX Backend telemetry delivery implementation checkpoint — 2026-11-18
+- Added a bounded in-memory telemetry queue and asynchronous batch sender targeting the existing MAX_AUTH_INTERNAL_URL/diagnostics/events endpoint.
+- Each completed HTTP request records only method, sanitised path, status code, duration and event timestamp. The MAX Auth service token is sent only in the server-to-server request header.
+- Batches contain at most 50 events, flush on a short interval or at 25 queued events, use a 3-second delivery timeout, cap backlog at 500 events and retry failed delivery after a delay.
+- Telemetry is fire-and-forget from the HTTP response lifecycle; the sender does not await network delivery in the request handler. Graceful shutdown attempts to flush queued batches before disconnecting Prisma.
+- Added tests verifying the endpoint, service-token header, identifier/query sanitisation and rejection of unsupported methods/status codes.
+- No new dependency, database migration or environment variable. Existing MAX_AUTH_INTERNAL_URL and MAX_AUTH_SERVICE_TOKEN are reused.
+- TypeScript build, tests, CI and live cross-service ingestion verification pending. No PR or production deployment yet.
