@@ -14,6 +14,7 @@ vi.mock('../src/config/logger.js', () => ({
 }));
 
 import { ApiError, errorHandler, notFoundHandler } from '../src/middleware/errors.js';
+import { sanitizeDiagnosticPath } from '../src/middleware/diagnostics.js';
 
 function createRequest(path = '/api/v1/example?access_token=private-query-secret') {
   return {
@@ -43,6 +44,16 @@ function createResponse(headersSent = false) {
   };
   return response as unknown as Response & { statusCode: number; body: any };
 }
+
+describe('MAX diagnostic path sanitisation', () => {
+  it('removes query strings and masks identifiers, emails and opaque tokens', () => {
+    expect(sanitizeDiagnosticPath('/users/123/profile')).toBe('/users/:id/profile');
+    expect(sanitizeDiagnosticPath('/users/ab12cd34-1234-1234-1234-123456789abc')).toBe('/users/:id');
+    expect(sanitizeDiagnosticPath('/lookup/person%40example.com')).toBe('/lookup/:id');
+    expect(sanitizeDiagnosticPath('/access/abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGH')).toBe('/access/:id');
+    expect(sanitizeDiagnosticPath('/search?q=private')).toBe('/search');
+  });
+});
 
 describe('MAX diagnostic error logging', () => {
   beforeEach(() => {
