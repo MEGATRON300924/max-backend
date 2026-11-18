@@ -556,3 +556,37 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - CI run 44279351842 completed successfully: dependency installation, Prisma Client generation, TypeScript typecheck, and production build all passed on the implementation commit. The subsequent plan-only commit did not alter application code.
 - Render deployment is not yet checked. The connected Render account exposes one workspace, Zion's workspace (tea-d3ekt6adbo4c738cvjrg); workspace selection is required before inspecting or changing services.
 - Pending: after workspace confirmation, inspect max-backend Render deployment status; then test GitHub repository listing, read, confirmation-gated PR creation, and rejection of a repository not linked to the MAX Auth user. Do not claim the capability is live until deployment and authenticated end-to-end checks pass.
+
+
+## MAX Quiz generation formatting failure — 2026-11-18
+
+### Production evidence
+- User reported that asking MAX to create a quiz about Zion Opaaje returned: "MAX could not format a question".
+- Inspected Render application logs for POST /api/v1/conversations/:id/quizzes/generate. Confirmed multiple distinct failures on 2026-11-18:
+  - 09:15:31 UTC: QUIZ_GENERATION_INVALID at conversations.js:225 while parsing Gemini output as JSON.
+  - 10:02:56 UTC: Gemini Interactions API returned HTTP 503 service_unavailable; provider message said gemini-3.5-flash-lite was experiencing high demand.
+  - 10:03:35 and 10:03:42 UTC: further JSON parsing failures.
+  - 10:04:43 UTC: QUIZ_GENERATION_INVALID at conversations.js:242 because generated quiz did not satisfy the strict Zod shape (exact count, four distinct A-D options, required fields).
+- Therefore this is a backend generation reliability issue, not a frontend quiz-card rendering issue and not specific evidence that the subject Zion Opaaje is unsupported.
+- Existing endpoint relies on prompt-only JSON instructions and then strict parse/validation. It does not request Gemini structured output.
+- Official Gemini Interactions API documentation confirms response_format with type=text, mime_type=application/json and JSON schema is supported. Application-level validation is still required; schema constraints should avoid unsupported nested array limits and retain exact count/option checks in Zod.
+
+### Planned remediation
+- Working branch: fix/quiz-structured-output.
+- Add an optional structured response format to the shared Gemini Interactions request builder without changing existing callers.
+- Request the quiz object using a JSON schema for title/questions/options/answer/explanations; keep exact question count, four unique A-D IDs and all semantic validation in application code.
+- Improve output parsing to handle the API's structured output directly and retain safe parsing for whitespace/fenced output only as a compatibility fallback.
+- Preserve current model/provider selection, authentication, conversation ownership, untrusted-source handling, and frontend API contract. Do not log prompts, generated personal content, tokens, or API keys.
+- Consider one bounded retry only for transient provider 503/429 errors if it can be implemented without creating long request stalls; do not silently switch model/provider or alter production environment variables.
+
+### Status
+- [x] Read existing backend plan.txt and inspected current quiz-generation endpoint and Gemini Interactions adapter.
+- [x] Confirmed production failure signatures in Render logs, including JSON parse failure, incomplete schema, and provider overload.
+- [ ] Implement structured JSON output request and robust response handling.
+- [ ] Add tests for valid structured response, fenced/whitespace JSON compatibility, malformed JSON, incomplete questions/options, and transient provider errors.
+- [ ] Run typecheck and production build; inspect PR and CI.
+- [ ] Deploy and verify a live quiz about Zion Opaaje using the authenticated MAX Chat flow.
+
+### Commits / tests / next steps
+- No application code changed yet. Plan checkpoint only.
+- No PR or deployment. Next: implement on fix/quiz-structured-output, then validate with CI before merging.
