@@ -612,3 +612,41 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Latest PR head `438a04246c93ba9c9c6c349079a35c3065800559` has a completed successful GitHub Actions `validate` check (run 44282377957): Prisma Client generation, TypeScript typecheck, and production build all passed.
 - Render service `srv-d7eeuc0sfn5c738tml3g` was last observed live on pre-merge commit `b4ef865093fe70439bb688df67a212c9b2bd6887`; check deployment history after merge before claiming the quiz fix is live.
 - Pending: verify Render auto-deploy for merge commit, then test authenticated quiz generation in MAX Chat. Gemini 503/high-demand availability remains an external provider risk.
+
+## MAX Reliability Phase 1 — health monitoring foundation — 2026-11-18
+
+### Scope and architecture
+- User approved starting the next MAX AI Ecosystem development cycle, beginning with reliability and diagnostics.
+- Read this repository's root `plan.txt` and inspected the current health route, Express app wiring, Prisma client, correlation middleware, logger redaction, environment configuration, and existing MAX Auth health/status endpoints.
+- Existing foundation: MAX Backend already has request correlation IDs and structured Pino HTTP logs; MAX Auth already exposes liveness/readiness and an admin-maintained service-status endpoint. Avoid creating duplicate monitoring systems.
+- First implementation slice: make MAX Backend health probes truthful and operationally useful. Separate process liveness from dependency readiness; readiness must check the configured database and return 503 when the database is unavailable. Do not run provider calls, expose secrets, or return internal exception details from public health endpoints.
+- Keep this change additive and avoid Prisma schema/migration changes. Preserve existing `/health` and `/api/v1/health` compatibility while adding explicit probe paths.
+- This is the first foundation only; central dashboard, metrics retention, alerting and MAX Auth integration follow after health probes and request telemetry contracts are verified.
+
+### Status
+- [x] Read existing plan and inspected health/logging architecture.
+- [x] Created working branch `feat/system-health-monitoring`.
+- [x] Implemented liveness and database readiness probes.
+- [x] Added automated tests for healthy, unconfigured and failed database readiness.
+- [ ] Run typecheck, build and test suite; inspect diff and CI.
+- [x] Opened PR #39 for review. No merge, production migration or deployment without explicit approval.
+
+### Production safety
+- MAX Backend production migration recovery is recorded as complete, but this slice intentionally adds no database migration.
+- MAX Auth's separate Beta issue-report migration remains subject to its own migration-history readiness checks; do not use this task to modify or deploy that schema.
+- Health responses must not expose connection strings, provider credentials, SQL errors, stack traces, or user data.
+
+### Implementation checkpoint — 2026-11-18
+- Implemented `GET /health/live` as a liveness probe that confirms the process is serving without touching the database.
+- Implemented `GET /health/ready` and changed the legacy `GET /health` response to report actual readiness. Readiness performs a bounded `SELECT 1` database check and returns HTTP 503 when the database is unavailable or not configured; responses do not disclose exception details or connection information.
+- Preserved the existing response envelope, service identifier, queue/cache/integration placeholders and correlation ID field for compatibility. The same router remains mounted at both `/health` and `/api/v1/health`.
+- Added four Vitest cases covering liveness isolation, successful database readiness, sanitised database failure and missing database configuration.
+- Updated GitHub Actions CI to execute `npm test` between typecheck and build.
+- Commits: health implementation `38651969b8291e9ba33864a8a6388841ae83cff7`; tests `c9f589ed1ddcfc33d32266574d649920f02458c7`; CI test step `cb3c53ab66a65f97e21bb5682cc876371ab84ad3`; PR plan checkpoint `7c3de1bb104aa1751042d6fa124e17f27b4b07c2`.
+- Validation has not yet run in GitHub Actions. Typecheck, test suite, production build and PR checks remain pending.
+- No database migration, production configuration change, merge or deployment was performed.
+
+
+### CI result — 2026-11-18
+- GitHub Actions run `44384046407` passed on implementation head `14ac72a50569b9c7463f252cbba331e7ab7bdc28`: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite and production build all succeeded.
+- The CI run confirms the health-probe tests pass. PR #39 remains open; no merge, database migration or production deployment has been performed.
