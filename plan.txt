@@ -655,3 +655,12 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Left the shared CI workflow unchanged in this PR to avoid a merge conflict with health-monitoring PR #39, which independently adds the `npm test` step. Re-run this PR's checks after #39 is merged; until then, test execution remains explicitly pending.
 - Commits: request telemetry `11a7e0405b12c39eeac38810476a242423997492`; safe error logging `abaeb85611870e0bebf4898797612ecf1fbda3e1`; request timing `137670bacb1dc37bd4f6e2f2ea689995a97606f5`; tests `70f7697760a141766be28616cb133980504ffeeb`; CI `14f469c3373aaafcb92e48c6fc560f5394c8a396`; plan checkpoint `fa901f607ef5fe45e79dfaa3964d4ef327538bd3`.
 - Validation remains pending until the PR's typecheck, tests and production build complete. No deployment, merge, database migration or provider configuration change.
+
+
+### Additional privacy hardening — 2026-11-18
+- Added a shared diagnostic path sanitizer that removes query strings and masks numeric IDs, UUIDs, email-like path segments and long opaque tokens.
+- Request logging now prefers Express route templates when available, falling back to sanitised paths; request, response and error serializers omit headers, response headers, raw exception messages and stacks.
+- Updated error/not-found diagnostic events to use the same path sanitizer.
+- Added test coverage for numeric IDs, UUIDs, email-like identifiers, opaque tokens and query-string removal.
+- Additional commits: request/response/error serializer hardening `42deeefc30c6a09453c2e1a8e58d7a7ad5400719`; error path sanitisation `d9dc9ed6f0c4609978e3e5b475183bb7e855d6c9`; path utility `d43f5e3bfa01e6a271f429ddebaccc7bc9e5aa45`; tests `085731ae15e4a9cbca02d4284d4bbd39abdb9934`.
+- Current validation is pending on the latest head; no merge or deployment.
