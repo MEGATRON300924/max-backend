@@ -1,8 +1,8 @@
 export function sanitizeDiagnosticPath(path: string): string {
   // Remove query strings and fragments before decoding so credentials and other
   // query values can never enter the diagnostic path.
-  const pathname = path.split(/[?#]/, 1)[0];
-  let decoded = pathname;
+  const pathname = path.split(/[?#]/, 1)[0] ?? '';
+  let decoded: string = pathname;
   try {
     decoded = decodeURIComponent(pathname);
   } catch {
