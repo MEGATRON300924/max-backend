@@ -681,3 +681,13 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Correction commit: 9d64b5e88a9808df4dd093f9cae780e3d0066cc8.
 - Full CI on the corrected head is pending. Do not merge until all nine tests and the production build pass.
 - No production deployment.
+
+### MAX Diagnostics telemetry merged — 2026-11-18
+- PR #42 merged into main with squash merge: https://github.com/MEGATRON300924/max-backend/pull/42.
+- Merge commit: 39c987f970e634dff260ebd0f626bb613ee66059.
+- Corrected PR head: 8146568b70a387041da4b7644b44d1364c45c737.
+- Successful GitHub Actions CI run #400 (44392676903) completed all stages: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest (9 tests across diagnostics and health suites), and production build.
+- An overlapping duplicate CI run #401 was still in progress at the time of merge; run #400 was complete and green on the exact same corrected head.
+- Diagnostics now logs correlation IDs, request method, sanitised path, response status, request duration, safe error category/code and not-found events. Serializers omit headers/query strings and raw exception messages/stacks; identifier-like path segments are masked.
+- No database migration or production configuration change. No Render deployment performed or claimed.
+- Next: design and implement the central Diagnostics ingestion/query layer and admin dashboard, keeping live probe status distinct from manually maintained public service status.
