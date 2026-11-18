@@ -548,3 +548,6 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Added GitHub capability detection, GitHub/repository intent classification, and an explicit unavailable-capability response when the GitHub App integration is not configured. Updated the system instructions to require repository listing through the connected MAX Auth account before any inspection or write.
 - Existing safety controls retained: file reads are read-only; pull-request creation remains confirmation-gated, writes only to a new branch, opens a PR, rejects duplicate/traversal paths, blocks .git and .github/workflows, and enforces per-file and batch limits.
 - Source-level checkpoint: verified the new repository guard is called in both github.file.get and github.create_pull_request; verified the capability and intent routing are present. Automated typecheck/tests and live GitHub App/connected-account behaviour have not yet been run.
+
+- PR opened: #37 https://github.com/MEGATRON300924/max-backend/pull/37 (head d674f4282af8d3d6ec872423db8d1081dfc0f442). Compare against main reports 5 commits ahead, 0 behind, with three changed files (tools.service.ts, orchestrator.service.ts, plan.txt).
+- GitHub Actions CI run 44279351842 was queued at the first check. Build/test result is not yet known. Do not merge or deploy until CI passes and the PR diff is reviewed.
