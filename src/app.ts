@@ -36,6 +36,7 @@ import { personalizationRouter } from './routes/personalization.js';
 import { filesRouter } from './routes/files.js';
 import { imagesRouter } from './routes/images.js';
 import { sanitizeDiagnosticPath } from './middleware/diagnostics.js';
+import { diagnosticsTelemetryMiddleware } from './middleware/diagnostics-telemetry.js';
 
 export const app = express();
 
@@ -46,6 +47,7 @@ app.use(cors({ origin: corsOrigins, credentials: true }));
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 app.use(correlationMiddleware);
+app.use(diagnosticsTelemetryMiddleware);
 app.use(pinoHttp({
   logger,
   serializers: {

@@ -691,3 +691,25 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Diagnostics now logs correlation IDs, request method, sanitised path, response status, request duration, safe error category/code and not-found events. Serializers omit headers/query strings and raw exception messages/stacks; identifier-like path segments are masked.
 - No database migration or production configuration change. No Render deployment performed or claimed.
 - Next: design and implement the central Diagnostics ingestion/query layer and admin dashboard, keeping live probe status distinct from manually maintained public service status.
+
+## MAX Diagnostics telemetry delivery to MAX Auth — 2026-11-18
+- Started branch feat/max-diagnostics-auth-ingestion after reading the updated main plan.txt and confirming MAX Backend already has MAX_AUTH_INTERNAL_URL and MAX_AUTH_SERVICE_TOKEN configuration.
+- Connect the existing safe request telemetry to the new MAX Auth POST /api/v1/internal/diagnostics/events endpoint.
+- Use a bounded in-memory batch queue with capped retries/backlog and a short request timeout. Telemetry delivery must be fire-and-forget from the HTTP response path and must never delay or fail user requests.
+- Send only method, sanitised path, status code, duration and event timestamp. Never send request/response bodies, headers, user identifiers, IP addresses, cookies, tokens, chat content or raw errors.
+- Flush pending batches during graceful shutdown. If MAX Auth is unavailable, cap the queue and drop excess telemetry rather than allowing memory growth.
+- Validate with TypeScript, Vitest and production build. Live ingestion verification requires the backend and MAX Auth API deployments and remains separate from this code-only PR.
+
+### MAX Backend telemetry delivery implementation checkpoint — 2026-11-18
+- Added a bounded in-memory telemetry queue and asynchronous batch sender targeting the existing MAX_AUTH_INTERNAL_URL/diagnostics/events endpoint.
+- Each completed HTTP request records only method, sanitised path, status code, duration and event timestamp. The MAX Auth service token is sent only in the server-to-server request header.
+- Batches contain at most 50 events, flush on a short interval or at 25 queued events, use a 3-second delivery timeout, cap backlog at 500 events and retry failed delivery after a delay.
+- Telemetry is fire-and-forget from the HTTP response lifecycle; the sender does not await network delivery in the request handler. Graceful shutdown attempts to flush queued batches before disconnecting Prisma.
+- Added tests verifying the endpoint, service-token header, identifier/query sanitisation and rejection of unsupported methods/status codes.
+- No new dependency, database migration or environment variable. Existing MAX_AUTH_INTERNAL_URL and MAX_AUTH_SERVICE_TOKEN are reused.
+- TypeScript build, tests, CI and live cross-service ingestion verification pending. No PR or production deployment yet.
+
+### MAX Backend telemetry delivery CI result — 2026-11-18
+- GitHub Actions CI run #404 (44394609235) passed on application implementation head ae607c53effbd4ac3d6996374f5646d6f08c8a76.
+- All pipeline stages passed: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite (including the new telemetry delivery tests) and production build.
+- Live ingestion into MAX Auth, authenticated admin dashboard verification and cross-service deployment checks remain pending. The code is not merged or deployed.
