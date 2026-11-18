@@ -12,6 +12,12 @@ export type GeminiFunctionDeclaration = {
   parameters: Record<string, unknown>;
 };
 
+export type GeminiResponseFormat = {
+  type: 'text';
+  mime_type: 'application/json';
+  schema: Record<string, unknown>;
+};
+
 export type GeminiFunctionCall = {
   id: string;
   name: string;
@@ -74,12 +80,18 @@ function functionTools(functions: GeminiFunctionDeclaration[]) {
   return functions.map((item) => ({ type: 'function', ...item }));
 }
 
-function geminiRequestBody(turns: ChatTurn[], functions: GeminiFunctionDeclaration[], systemInstruction?: string) {
+function geminiRequestBody(
+  turns: ChatTurn[],
+  functions: GeminiFunctionDeclaration[],
+  systemInstruction?: string,
+  responseFormat?: GeminiResponseFormat
+) {
   return {
     model: env.GEMINI_MODEL,
     input: interactionInput(turns),
     ...(systemInstruction ? { system_instruction: systemInstruction } : {}),
-    ...(functions.length ? { tools: functionTools(functions) } : {})
+    ...(functions.length ? { tools: functionTools(functions) } : {}),
+    ...(responseFormat ? { response_format: responseFormat } : {})
   };
 }
 
@@ -107,9 +119,10 @@ export async function generateGeminiResponse(turns: ChatTurn[]) {
 export async function generateGeminiResponseWithTools(
   turns: ChatTurn[],
   functions: GeminiFunctionDeclaration[] = [],
-  systemInstruction?: string
+  systemInstruction?: string,
+  responseFormat?: GeminiResponseFormat
 ) {
-  const payload = await postGeminiInteraction(geminiRequestBody(turns, functions, systemInstruction));
+  const payload = await postGeminiInteraction(geminiRequestBody(turns, functions, systemInstruction, responseFormat));
   const extracted = extractGemini(payload);
   return { ...extracted, provider: 'gemini', model: env.GEMINI_MODEL, interactionId: payload.id ?? null };
 }
