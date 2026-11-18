@@ -684,3 +684,14 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - The root plan file on current `main` now contains the health-probe implementation and successful CI record, but its earlier PR #39 status wording is stale; this integration checkpoint records the authoritative merged state.
 - No PR #40 merge or production deployment has occurred. No production environment or database changes.
 - Next: update/rebase `feat/max-diagnostics-telemetry` onto current `main` so the merged CI workflow runs `npm test`; preserve the diagnostics source changes and reconcile `plan.txt`; then rerun full CI and inspect the resulting PR diff before merge.
+
+
+### CI workflow correction — 2026-11-18
+- Re-read the root plan before continuing PR #40.
+- Confirmed PR #39 is merged into `main` at `9ea23405a3fb52702b94ecaf4df4de6abb151a07`.
+- Found the diagnostics branch's `.github/workflows/ci.yml` still lacked the `npm test` step even though `main` had it. This explained why the prior PR #40 CI run only performed typecheck and build.
+- Updated the diagnostics branch CI workflow to match current `main`, including `npm test`. Commit: `2fc4a69f7ba90c69a3e1f06ec1281071d8bab6c3`.
+- Verified the branch workflow file now contains the Test step. At the time of this checkpoint, no workflow run or combined status had yet appeared for the new head; test/typecheck/build validation is still pending.
+- Current comparison: branch is 21 commits ahead and 1 behind `main`; GitHub still reports the PR as not mergeable. Do not force-merge or bypass CI.
+- No PR #40 merge, database migration, production configuration change or deployment.
+- Next: obtain a fresh successful CI run on the updated head, reconcile the one-commit divergence/mergeability, inspect the complete PR diff, then merge only when all checks pass.
