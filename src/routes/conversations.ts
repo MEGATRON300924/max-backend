@@ -64,21 +64,29 @@ function turnsFromConversation(messages: Array<{ role: string; content: string; 
       ? metadata.quiz as Record<string, unknown> : null;
     let quizContext = '';
     if (quiz && Array.isArray(quiz.questions)) {
+      const answers = quiz.answers && typeof quiz.answers === 'object' && !Array.isArray(quiz.answers)
+        ? quiz.answers as Record<string, unknown> : {};
       const questions = quiz.questions.slice(0, 30).map((item, index) => {
         if (!item || typeof item !== 'object') return '';
         const q = item as Record<string, unknown>;
-        const options = Array.isArray(q.options) ? q.options.slice(0, 4).map(option => {
+        const optionsList = Array.isArray(q.options) ? q.options.slice(0, 4) : [];
+        const options = optionsList.map(option => {
           if (!option || typeof option !== 'object') return '';
           const value = option as Record<string, unknown>;
-          return String(value.id || '') + ': ' + String(value.text || '');
-        }).join(' | ') : '';
+          return String(value.id || '') + ': ' + String(value.text || '').slice(0, 80);
+        }).join(' | ');
+        const answer = answers[String(q.id || '')] && typeof answers[String(q.id || '')] === 'object'
+          ? answers[String(q.id || '')] as Record<string, unknown> : {};
+        const selected = optionsList.find(option => option && typeof option === 'object' &&
+          String((option as Record<string, unknown>).id || '') === String(answer.selectedOptionId || '')) as Record<string, unknown> | undefined;
         return [
-          (index + 1) + '. ' + String(q.prompt || ''),
+          (index + 1) + '. ' + String(q.prompt || '').slice(0, 180),
           options ? 'Options: ' + options : '',
           'Correct option: ' + String(q.correctOptionId || ''),
-          'Explanation: ' + String(q.explanation || ''),
-          q.selectedOptionId ? 'Student selected: ' + String(q.selectedOptionId) : '',
-          q.isCorrect === true ? 'Student result: correct' : q.isCorrect === false ? 'Student result: incorrect' : ''
+          'Explanation: ' + String(q.explanation || '').slice(0, 260),
+          answer.selectedOptionId ? 'Student selected: ' + String(answer.selectedOptionId) : '',
+          answer.timedOut === true ? 'Student result: timed out' : answer.isCorrect === true ? 'Student result: correct' : answer.isCorrect === false ? 'Student result: incorrect' : '',
+          selected?.feedback ? 'Feedback for selected answer: ' + String(selected.feedback).slice(0, 140) : ''
         ].filter(Boolean).join('\n');
       }).filter(Boolean).join('\n');
       quizContext = '\n\n[Persisted MAX Quiz context — use this answer key and the student\'s recorded answers for follow-up questions. Do not expose answers unless the student asks.]\n' +
