@@ -673,3 +673,11 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Fix commit: 74c9367cf9f9436786e7aa67889164b20236f6c7.
 - Fresh CI on the corrected PR head is pending. Tests and production build have not yet passed on the corrected commit; do not merge until the complete pipeline is green.
 - No production deployment.
+
+### MAX Diagnostics identifier-masking test correction — 2026-11-18
+- Follow-up CI run 44392436311 passed dependency installation, Prisma generation and TypeScript typecheck, but one of nine Vitest cases failed: numeric route IDs were not masked.
+- Root cause: the identifier regular expressions in src/middleware/diagnostics.ts contained over-escaped backslashes, so the digit and whitespace/dot expressions did not behave as intended.
+- Replaced the numeric-ID expression with an explicit digit character class and corrected the email-like segment expression. UUID and long opaque-token masking remain covered by the same test.
+- Correction commit: 9d64b5e88a9808df4dd093f9cae780e3d0066cc8.
+- Full CI on the corrected head is pending. Do not merge until all nine tests and the production build pass.
+- No production deployment.
