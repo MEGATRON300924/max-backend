@@ -60,6 +60,7 @@ function classifyIntent(content: string) {
   const value = content.toLowerCase();
   // Named account/product context takes priority over generic nouns such as 'device'.
   if (/\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\b/.test(value)) return 'account';
+  if (/\\b(github|git hub|repositories|repository|repos?\\b|pull requests?|github actions|codebase)\\b/.test(value)) return 'github';
   if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
   if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds|hotel registration|sign[- ]?up requests?|onboarding leads?)\b/.test(value)) return 'hotels';
   if (/\b(watched|watch history|playback progress|continue watching|stopped at|video progress|last watched)\b/.test(value)) return 'media';
