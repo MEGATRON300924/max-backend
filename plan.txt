@@ -633,7 +633,7 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - [x] Remove raw exception messages and raw error objects from error logs.
 - [x] Add tests for API errors, unhandled errors, post-header streaming errors and 404 diagnostics.
 - [ ] Run typecheck, test suite and production build; inspect GitHub Actions.
-- [ ] Open PR after validation. No merge or deployment without explicit approval.
+- [x] Opened PR #40 for review. No merge or deployment without explicit approval.
 
 ### Safety and rollout
 - No Prisma schema or migration changes.
