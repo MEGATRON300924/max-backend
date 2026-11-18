@@ -713,3 +713,9 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - GitHub Actions CI run #404 (44394609235) passed on application implementation head ae607c53effbd4ac3d6996374f5646d6f08c8a76.
 - All pipeline stages passed: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite (including the new telemetry delivery tests) and production build.
 - Live ingestion into MAX Auth, authenticated admin dashboard verification and cross-service deployment checks remain pending. The code is not merged or deployed.
+
+
+### MAX Diagnostics merge record — 2026-11-18
+- MAX Backend safe telemetry forwarding to MAX Auth merged via squash commit 15bf6e98107851d614e4cdd7fa3156b1148d2a0c. PR #43.
+- Merge order: MAX Auth API, MAX Backend telemetry, then MAX Auth frontend.
+- CI on the PR heads passed before merge. Changes are merged to main; production deployment and live cross-service smoke tests remain pending.
