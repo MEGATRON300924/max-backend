@@ -2,6 +2,7 @@ import { app } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { prisma } from './lib/prisma.js';
+import { flushDiagnosticsTelemetry } from './services/diagnostics-telemetry.service.js';
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, environment: env.NODE_ENV }, 'MAX backend started');
@@ -22,6 +23,7 @@ process.on('unhandledRejection', (reason) => {
 const shutdown = async (signal: string) => {
   logger.info({ signal }, 'Shutdown requested');
   server.close(async () => {
+    await flushDiagnosticsTelemetry();
     await prisma.$disconnect();
     logger.info('MAX backend stopped');
     process.exit(0);
