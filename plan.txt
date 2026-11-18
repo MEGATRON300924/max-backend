@@ -604,3 +604,11 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - PR #38 opened: https://github.com/MEGATRON300924/max-backend/pull/38 (head commit 62f0b91c727ce27dcacca55268944c6fc30cb072).
 - GitHub Actions run 44282302825 is running. Checkout and Node setup passed; dependency installation is in progress. Prisma generation, typecheck, and production build have not completed at this checkpoint.
 - PR #38 is not merged. No Render deployment or live authenticated quiz retest has been performed.
+
+
+### MAX Quiz structured-output fix merged — 2026-11-18
+- PR #38 merged successfully into `main`: https://github.com/MEGATRON300924/max-backend/pull/38.
+- Squash merge commit: `63976d5799cc96e7335edcb7a9062e10d64f6841`.
+- Latest PR head `438a04246c93ba9c9c6c349079a35c3065800559` has a completed successful GitHub Actions `validate` check (run 44282377957): Prisma Client generation, TypeScript typecheck, and production build all passed.
+- Render service `srv-d7eeuc0sfn5c738tml3g` was last observed live on pre-merge commit `b4ef865093fe70439bb688df67a212c9b2bd6887`; check deployment history after merge before claiming the quiz fix is live.
+- Pending: verify Render auto-deploy for merge commit, then test authenticated quiz generation in MAX Chat. Gemini 503/high-demand availability remains an external provider risk.
