@@ -1,4 +1,4 @@
-import type { ErrorRequestHandler, RequestHandler } from 'express';
+import type { ErrorRequestHandler, RequestHandler, Response } from 'express';
 import { ZodError } from 'zod';
 import { logger } from '../config/logger.js';
 
@@ -9,15 +9,29 @@ export class ApiError extends Error {
   }
 }
 
+function getDurationMs(res: Response): number | undefined {
+  const startedAt = res.locals.requestStartedAt;
+  if (typeof startedAt !== 'bigint') return undefined;
+  return Math.round(Number(process.hrtime.bigint() - startedAt) / 1_000_000);
+}
+
+function safeErrorCode(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[A-Z0-9_]{1,64}$/.test(value)
+    ? value
+    : undefined;
+}
+
 export const notFoundHandler: RequestHandler = (req, res) => {
   const correlationId = res.locals.correlationId;
 
   logger.warn({
+    event: 'http.request.not_found',
     correlationId,
     method: req.method,
     path: req.path,
     statusCode: 404,
-    code: 'NOT_FOUND'
+    code: 'NOT_FOUND',
+    durationMs: getDurationMs(res)
   }, 'Route not found');
 
   res.status(404).json({
@@ -30,13 +44,18 @@ export const notFoundHandler: RequestHandler = (req, res) => {
 export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
   const correlationId = res.locals.correlationId;
   const requestContext = {
+    event: 'http.request.failed',
     correlationId,
     method: req.method,
-    path: req.path
+    path: req.path,
+    durationMs: getDurationMs(res)
   };
 
   if (res.headersSent) {
-    logger.error({ ...requestContext, err: error }, 'Request failed after response headers were sent');
+    logger.error({
+      ...requestContext,
+      errorType: error instanceof Error ? error.name : typeof error
+    }, 'Request failed after response headers were sent');
     return;
   }
 
@@ -47,8 +66,7 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
       code: 'VALIDATION_ERROR',
       issues: error.issues.map((issue) => ({
         code: issue.code,
-        path: issue.path,
-        message: issue.message
+        path: issue.path
       }))
     }, 'Request validation failed');
 
@@ -65,8 +83,8 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     log({
       ...requestContext,
       statusCode: error.status,
-      code: error.code,
-      err: error
+      code: safeErrorCode(error.code),
+      errorType: error.name
     }, 'API request failed');
 
     res.status(error.status).json({
@@ -77,20 +95,19 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     return;
   }
 
-  const candidate = error as { status?: unknown; statusCode?: unknown; type?: unknown };
+  const candidate = error as { status?: unknown; statusCode?: unknown; code?: unknown };
   const statusCandidate = candidate?.statusCode ?? candidate?.status;
   const status = typeof statusCandidate === 'number' && statusCandidate >= 400 && statusCandidate <= 599
     ? statusCandidate
     : 500;
   const isClientError = status < 500;
-  const message = error instanceof Error ? error.message : String(error);
 
   const log = isClientError ? logger.warn.bind(logger) : logger.error.bind(logger);
   log({
     ...requestContext,
     statusCode: status,
     errorType: error instanceof Error ? error.name : typeof error,
-    err: error
+    code: safeErrorCode(candidate?.code)
   }, isClientError ? 'Request rejected' : 'Unhandled request error');
 
   res.status(status).json({
