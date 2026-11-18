@@ -35,6 +35,7 @@ import { maxAuthProxyRouter } from './routes/max-auth-proxy.js';
 import { personalizationRouter } from './routes/personalization.js';
 import { filesRouter } from './routes/files.js';
 import { imagesRouter } from './routes/images.js';
+import { sanitizeDiagnosticPath } from './middleware/diagnostics.js';
 
 export const app = express();
 
@@ -49,16 +50,22 @@ app.use(pinoHttp({
   logger,
   serializers: {
     // Never serialize request headers or query strings into application logs.
-    req: (req) => ({
-      id: req.id,
-      method: req.method,
-      path: typeof req.url === 'string'
-        ? req.url.split('?')[0].replace(/\/[0-9a-f]{8}-[0-9a-f-]{27,}/gi, '/:id').replace(/\/\d+(?=\/|$)/g, '/:id')
-        : undefined
-    })
+    req: (req) => {
+      const routePath = typeof req.route?.path === 'string'
+        ? `${req.baseUrl}${req.route.path}`
+        : req.path;
+      return {
+        id: req.id,
+        method: req.method,
+        path: sanitizeDiagnosticPath(routePath)
+      };
+    },
+    // Pino's default error serializer includes message and stack. Keep only the class.
+    err: (err) => ({ type: err instanceof Error ? err.name : typeof err }),
+    res: (res) => ({ statusCode: res.statusCode })
   },
   customProps: (_req, res) => ({
-    event: 'http.request.completed',
+    event: 'http.request',
     correlationId: res.locals.correlationId
   }),
   customLogLevel: (_req, res, err) => {
