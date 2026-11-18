@@ -516,3 +516,12 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Tests: typecheck/build/CI and live Gemini quiz generation have not yet run. No production deployment.
 - Remaining: typecheck/build and automated tests; inspect schema validation against real Gemini output; test message metadata update/reload and follow-up answer context; review request size and timeout behaviour.
 - No merge or production deployment.
+
+
+### Validation update — 2026-11-18
+- Draft PR: [#36](https://github.com/MEGATRON300924/max-backend/pull/36); branch `feat/quiz-mode`.
+- Initial CI run 44271948092 failed at TypeScript typecheck because `existingMetadata` needed an explicit `Record<string, unknown>` annotation. Fixed in commit `be03ef92397839e968530b613463dadd50816bfd`.
+- Reopened the draft PR to trigger a fresh CI run against the updated head. CI run 44272213538 passed: dependency install, Prisma Client generation, TypeScript typecheck, and production build all succeeded.
+- No schema migration is required; quiz state uses existing `Message.metadata` JSON.
+- Live endpoint/Gemini generation, metadata reload, and follow-up conversation behaviour remain untested until the PR is merged and deployed with approval.
+- No merge or production deployment.
