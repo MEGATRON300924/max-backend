@@ -665,3 +665,11 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Failure showed `sanitizeDiagnosticPath` did not strip query strings when called directly by error middleware. This could leave query credentials in diagnostic paths.
 - Corrected the sanitizer to strip query strings and fragments before URI decoding and identifier masking. The existing regression tests explicitly cover query removal and secret exclusion.
 - Next: rerun full CI; do not merge until tests and build pass.
+
+### MAX Diagnostics typecheck correction — 2026-11-18
+- Corrected PR #42 CI failure 44390847538 on merge head 212084a14d64509f7e3ec7eea0f544eb60045409.
+- The exact TypeScript errors were in src/middleware/diagnostics.ts: String.split(...)[0] is typed as possibly undefined under strict compiler settings, and the inferred decoded path therefore remained possibly undefined.
+- Updated the path helper to default the stripped pathname to an empty string and explicitly keep the decoded value typed as string. Query/fragment stripping still happens before URI decoding and identifier masking.
+- Fix commit: 74c9367cf9f9436786e7aa67889164b20236f6c7.
+- Fresh CI on the corrected PR head is pending. Tests and production build have not yet passed on the corrected commit; do not merge until the complete pipeline is green.
+- No production deployment.
