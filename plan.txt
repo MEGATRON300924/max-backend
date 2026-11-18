@@ -691,3 +691,11 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Diagnostics now logs correlation IDs, request method, sanitised path, response status, request duration, safe error category/code and not-found events. Serializers omit headers/query strings and raw exception messages/stacks; identifier-like path segments are masked.
 - No database migration or production configuration change. No Render deployment performed or claimed.
 - Next: design and implement the central Diagnostics ingestion/query layer and admin dashboard, keeping live probe status distinct from manually maintained public service status.
+
+## MAX Diagnostics telemetry delivery to MAX Auth — 2026-11-18
+- Started branch feat/max-diagnostics-auth-ingestion after reading the updated main plan.txt and confirming MAX Backend already has MAX_AUTH_INTERNAL_URL and MAX_AUTH_SERVICE_TOKEN configuration.
+- Connect the existing safe request telemetry to the new MAX Auth POST /api/v1/internal/diagnostics/events endpoint.
+- Use a bounded in-memory batch queue with capped retries/backlog and a short request timeout. Telemetry delivery must be fire-and-forget from the HTTP response path and must never delay or fail user requests.
+- Send only method, sanitised path, status code, duration and event timestamp. Never send request/response bodies, headers, user identifiers, IP addresses, cookies, tokens, chat content or raw errors.
+- Flush pending batches during graceful shutdown. If MAX Auth is unavailable, cap the queue and drop excess telemetry rather than allowing memory growth.
+- Validate with TypeScript, Vitest and production build. Live ingestion verification requires the backend and MAX Auth API deployments and remains separate from this code-only PR.
