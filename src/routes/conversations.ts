@@ -366,7 +366,7 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
           });
         }
         else if (message.metadata) {
-          const existingMetadata = savedMessage.metadata && typeof savedMessage.metadata === 'object' && !Array.isArray(savedMessage.metadata)
+          const existingMetadata: Record<string, unknown> = savedMessage.metadata && typeof savedMessage.metadata === 'object' && !Array.isArray(savedMessage.metadata)
             ? savedMessage.metadata as Record<string, unknown> : {};
           savedMessage = await tx.message.update({
             where: { id: savedMessage.id },
