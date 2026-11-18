@@ -525,3 +525,11 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - No schema migration is required; quiz state uses existing `Message.metadata` JSON.
 - Live endpoint/Gemini generation, metadata reload, and follow-up conversation behaviour remain untested until the PR is merged and deployed with approval.
 - No merge or production deployment.
+
+
+### MAX Quiz Mode merged — 2026-11-18
+- PR #36 merged successfully into `main` using squash merge.
+- Merge commit: `68b78ec4736f8fd8349d42445f1f63bfb67b8e96`.
+- Latest pre-merge CI run `44272530297` passed on PR head `b1436939e13304754c5bb3a213b5ec1997b5b8c2`: Prisma Client generation, TypeScript typecheck, and production build.
+- No Prisma migration was added; quiz data uses existing message JSON metadata.
+- Live Gemini generation, authenticated message metadata reload, and follow-up conversation tests remain outstanding. Confirm the Render deployment on the merge commit before declaring production readiness.
