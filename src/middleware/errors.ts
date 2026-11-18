@@ -1,6 +1,7 @@
 import type { ErrorRequestHandler, RequestHandler, Response } from 'express';
 import { ZodError } from 'zod';
 import { logger } from '../config/logger.js';
+import { sanitizeDiagnosticPath } from './diagnostics.js';
 
 export class ApiError extends Error {
   constructor(public readonly status: number, public readonly code: string, message: string) {
@@ -28,7 +29,7 @@ export const notFoundHandler: RequestHandler = (req, res) => {
     event: 'http.request.not_found',
     correlationId,
     method: req.method,
-    path: req.path,
+    path: sanitizeDiagnosticPath(req.path),
     statusCode: 404,
     code: 'NOT_FOUND',
     durationMs: getDurationMs(res)
@@ -47,7 +48,7 @@ export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => {
     event: 'http.request.failed',
     correlationId,
     method: req.method,
-    path: req.path,
+    path: sanitizeDiagnosticPath(req.path),
     durationMs: getDurationMs(res)
   };
 
