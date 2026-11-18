@@ -675,3 +675,12 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - GitHub Actions run `44385132738` passed on head `00abad94eb837cab20ede641e41218ce2006b364`: dependency installation, Prisma Client generation, TypeScript typecheck and production build all succeeded.
 - The current main-branch CI workflow does not yet execute `npm test`; that test step is part of health-monitoring PR #39. The diagnostics Vitest suite therefore remains unexecuted on this PR head and must be run after #39 is merged and this branch is updated.
 - PR #40 remains open and mergeable; no merge, migration or deployment.
+
+
+### Integration checkpoint — 2026-11-18
+- PR #39 (system health monitoring) has now been merged into `main`; GitHub confirms merge commit `9ea23405a3fb52702b94ecaf4df4de6abb151a07`.
+- PR #40 remains open. Its head is `789d86810fbe797f657543b09932d34ac0599117`; comparison against current `main` reports 19 commits ahead and 1 commit behind, with GitHub reporting the PR as not mergeable until the branch is updated.
+- A workflow run on the current PR #40 head (`44385296493`) completed successfully for dependency installation, Prisma Client generation, TypeScript typecheck and production build. The job did not contain an `npm test` step, so the diagnostics Vitest suite is still NOT validated by CI.
+- The root plan file on current `main` now contains the health-probe implementation and successful CI record, but its earlier PR #39 status wording is stale; this integration checkpoint records the authoritative merged state.
+- No PR #40 merge or production deployment has occurred. No production environment or database changes.
+- Next: update/rebase `feat/max-diagnostics-telemetry` onto current `main` so the merged CI workflow runs `npm test`; preserve the diagnostics source changes and reconcile `plan.txt`; then rerun full CI and inspect the resulting PR diff before merge.
