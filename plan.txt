@@ -533,3 +533,21 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Latest pre-merge CI run `44272530297` passed on PR head `b1436939e13304754c5bb3a213b5ec1997b5b8c2`: Prisma Client generation, TypeScript typecheck, and production build.
 - No Prisma migration was added; quiz data uses existing message JSON metadata.
 - Live Gemini generation, authenticated message metadata reload, and follow-up conversation tests remain outstanding. Confirm the Render deployment on the merge commit before declaring production readiness.
+
+
+## MAX GitHub connected-account bridge — 2026-11-18
+- User confirmed GitHub is already connected in MAX Auth and instructed continuation of MAX's repository-editing capability.
+- Audited MAX Auth: GitHub OAuth connection, encrypted token storage, authenticated profile and repository-list endpoints already exist. The OAuth authorization URL currently requests no explicit scopes; do not silently broaden OAuth permissions in this task.
+- Audited MAX Backend: initial GitHub tools already exist (repository listing through the user's MAX Auth token; file reads and branch/commit/PR writes through a separately configured GitHub App installation). Writes require the existing confirmation workflow and create a branch/PR rather than writing to the base branch. GitHub Actions workflow paths are blocked.
+- Found integration/security gaps: GitHub capability is missing from orchestrator intent/capability routing; file reads and PR writes use the platform GitHub App without first proving the target repository is visible in the requesting user's MAX Auth-connected GitHub account; GitHub App owner/user allowlists also gate the existing tools.
+- Implementation on this branch: add GitHub intent/capability routing and enforce a MAX Auth connected-repository check before both file reads and pull-request writes. Preserve the existing GitHub App installation permission boundary, owner/user allowlists, explicit confirmation, branch-only writes, and workflow-file protection. Do not request broader OAuth scopes or expose provider tokens.
+- Validation pending: TypeScript build, tests, inspect confirmation execution path, PR review, Render deployment and authenticated MAX Chat tests for repository listing, file reading, confirmed PR creation, and denial when the target repository is not linked/installed.
+- No MAX Auth code, production environment variables, GitHub permissions, or database schema changed.
+
+- Implementation checkpoint: added a shared MAX Auth repository-membership check before GitHub file reads and pull-request writes. The target owner/repository must appear in the repositories returned for the currently authenticated MAX Auth user; the separate GitHub App installation must still have access and existing owner/user allowlists remain enforced.
+- Added GitHub capability detection, GitHub/repository intent classification, and an explicit unavailable-capability response when the GitHub App integration is not configured. Updated the system instructions to require repository listing through the connected MAX Auth account before any inspection or write.
+- Existing safety controls retained: file reads are read-only; pull-request creation remains confirmation-gated, writes only to a new branch, opens a PR, rejects duplicate/traversal paths, blocks .git and .github/workflows, and enforces per-file and batch limits.
+- Source-level checkpoint: verified the new repository guard is called in both github.file.get and github.create_pull_request; verified the capability and intent routing are present. Automated typecheck/tests and live GitHub App/connected-account behaviour have not yet been run.
+
+- PR opened: #37 https://github.com/MEGATRON300924/max-backend/pull/37 (head d674f4282af8d3d6ec872423db8d1081dfc0f442). Compare against main reports 5 commits ahead, 0 behind, with three changed files (tools.service.ts, orchestrator.service.ts, plan.txt).
+- GitHub Actions CI run 44279351842 was queued at the first check. Build/test result is not yet known. Do not merge or deploy until CI passes and the PR diff is reviewed.
