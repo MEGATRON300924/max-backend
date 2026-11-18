@@ -650,3 +650,11 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 ### CI result — 2026-11-18
 - GitHub Actions run `44384046407` passed on implementation head `14ac72a50569b9c7463f252cbba331e7ab7bdc28`: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite and production build all succeeded.
 - The CI run confirms the health-probe tests pass. PR #39 remains open; no merge, database migration or production deployment has been performed.
+
+
+## MAX Diagnostics telemetry integration — 2026-11-18
+- PR #39 merged into `main` with commit `9ea23405a3fb52702b94ecaf4df4de6abb151a07`; CI now runs `npm test` before the production build.
+- PR #40's original branch was one commit behind and diverged after the health-monitoring merge. To avoid force-pushing or rewriting its history, diagnostics changes are being reapplied on a fresh branch based on the new `main`.
+- Reapplied the Pino request/response/error serializer hardening, query-free path sanitisation, correlation/request-duration metadata, safe error/not-found event logging, and diagnostics Vitest coverage. The merged health routes and CI workflow are retained from `main`.
+- No database migration, new dependency, provider change, production configuration change, or deployment.
+- Validation: pending full GitHub Actions run on the rebased diagnostics branch, including tests, typecheck and production build. Keep original PR #40 open until the replacement PR passes CI; do not merge or deploy before validation.

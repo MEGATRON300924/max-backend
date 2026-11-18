@@ -35,6 +35,7 @@ import { maxAuthProxyRouter } from './routes/max-auth-proxy.js';
 import { personalizationRouter } from './routes/personalization.js';
 import { filesRouter } from './routes/files.js';
 import { imagesRouter } from './routes/images.js';
+import { sanitizeDiagnosticPath } from './middleware/diagnostics.js';
 
 export const app = express();
 
@@ -47,13 +48,31 @@ app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 app.use(correlationMiddleware);
 app.use(pinoHttp({
   logger,
+  serializers: {
+    // Never serialize request headers or query strings into application logs.
+    req: (req) => ({
+      id: req.id,
+      method: req.method,
+      path: typeof req.url === 'string'
+        ? sanitizeDiagnosticPath(req.url.split('?')[0])
+        : undefined
+    }),
+    // Pino's default error serializer includes message and stack. Keep only the class.
+    err: (err) => ({ type: err instanceof Error ? err.name : typeof err }),
+    res: (res) => ({ statusCode: res.statusCode })
+  },
+  customProps: (_req, res) => ({
+    event: 'http.request',
+    correlationId: res.locals.correlationId
+  }),
   customLogLevel: (_req, res, err) => {
     if (err || res.statusCode >= 500) return 'error';
     if (res.statusCode >= 400) return 'warn';
     return 'info';
   },
-  customSuccessMessage: (req, res) => `${req.method} ${req.url} completed with ${res.statusCode}`,
-  customErrorMessage: (req, res, err) => `${req.method} ${req.url} failed with ${res.statusCode}: ${err.message}`
+  customSuccessMessage: (req, res) => `${req.method} ${req.path} completed with ${res.statusCode}`,
+  // Do not include err.message: upstream errors can contain provider payloads or secrets.
+  customErrorMessage: (req, res) => `${req.method} ${req.path} failed with ${res.statusCode}`
 }));
 
 app.get('/', (_req, res) => {
