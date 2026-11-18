@@ -504,3 +504,15 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 
 ### Next steps
 - Add a dedicated quiz-generation API and bounded metadata support in the conversations route; update this plan with every implementation/test/commit checkpoint.
+
+
+### MAX Quiz Mode implementation checkpoint — 2026-11-18
+- Working branch: `feat/quiz-mode`.
+- Added authenticated `POST /conversations/:id/quizzes/generate`, scoped to the requesting user's conversation. It uses the existing Gemini generation service, receives bounded source text/topic/count/difficulty/timer settings, and validates the exact question/option/answer/explanation structure before returning it.
+- Added bounded JSON metadata support to `/messages/record`, including metadata updates for already-recorded client messages. This allows a quiz card and answer state to be updated in the existing assistant message without a new database table/migration.
+- Enriched subsequent Gemini conversation turns with persisted quiz questions, option text, answer key, explanations, and the student's recorded selected answers/feedback. The quiz context explicitly tells MAX not to reveal answers unless asked.
+- Source material is labelled untrusted study content in the generation prompt; embedded instructions in PDFs are not to be followed.
+- Commits: initial plan `35caa9458db7a11f9675b5c9a1ec6536b1f16f74`; generation/metadata route `1101a3338295931c79ce5970d0a5158af8ac9ba8`; metadata size guard `b0130f42f0a97f9ac92ad022b4b8b31d96b95285`; answer-context correction `6d06d9a069aec43ea07b5c6bf191e6d4b7cb5d92`.
+- Tests: typecheck/build/CI and live Gemini quiz generation have not yet run. No production deployment.
+- Remaining: typecheck/build and automated tests; inspect schema validation against real Gemini output; test message metadata update/reload and follow-up answer context; review request size and timeout behaviour.
+- No merge or production deployment.
