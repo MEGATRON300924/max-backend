@@ -590,3 +590,13 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 ### Commits / tests / next steps
 - No application code changed yet. Plan checkpoint only.
 - No PR or deployment. Next: implement on fix/quiz-structured-output, then validate with CI before merging.
+
+
+### Structured-output implementation checkpoint — 2026-11-18
+- Added optional Gemini Interactions API structured-response support to src/services/ai.service.ts. Existing callers remain unchanged unless they supply a response format.
+- Updated POST /conversations/:id/quizzes/generate to request application/json output using a JSON schema for title, questions, four-option records, correct option ID and explanation.
+- Kept exact question count, four options, unique A-D IDs, string bounds and correct-answer membership in the existing Zod/application validation. The provider schema intentionally avoids nested array minItems/maxItems constraints; the application remains authoritative for exact counts.
+- Replaced brittle first-brace/last-brace extraction with a balanced JSON-object parser, retaining compatibility with whitespace and Markdown-fenced responses.
+- No provider/model switch, database change, frontend change, secret change, or change to the authenticated conversation boundary.
+- Commits: structured Gemini adapter support b1e46e0743f8f6b88ceb069527d6fb622a3e6117; quiz structured output and robust parsing 986c12a6b973ca1697be2b5559defebdd509d0c0.
+- Tests and CI are not yet run. Next: inspect diff, run GitHub Actions typecheck/build, open PR, deploy only after CI and review; then retest authenticated quiz generation and provider-overload handling.
