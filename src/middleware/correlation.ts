@@ -6,5 +6,6 @@ export const correlationMiddleware: RequestHandler = (req, res, next) => {
   const correlationId = incoming && incoming.length <= 128 ? incoming : randomUUID();
   res.setHeader('x-correlation-id', correlationId);
   res.locals.correlationId = correlationId;
+  res.locals.requestStartedAt = process.hrtime.bigint();
   next();
 };
