@@ -612,3 +612,35 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - Latest PR head `438a04246c93ba9c9c6c349079a35c3065800559` has a completed successful GitHub Actions `validate` check (run 44282377957): Prisma Client generation, TypeScript typecheck, and production build all passed.
 - Render service `srv-d7eeuc0sfn5c738tml3g` was last observed live on pre-merge commit `b4ef865093fe70439bb688df67a212c9b2bd6887`; check deployment history after merge before claiming the quiz fix is live.
 - Pending: verify Render auto-deploy for merge commit, then test authenticated quiz generation in MAX Chat. Gemini 503/high-demand availability remains an external provider risk.
+
+
+## MAX Diagnostics — structured and sanitised request telemetry — 2026-11-18
+
+### Scope
+- User approved continuing Phase 1 (reliability and diagnostics) after the health-probe foundation.
+- Existing MAX Backend already uses Pino HTTP logging and correlation IDs. Extend that infrastructure rather than adding a second telemetry stack or introducing a database migration.
+- Ensure HTTP request logs carry the existing correlation ID, event type, method, query-free path, status and Pino's response-time measurement.
+- Ensure error events carry correlation ID, method, query-free path, HTTP status, safe error category/code and request duration.
+- Never serialize raw exception messages/stacks, request headers, query strings, chat prompts/responses, provider payloads, tokens or credentials into diagnostic logs.
+- Keep user-facing API error responses unchanged unless they are already generic; this task is about safe diagnostic records and logging.
+
+### Implementation status
+- [x] Read root plan.txt and inspect Pino configuration, Express request logging, correlation middleware and error handling.
+- [x] Created branch `feat/max-diagnostics-telemetry`.
+- [x] Add request correlation ID and request start timestamp to error event context.
+- [x] Sanitise Pino HTTP request serialization to omit headers/query strings and mask UUID/numeric path segments.
+- [x] Add structured event names, correlation IDs and safe request completion/error metadata.
+- [x] Remove raw exception messages and raw error objects from error logs.
+- [x] Add tests for API errors, unhandled errors, post-header streaming errors and 404 diagnostics.
+- [ ] Run typecheck, test suite and production build; inspect GitHub Actions.
+- [ ] Open PR after validation. No merge or deployment without explicit approval.
+
+### Safety and rollout
+- No Prisma schema or migration changes.
+- No new dependencies or external telemetry provider.
+- Existing correlation ID response header and API response contracts remain intact.
+- Health-monitoring PR #39 is separate and remains unmerged pending CI verification.
+- Diagnostics here are structured application logs, not yet a persistent metrics dashboard or alerting system. Historical aggregation and admin UI are subsequent work.
+
+### Commits and validation
+- Source changes and tests are on `feat/max-diagnostics-telemetry`; commit IDs and CI results will be recorded after the changes are pushed.
