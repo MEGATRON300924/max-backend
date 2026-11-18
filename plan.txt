@@ -650,3 +650,34 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 ### CI result — 2026-11-18
 - GitHub Actions run `44384046407` passed on implementation head `14ac72a50569b9c7463f252cbba331e7ab7bdc28`: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite and production build all succeeded.
 - The CI run confirms the health-probe tests pass. PR #39 remains open; no merge, database migration or production deployment has been performed.
+
+
+## MAX Diagnostics Telemetry — integration branch checkpoint — 2026-11-18
+- Rebased the diagnostics implementation onto a clean branch from the merged health-monitoring `main` commit to avoid carrying the previous branch's one-commit divergence.
+- Ported the request serializer hardening, correlation metadata, sanitised diagnostic path helper, error/not-found logging changes, and diagnostics Vitest coverage from the original PR #40 branch.
+- CI workflow is inherited from `main` and includes dependency installation, Prisma generation, typecheck, `npm test`, and production build.
+- Original PR #40 remains open pending replacement-branch validation; no merge or deployment.
+- Next: verify this branch diff contains only diagnostics changes plus plan checkpoint, then open replacement PR, run full CI, and close the superseded PR only after replacement PR is confirmed.
+
+
+### MAX Diagnostics CI failure and correction — 2026-11-18
+- First replacement PR CI run `44390089166`: dependency installation, Prisma generation and TypeScript typecheck passed; two of nine tests failed, so build was skipped.
+- Failure showed `sanitizeDiagnosticPath` did not strip query strings when called directly by error middleware. This could leave query credentials in diagnostic paths.
+- Corrected the sanitizer to strip query strings and fragments before URI decoding and identifier masking. The existing regression tests explicitly cover query removal and secret exclusion.
+- Next: rerun full CI; do not merge until tests and build pass.
+
+### MAX Diagnostics typecheck correction — 2026-11-18
+- Corrected PR #42 CI failure 44390847538 on merge head 212084a14d64509f7e3ec7eea0f544eb60045409.
+- The exact TypeScript errors were in src/middleware/diagnostics.ts: String.split(...)[0] is typed as possibly undefined under strict compiler settings, and the inferred decoded path therefore remained possibly undefined.
+- Updated the path helper to default the stripped pathname to an empty string and explicitly keep the decoded value typed as string. Query/fragment stripping still happens before URI decoding and identifier masking.
+- Fix commit: 74c9367cf9f9436786e7aa67889164b20236f6c7.
+- Fresh CI on the corrected PR head is pending. Tests and production build have not yet passed on the corrected commit; do not merge until the complete pipeline is green.
+- No production deployment.
+
+### MAX Diagnostics identifier-masking test correction — 2026-11-18
+- Follow-up CI run 44392436311 passed dependency installation, Prisma generation and TypeScript typecheck, but one of nine Vitest cases failed: numeric route IDs were not masked.
+- Root cause: the identifier regular expressions in src/middleware/diagnostics.ts contained over-escaped backslashes, so the digit and whitespace/dot expressions did not behave as intended.
+- Replaced the numeric-ID expression with an explicit digit character class and corrected the email-like segment expression. UUID and long opaque-token masking remain covered by the same test.
+- Correction commit: 9d64b5e88a9808df4dd093f9cae780e3d0066cc8.
+- Full CI on the corrected head is pending. Do not merge until all nine tests and the production build pass.
+- No production deployment.
