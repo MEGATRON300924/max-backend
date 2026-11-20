@@ -719,3 +719,15 @@ Support interactive quizzes in the production MAX Chat frontend through authenti
 - MAX Backend safe telemetry forwarding to MAX Auth merged via squash commit 15bf6e98107851d614e4cdd7fa3156b1148d2a0c. PR #43.
 - Merge order: MAX Auth API, MAX Backend telemetry, then MAX Auth frontend.
 - CI on the PR heads passed before merge. Changes are merged to main; production deployment and live cross-service smoke tests remain pending.
+
+
+MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
+- Reuse the existing MaxEvent persistence, Device registry, DeviceSession records and /api/v1/events routes; do not add Firebase or a parallel notification database.
+- Added a dedicated /api/v1/events/device-stream endpoint authenticated by an opaque device-scoped session key, not a MAX Auth access or refresh token.
+- Device registration now revokes prior active sessions for the same device and issues a 256-bit random base64url session key with a 30-day expiry.
+- Device event-stream authentication verifies the active, unexpired DeviceSession and confirms that the associated device has not been revoked. A successful connection slides the session expiry.
+- Device stream supports timestamp + event-ID replay cursors, event expiry filtering, 2-second polling, SSE heartbeats and connection cleanup.
+- Added service tests for valid/expired/revoked device sessions and event replay scoping/expiry.
+- Security boundary: the device session credential can read only that registered device's user/home/room event stream; it is not accepted by MAX Auth or general MAX Backend write routes.
+- Pending: native MAX AI registration/Keystore storage, Android foreground event receiver, cursor persistence and user-controlled opt-in; emit response-completed NOTIFICATION events; end-to-end device stream tests; run Vitest and TypeScript checks; deploy only after tests pass.
+- No deployment or production credential changes were made in this task.
