@@ -78,12 +78,29 @@ router.get('/device-stream', async (req, res, next) => {
       if (!closed) res.write(': ping\n\n');
     }, 15_000);
     const poll = setInterval(() => { void sendEvents(); }, 2_000);
+    let validating = false;
+    const validation = setInterval(async () => {
+      if (closed || validating) return;
+      validating = true;
+      try {
+        await resolveDeviceEventStreamSession(deviceId, sessionKey);
+      } catch {
+        closed = true;
+        clearInterval(heartbeat);
+        clearInterval(poll);
+        clearInterval(validation);
+        res.end();
+      } finally {
+        validating = false;
+      }
+    }, 60_000);
     void sendEvents();
 
     res.on('close', () => {
       closed = true;
       clearInterval(heartbeat);
       clearInterval(poll);
+      clearInterval(validation);
     });
   } catch (error) {
     next(error);
