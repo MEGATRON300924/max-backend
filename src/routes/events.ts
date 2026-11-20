@@ -75,7 +75,7 @@ router.get('/device-stream', async (req, res, next) => {
     };
 
     const heartbeat = setInterval(() => {
-      if (!closed) res.write(': ping\\n\\n');
+      if (!closed) res.write(': ping\n\n');
     }, 15_000);
     const poll = setInterval(() => { void sendEvents(); }, 2_000);
     void sendEvents();
@@ -134,7 +134,7 @@ router.get('/stream', async (req: AuthenticatedRequest, res, next) => {
     let cursor = new Date();
     let closed = false;
     const heartbeat = setInterval(() => {
-      if (!closed) res.write(': ping\\n\\n');
+      if (!closed) res.write(': ping\n\n');
     }, 15000);
     const poll = setInterval(async () => {
       if (closed) return;
@@ -142,7 +142,7 @@ router.get('/stream', async (req: AuthenticatedRequest, res, next) => {
         const events = deviceId ? await listEventsForDevice(user.id, deviceId, cursor, 100) : await listEvents(user.id, cursor, 100);
         for (const event of events) {
           cursor = event.createdAt;
-          res.write(`event: ${event.eventType.toLowerCase()}\\ndata: ${JSON.stringify(event)}\\n\\n`);
+          res.write(`event: ${event.eventType.toLowerCase()}\ndata: ${JSON.stringify(event)}\n\n`);
         }
       } catch { /* connection will be retried by the client */ }
     }, 2000);
