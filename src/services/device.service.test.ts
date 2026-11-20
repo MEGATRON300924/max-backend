@@ -54,7 +54,7 @@ describe('resolveDeviceEventStreamSession', () => {
     mocks.findSession.mockResolvedValue(null);
     await expect(
       resolveDeviceEventStreamSession('device-1', 'x'.repeat(43))
-    ).rejects.toMatchObject({statusCode: 401, code: 'DEVICE_SESSION_INVALID'});
+    ).rejects.toMatchObject({status: 401, code: 'DEVICE_SESSION_INVALID'});
     expect(mocks.findDevice).not.toHaveBeenCalled();
   });
 
