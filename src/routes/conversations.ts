@@ -37,7 +37,7 @@ async function getUser(req: AuthenticatedRequest) {
   const scopes = Array.isArray(req.auth?.claims.scopes)
     ? req.auth.claims.scopes.filter((scope): scope is string => typeof scope === 'string')
     : [];
-  return { ...user, scopes, authAccessToken: authorization?.replace(/^Bearer\s+/i, '').trim() };
+  return { ...user, deviceId, scopes, authAccessToken: authorization?.replace(/^Bearer\s+/i, '').trim() };
 }
 
 async function getConversationForUser(id: string, userId: string) {
