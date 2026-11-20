@@ -49,21 +49,39 @@ export async function createDeviceCommand(userId: string, targetDeviceId: string
   });
 }
 
-export async function listEventsForDevice(userId: string, deviceId: string, after?: Date, limit = 50) {
+export async function listEventsForDevice(
+  userId: string,
+  deviceId: string,
+  after?: Date,
+  limit = 50,
+  afterId?: string
+) {
   const device = await assertDeviceForUser(userId, deviceId);
+  const visibility: Prisma.MaxEventWhereInput = {
+    OR: [
+      { userId },
+      { deviceId },
+      ...(device.homeId ? [{ homeId: device.homeId }] : []),
+      ...(device.roomId ? [{ roomId: device.roomId }] : [])
+    ]
+  };
+  const notExpired: Prisma.MaxEventWhereInput = {
+    OR: [{ expiresAt: null }, { expiresAt: { gt: new Date() } }]
+  };
+  const cursor: Prisma.MaxEventWhereInput | undefined = after
+    ? {
+        OR: [
+          { createdAt: { gt: after } },
+          ...(afterId ? [{ createdAt: after, id: { gt: afterId } }] : [])
+        ]
+      }
+    : undefined;
+
   return prisma.maxEvent.findMany({
     where: {
-      AND: [
-        { OR: [
-          { userId },
-          { deviceId },
-          ...(device.homeId ? [{ homeId: device.homeId }] : []),
-          ...(device.roomId ? [{ roomId: device.roomId }] : [])
-        ] },
-        ...(after ? [{ createdAt: { gt: after } }] : [])
-      ]
+      AND: [visibility, notExpired, ...(cursor ? [cursor] : [])]
     },
-    orderBy: { createdAt: 'asc' },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     take: Math.min(Math.max(limit, 1), 100)
   });
 }
