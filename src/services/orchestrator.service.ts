@@ -329,13 +329,6 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
     return createIntegrationConnectionResult(user, explicitConnectionProvider, 'connect');
   }
   const intent = classifyIntent(latestContent);
-  if (intent === 'home' && capabilities.home) {
-    onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
-  } else if (intent === 'coding' || intent === 'github') {
-    onActivity?.({ kind: 'working', label: 'Working' });
-  } else {
-    onActivity?.({ kind: 'thinking', label: 'Thinking' });
-  }
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
@@ -401,6 +394,13 @@ export async function orchestrateStream(
     return connection;
   }
   const intent = classifyIntent(latestContent);
+  if (intent === 'home' && capabilities.home) {
+    onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
+  } else if (intent === 'coding' || intent === 'github') {
+    onActivity?.({ kind: 'working', label: 'Working' });
+  } else {
+    onActivity?.({ kind: 'thinking', label: 'Thinking' });
+  }
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
