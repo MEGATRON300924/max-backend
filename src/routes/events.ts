@@ -79,7 +79,8 @@ router.get('/device-stream', async (req, res, next) => {
     }, 15_000);
     const poll = setInterval(() => { void sendEvents(); }, 2_000);
     let validating = false;
-    const validation = setInterval(async () => {
+    let validation: ReturnType<typeof setInterval> | undefined;
+    validation = setInterval(async () => {
       if (closed || validating) return;
       validating = true;
       try {
@@ -88,7 +89,7 @@ router.get('/device-stream', async (req, res, next) => {
         closed = true;
         clearInterval(heartbeat);
         clearInterval(poll);
-        clearInterval(validation);
+        if (validation) clearInterval(validation);
         res.end();
       } finally {
         validating = false;
@@ -100,7 +101,7 @@ router.get('/device-stream', async (req, res, next) => {
       closed = true;
       clearInterval(heartbeat);
       clearInterval(poll);
-      clearInterval(validation);
+      if (validation) clearInterval(validation);
     });
   } catch (error) {
     next(error);
