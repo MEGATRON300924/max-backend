@@ -59,7 +59,7 @@ export async function listEventsForDevice(
   const device = await assertDeviceForUser(userId, deviceId);
   const visibility: Prisma.MaxEventWhereInput = {
     OR: [
-      { userId },
+      { userId, deviceId: null },
       { deviceId },
       ...(device.homeId ? [{ homeId: device.homeId }] : []),
       ...(device.roomId ? [{ roomId: device.roomId }] : [])
