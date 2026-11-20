@@ -32,7 +32,7 @@ describe('listEventsForDevice replay query', () => {
     expect(query.take).toBe(100);
     expect(query.where.AND).toHaveLength(3);
     expect(query.where.AND[0].OR).toEqual([
-      {userId: 'user-1'},
+      {userId: 'user-1', deviceId: null},
       {deviceId: 'device-1'},
       {homeId: 'home-1'},
       {roomId: 'room-1'}
