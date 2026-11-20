@@ -8,7 +8,7 @@ type HomeRequest = {
   body?: unknown;
 };
 
-type HomeRecord = { id: string; name: string; [key: string]: unknown };
+type HomeRecord = { id: string; name: string; linked?: boolean; [key: string]: unknown };
 type DeviceRecord = { id: string; name: string; device_type?: string; status?: string; capabilities?: string[]; [key: string]: unknown };
 
 async function requestHome<T>({ accessToken, path, method = 'GET', body }: HomeRequest): Promise<T> {
@@ -43,10 +43,17 @@ function extractHomes(value: any): HomeRecord[] {
   return homes.filter((home: any) => home && typeof home.id === 'string');
 }
 
+async function listLinkedHomes(accessToken: string | undefined): Promise<HomeRecord[]> {
+  // MAX Auth Connected Apps controls which household data MAX Chat may access.
+  // Never fall back to the general membership list: that would expose homes
+  // the user deliberately left unlinked in MAX Auth.
+  const payload = await requestHome<any>({ accessToken, path: '/account-links' });
+  return extractHomes(payload).filter((home) => home.linked === true);
+}
+
 async function resolveHome(accessToken: string | undefined, options: { homeId?: string; homeName?: string } = {}) {
-  const payload = await requestHome<any>({ accessToken, path: '/homes' });
-  const homes = extractHomes(payload);
-  if (!homes.length) throw new ApiError(404, 'HOME_NOT_FOUND', 'There is no MAX Home connected to this account yet.');
+  const homes = await listLinkedHomes(accessToken);
+  if (!homes.length) throw new ApiError(403, 'HOME_NOT_LINKED', 'No MAX Home is linked to MAX Chat yet. Open MAX Auth → Connected Apps → MAX Home and link the home you want MAX Chat to access.');
   if (options.homeId) {
     const match = homes.find((home) => home.id === options.homeId);
     if (!match) throw new ApiError(404, 'HOME_NOT_FOUND', 'That MAX Home was not found on your account.');
@@ -64,8 +71,7 @@ async function resolveHome(accessToken: string | undefined, options: { homeId?: 
 }
 
 export async function listHomes(accessToken: string | undefined) {
-  const payload = await requestHome<any>({ accessToken, path: '/homes' });
-  return { homes: extractHomes(payload) };
+  return { homes: await listLinkedHomes(accessToken) };
 }
 
 export async function listHomeDevices(accessToken: string | undefined, options: { homeId?: string; homeName?: string } = {}) {
