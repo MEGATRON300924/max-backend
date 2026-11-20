@@ -532,9 +532,18 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
     res.flushHeaders();
     res.write('event: response_started\ndata: {}\n\n');
 
-    const generated = await orchestrateStream(user, conversation.id, turns, input.content, (text) => {
-      res.write(`event: text_delta\ndata: ${JSON.stringify({ text })}\n\n`);
-    });
+    const generated = await orchestrateStream(
+      user,
+      conversation.id,
+      turns,
+      input.content,
+      (text) => {
+        res.write(`event: text_delta\ndata: ${JSON.stringify({ text })}\n\n`);
+      },
+      (activity) => {
+        res.write(`event: activity\ndata: ${JSON.stringify(activity)}\n\n`);
+      }
+    );
 
     const assistantMessage = await prisma.message.create({
       data: {
