@@ -123,9 +123,18 @@ export async function touchDevice(principal: AuthPrincipal, deviceId: string, se
   const device = await prisma.device.findFirst({ where: { id: deviceId, userId: user.id, revokedAt: null } });
   if (!device) throw new ApiError(404, 'DEVICE_NOT_FOUND', 'MAX device was not found or revoked');
   if (sessionKey) {
-    const session = await prisma.deviceSession.findFirst({ where: { deviceId, userId: user.id, sessionKey, status: 'ACTIVE' } });
-    if (!session) throw new ApiError(401, 'DEVICE_SESSION_INVALID', 'MAX device session is invalid');
-    await prisma.deviceSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } });
+    const now = new Date();
+    const session = await prisma.deviceSession.findFirst({
+      where: { deviceId, userId: user.id, sessionKey, status: 'ACTIVE', expiresAt: { gt: now } }
+    });
+    if (!session) throw new ApiError(401, 'DEVICE_SESSION_INVALID', 'MAX device session is invalid or expired');
+    await prisma.deviceSession.update({
+      where: { id: session.id },
+      data: {
+        lastSeenAt: now,
+        expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+      }
+    });
   }
   return prisma.device.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
 }
