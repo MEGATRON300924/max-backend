@@ -9,6 +9,8 @@ import { resolveEcosystemUser } from '../services/user.service.js';
 import { orchestrate, orchestrateStream } from '../services/orchestrator.service.js';
 import { generateGeminiResponseWithTools } from '../services/ai.service.js';
 import { createChatImageUploadSignature, cloudinaryImageUrl, deleteCloudinaryImage, getCloudinaryImageDetails, verifyChatImageUpload } from '../services/cloudinary.service.js';
+import { assertDeviceForUser, createEvent } from '../services/event.service.js';
+import { logger } from '../config/logger.js';
 
 const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
 const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(100) });
@@ -29,6 +31,9 @@ conversationsRouter.use(requireAuth);
 async function getUser(req: AuthenticatedRequest) {
   const user = await resolveEcosystemUser(req.auth!);
   const authorization = req.header('authorization');
+  const rawDeviceId = req.header('x-max-device-id');
+  const deviceId = rawDeviceId ? z.string().uuid().parse(rawDeviceId) : undefined;
+  if (deviceId) await assertDeviceForUser(user.id, deviceId);
   const scopes = Array.isArray(req.auth?.claims.scopes)
     ? req.auth.claims.scopes.filter((scope): scope is string => typeof scope === 'string')
     : [];
@@ -560,6 +565,29 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
         }
       }
     });
+
+    if (user.deviceId) {
+      try {
+        await createEvent({
+          userId: user.id,
+          deviceId: user.deviceId,
+          eventType: 'NOTIFICATION',
+          priority: 'NORMAL',
+          payload: {
+            type: 'chat_response_completed',
+            title: 'MAX has replied',
+            body: 'Your response is ready.',
+            conversationId: conversation.id,
+            messageId: assistantMessage.id
+          },
+          targetType: 'device',
+          targetId: user.deviceId,
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+        });
+      } catch {
+        logger.warn({event: 'notification.enqueue.failed', deviceId: user.deviceId}, 'Could not queue MAX response notification');
+      }
+    }
 
     res.write(`event: response_completed\ndata: ${JSON.stringify({ messageId: assistantMessage.id, intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), connections: jsonMetadata(generated.connections), interactionId: generated.interactionId })}\n\n`);
     res.end();
