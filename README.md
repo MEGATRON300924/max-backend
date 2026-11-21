@@ -32,3 +32,6 @@ Set GEMINI_API_KEY to enable Google Gemini and GEMINI_MODEL to choose a supporte
 ### Mobile chat attachment support
 
 The authenticated conversation stream accepts up to three previously signed and completed image attachment IDs. It verifies that each image belongs to the authenticated user and the target conversation, and links the attachments to the persisted user message so conversation history returns their metadata and secure preview URLs. Accepted image formats and the 10 MB per-image limit are enforced by the attachment-sign/complete endpoints. Detailed activity updates continue to stream through the `activity` SSE event from the shared orchestrator contract.
+
+
+The Android client also uses the authenticated `/api/v1/cloud/files` upload and download endpoints for PDF, text, Markdown, CSV, JSON and HTML documents. Chat messages may include bounded `documentContext` plus MAX Cloud file references; the stream route verifies every referenced Cloud file belongs to the authenticated user, stores the context in message metadata, and restores it for later turns. `POST /api/v1/cloud/files/:id/analyze` analyses a user's own PDF through Gemini after verifying ownership and file integrity. This endpoint does not expose storage credentials or accept arbitrary external file URLs.
