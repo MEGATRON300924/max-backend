@@ -489,10 +489,12 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
     const attachments = input.attachmentIds.length
       ? await prisma.conversationAttachment.findMany({
           where: { id: { in: input.attachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
-          select: { id: true }
+          select: { id: true, mimeType: true }
         })
       : [];
-    if (attachments.length !== input.attachmentIds.length) {
+    if (attachments.length !== input.attachmentIds.length
+        || attachments.length > 3
+        || attachments.some(attachment => !attachment.mimeType.startsWith('image/'))) {
       throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'One or more uploaded images do not belong to this conversation.');
     }
     const userMessage = await prisma.message.create({
