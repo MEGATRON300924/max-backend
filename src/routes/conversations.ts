@@ -97,9 +97,14 @@ function turnsFromConversation(messages: Array<{ role: string; content: string; 
       quizContext = '\n\n[Persisted MAX Quiz context — use this answer key and the student\'s recorded answers for follow-up questions. Do not expose answers unless the student asks.]\n' +
         'Quiz: ' + String(quiz.title || 'Study quiz') + '\n' + questions;
     }
+    const visionContext = typeof metadata.visionContext === 'string'
+      ? metadata.visionContext.slice(0, 12000)
+      : '';
     return {
       role: message.role === 'USER' ? 'user' as const : 'model' as const,
-      content: message.content + quizContext
+      content: message.content + quizContext + (visionContext
+        ? '\\n\\n[Image analysis context from an earlier MAX Vision request]\n' + visionContext
+        : '')
     };
   });
 }
@@ -543,7 +548,32 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
     const conversationId = conversationIdSchema.parse(req.params.id);
     const conversation = await getConversationForUser(conversationId, user.id);
 
-    await prisma.message.create({ data: { conversationId: conversation.id, role: 'USER', content: input.content } });
+    const attachments = input.attachmentIds.length
+      ? await prisma.conversationAttachment.findMany({
+          where: { id: { in: input.attachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
+          select: { id: true, mimeType: true }
+        })
+      : [];
+    if (attachments.length !== input.attachmentIds.length
+        || attachments.length > 3
+        || attachments.some(attachment => !attachment.mimeType.startsWith('image/'))) {
+      throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'One or more uploaded images do not belong to this conversation.');
+    }
+    const userMessage = await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'USER',
+        content: input.content,
+        ...(input.imageContext ? { metadata: { visionContext: input.imageContext } } : {})
+      },
+      select: { id: true }
+    });
+    if (input.attachmentIds.length) {
+      await prisma.conversationAttachment.updateMany({
+        where: { id: { in: input.attachmentIds }, userId: user.id, conversationId: conversation.id, messageId: null },
+        data: { messageId: userMessage.id }
+      });
+    }
 
     const turns = turnsFromConversation([
       ...conversation.messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT'),
