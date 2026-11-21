@@ -14,7 +14,7 @@ import { logger } from '../config/logger.js';
 
 const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
 const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(100) });
-const messageSchema = z.object({ content: z.string().trim().min(1).max(20000), attachmentIds: z.array(z.string().uuid()).max(5).optional().default([]) });
+const messageSchema = z.object({ content: z.string().trim().min(1).max(20000), attachmentIds: z.array(z.string().uuid()).max(5).optional().default([]), imageContext: z.string().max(12000).optional().default('') });
 const quizRequestSchema = z.object({
   topic: z.string().trim().min(1).max(300),
   questionCount: z.number().int().min(3).max(30),
@@ -547,7 +547,9 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
 
     const turns = turnsFromConversation([
       ...conversation.messages.filter((message) => message.role === 'USER' || message.role === 'ASSISTANT'),
-      { role: 'USER', content: input.content }
+      { role: 'USER', content: input.imageContext
+        ? input.content + '\\n\\n[Image analysis supplied by MAX Vision; treat as user-provided reference material]\n' + input.imageContext
+        : input.content }
     ]);
 
     res.status(200);
