@@ -1,3 +1,4 @@
+import { randomBytes } from 'node:crypto';
 import { prisma } from '../lib/prisma.js';
 import { Prisma } from '@prisma/client';
 import { ApiError } from '../middleware/errors.js';
@@ -72,11 +73,16 @@ export async function registerDevice(principal: AuthPrincipal, input: DeviceRegi
         }
       });
 
+  await prisma.deviceSession.updateMany({
+    where: { deviceId: device.id, status: 'ACTIVE' },
+    data: { status: 'REVOKED', expiresAt: new Date() }
+  });
+
   const session = await prisma.deviceSession.create({
     data: {
       deviceId: device.id,
       userId: user.id,
-      sessionKey: crypto.randomUUID(),
+      sessionKey: randomBytes(32).toString('base64url'),
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     }
   });
@@ -117,9 +123,64 @@ export async function touchDevice(principal: AuthPrincipal, deviceId: string, se
   const device = await prisma.device.findFirst({ where: { id: deviceId, userId: user.id, revokedAt: null } });
   if (!device) throw new ApiError(404, 'DEVICE_NOT_FOUND', 'MAX device was not found or revoked');
   if (sessionKey) {
-    const session = await prisma.deviceSession.findFirst({ where: { deviceId, userId: user.id, sessionKey, status: 'ACTIVE' } });
-    if (!session) throw new ApiError(401, 'DEVICE_SESSION_INVALID', 'MAX device session is invalid');
-    await prisma.deviceSession.update({ where: { id: session.id }, data: { lastSeenAt: new Date() } });
+    const now = new Date();
+    const session = await prisma.deviceSession.findFirst({
+      where: { deviceId, userId: user.id, sessionKey, status: 'ACTIVE', expiresAt: { gt: now } }
+    });
+    if (!session) throw new ApiError(401, 'DEVICE_SESSION_INVALID', 'MAX device session is invalid or expired');
+    await prisma.deviceSession.update({
+      where: { id: session.id },
+      data: {
+        lastSeenAt: now,
+        expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+      }
+    });
   }
   return prisma.device.update({ where: { id: device.id }, data: { lastSeenAt: new Date() } });
+}
+
+
+/**
+ * Resolve a device-scoped event-stream credential. This credential is separate
+ * from MAX Auth access/refresh tokens and can be revoked with the device.
+ */
+export async function resolveDeviceEventStreamSession(deviceId: string, sessionKey: string) {
+  const now = new Date();
+  const session = await prisma.deviceSession.findFirst({
+    where: {
+      deviceId,
+      sessionKey,
+      status: 'ACTIVE',
+      expiresAt: { gt: now }
+    },
+    select: { id: true, userId: true, deviceId: true }
+  });
+
+  if (!session) {
+    throw new ApiError(401, 'DEVICE_SESSION_INVALID', 'MAX device session is invalid or expired');
+  }
+
+  const device = await prisma.device.findFirst({
+    where: { id: deviceId, userId: session.userId, revokedAt: null },
+    select: { id: true, homeId: true, roomId: true }
+  });
+
+  if (!device) {
+    throw new ApiError(401, 'DEVICE_REVOKED', 'This MAX device has been revoked');
+  }
+
+  await prisma.deviceSession.update({
+    where: { id: session.id },
+    data: {
+      lastSeenAt: now,
+      expiresAt: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000)
+    }
+  });
+
+  return {
+    userId: session.userId,
+    deviceId: session.deviceId,
+    homeId: device.homeId,
+    roomId: device.roomId
+  };
 }

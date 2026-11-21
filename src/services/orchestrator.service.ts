@@ -16,6 +16,13 @@ type UserContext = {
   tier?: string | null;
 };
 
+type ActivityUpdate = {
+  kind: 'thinking' | 'working' | 'connecting_to_max_home';
+  label?: string;
+  filename?: string;
+  progress?: number;
+};
+
 type Confirmation = {
   id: string;
   toolName: string;
@@ -60,7 +67,9 @@ function classifyIntent(content: string) {
   const value = content.toLowerCase();
   // Named account/product context takes priority over generic nouns such as 'device'.
   if (/\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\b/.test(value)) return 'account';
-  if (/\\b(github|git hub|repositories|repository|repos?\\b|pull requests?|github actions|codebase)\\b/.test(value)) return 'github';
+  if (/\b(github|git hub|repositories|repository|repos?\b|pull requests?|github actions|codebase)\b/.test(value)) return 'github';
+  if (/\b(code|coding|programming|script|function|bug|debug|refactor|compile|implement|source code)\b/.test(value)
+      || /\b(write|create|build|debug|fix|refactor|implement|edit)\b.{0,40}\b(app|website|api|file|software)\b/.test(value)) return 'coding';
   if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
   if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds|hotel registration|sign[- ]?up requests?|onboarding leads?)\b/.test(value)) return 'hotels';
   if (/\b(watched|watch history|playback progress|continue watching|stopped at|video progress|last watched)\b/.test(value)) return 'media';
@@ -192,7 +201,8 @@ async function processToolCalls(
   interactionId: string,
   functionCalls: Array<{ id: string; name: string; args: Record<string, unknown> }>,
   executed: string[],
-  confirmations: Confirmation[]
+  confirmations: Confirmation[],
+  onActivity?: (activity: ActivityUpdate) => void
 ) {
   const functionResults: Array<{ name: string; callId: string; result: unknown }> = [];
 
@@ -201,6 +211,19 @@ async function processToolCalls(
     if (!tool) {
       functionResults.push({ name: call.name, callId: call.id, result: { success: false, error: 'TOOL_NOT_AVAILABLE' } });
       continue;
+    }
+
+    const filenameValue = [call.args.filename, call.args.fileName, call.args.filePath, call.args.path]
+      .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
+    const filename = filenameValue?.trim().slice(0, 180);
+    if (tool.name.startsWith('home.')) {
+      onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
+    } else {
+      onActivity?.({
+        kind: 'working',
+        label: filename ? `Working · ${filename}` : `Working · ${tool.name}`,
+        ...(filename ? { filename } : {})
+      });
     }
 
     if (tool.requiresConfirmation) {
@@ -363,7 +386,8 @@ export async function orchestrateStream(
   conversationId: string,
   turns: ChatTurn[],
   latestContent: string,
-  onText: (text: string) => void
+  onText: (text: string) => void,
+  onActivity?: (activity: ActivityUpdate) => void
 ): Promise<OrchestrationResult> {
   const explicitConnectionProvider = detectExplicitIntegrationConnect(latestContent);
   if (explicitConnectionProvider) {
@@ -372,6 +396,13 @@ export async function orchestrateStream(
     return connection;
   }
   const intent = classifyIntent(latestContent);
+  if (intent === 'home' && capabilities.home) {
+    onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
+  } else if (intent === 'coding' || intent === 'github') {
+    onActivity?.({ kind: 'working', label: 'Working' });
+  } else {
+    onActivity?.({ kind: 'thinking', label: 'Thinking' });
+  }
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
@@ -399,7 +430,7 @@ export async function orchestrateStream(
     }
 
     if (!interactionId) throw new Error('Gemini did not return an interaction identifier');
-    const functionResults = await processToolCalls(user, conversationId, interactionId, interaction.functionCalls, executed, confirmations);
+    const functionResults = await processToolCalls(user, conversationId, interactionId, interaction.functionCalls, executed, confirmations, onActivity);
     for (const item of functionResults) {
       const value = item.result as Record<string, unknown> | null;
       if (value && value.connectionRequired === true && typeof value.provider === 'string' && typeof value.authorizationUrl === 'string') {

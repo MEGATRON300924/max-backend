@@ -1,11 +1,114 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { requireAuth } from '../middleware/auth.js';
+import { ApiError } from '../middleware/errors.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
-import { assertDeviceForUser, createEvent, listEvents, listEventsForDevice } from '../services/event.service.js';
+import {
+  assertDeviceForUser,
+  createEvent,
+  listEvents,
+  listEventsForDevice
+} from '../services/event.service.js';
+import { resolveDeviceEventStreamSession } from '../services/device.service.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 
 const router = Router();
+
+/**
+ * Device-scoped notification stream.
+ *
+ * The device session key is issued only after an authenticated MAX Auth
+ * device-registration request. It is not an account access/refresh token.
+ * Revoking the device revokes this stream credential as well.
+ */
+router.get('/device-stream', async (req, res, next) => {
+  try {
+    const deviceId = z.string().uuid().parse(req.header('x-max-device-id'));
+    const sessionKey = z.string().min(32).max(255).parse(req.header('x-max-device-session'));
+    const session = await resolveDeviceEventStreamSession(deviceId, sessionKey);
+
+    const afterValue = typeof req.query.after === 'string' ? req.query.after : undefined;
+    const after = afterValue ? new Date(afterValue) : new Date();
+    if (Number.isNaN(after.getTime())) {
+      throw new ApiError(400, 'INVALID_EVENT_CURSOR', 'The event cursor is invalid');
+    }
+    const afterId = typeof req.query.after_id === 'string'
+      ? z.string().uuid().parse(req.query.after_id)
+      : undefined;
+
+    res.status(200);
+    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache, no-store, no-transform');
+    res.setHeader('Connection', 'keep-alive');
+    res.setHeader('X-Accel-Buffering', 'no');
+    res.flushHeaders?.();
+
+    let cursor = after;
+    let cursorId = afterId;
+    let closed = false;
+    let polling = false;
+
+    const sendEvents = async () => {
+      if (closed || polling) return;
+      polling = true;
+      try {
+        const events = await listEventsForDevice(
+          session.userId,
+          session.deviceId,
+          cursor,
+          100,
+          cursorId
+        );
+        for (const event of events) {
+          if (closed) break;
+          cursor = event.createdAt;
+          cursorId = event.id;
+          res.write(
+            `id: ${event.id}\nevent: ${event.eventType.toLowerCase()}\ndata: ${JSON.stringify(event)}\n\n`
+          );
+        }
+      } catch {
+        // Keep the connection open; the client reconnects if the stream closes.
+      } finally {
+        polling = false;
+      }
+    };
+
+    const heartbeat = setInterval(() => {
+      if (!closed) res.write(': ping\n\n');
+    }, 15_000);
+    const poll = setInterval(() => { void sendEvents(); }, 2_000);
+    let validating = false;
+    let validation: ReturnType<typeof setInterval> | undefined;
+    validation = setInterval(async () => {
+      if (closed || validating) return;
+      validating = true;
+      try {
+        await resolveDeviceEventStreamSession(deviceId, sessionKey);
+      } catch {
+        closed = true;
+        clearInterval(heartbeat);
+        clearInterval(poll);
+        if (validation) clearInterval(validation);
+        res.end();
+      } finally {
+        validating = false;
+      }
+    }, 60_000);
+    void sendEvents();
+
+    res.on('close', () => {
+      closed = true;
+      clearInterval(heartbeat);
+      clearInterval(poll);
+      if (validation) clearInterval(validation);
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// All account-scoped event endpoints below continue to require MAX Auth.
 router.use(requireAuth);
 
 router.get('/', async (req: AuthenticatedRequest, res, next) => {
@@ -49,7 +152,7 @@ router.get('/stream', async (req: AuthenticatedRequest, res, next) => {
     let cursor = new Date();
     let closed = false;
     const heartbeat = setInterval(() => {
-      if (!closed) res.write(': ping\\n\\n');
+      if (!closed) res.write(': ping\n\n');
     }, 15000);
     const poll = setInterval(async () => {
       if (closed) return;
@@ -57,12 +160,12 @@ router.get('/stream', async (req: AuthenticatedRequest, res, next) => {
         const events = deviceId ? await listEventsForDevice(user.id, deviceId, cursor, 100) : await listEvents(user.id, cursor, 100);
         for (const event of events) {
           cursor = event.createdAt;
-          res.write(`event: ${event.eventType.toLowerCase()}\\ndata: ${JSON.stringify(event)}\\n\\n`);
+          res.write(`event: ${event.eventType.toLowerCase()}\ndata: ${JSON.stringify(event)}\n\n`);
         }
       } catch { /* connection will be retried by the client */ }
     }, 2000);
 
-    req.on('close', () => {
+    res.on('close', () => {
       closed = true;
       clearInterval(heartbeat);
       clearInterval(poll);
