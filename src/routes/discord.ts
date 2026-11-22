@@ -198,7 +198,7 @@ router.post('/interactions', (req, res) => {
 export async function registerDiscordCommands() {
   if (!env.DISCORD_APPLICATION_ID || !env.DISCORD_BOT_TOKEN) return;
   const response = await fetch(`${DISCORD_API}/applications/${encodeURIComponent(env.DISCORD_APPLICATION_ID)}/commands`, {
-    method: 'PUT',
+    method: 'POST',
     headers: {
       Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
       'Content-Type': 'application/json'

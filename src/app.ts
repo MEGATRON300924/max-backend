@@ -59,6 +59,7 @@ app.use(diagnosticsTelemetryMiddleware);
 app.use(pinoHttp({
   logger,
   serializers: {
+    // Never serialize request headers or query strings into application logs.
     req: (req) => ({
       id: req.id,
       method: req.method,
@@ -66,6 +67,7 @@ app.use(pinoHttp({
         ? sanitizeDiagnosticPath(req.url.split('?')[0])
         : undefined
     }),
+    // Pino's default error serializer includes message and stack. Keep only the class.
     err: (err) => ({ type: err instanceof Error ? err.name : typeof err }),
     res: (res) => ({ statusCode: res.statusCode })
   },
@@ -79,6 +81,7 @@ app.use(pinoHttp({
     return 'info';
   },
   customSuccessMessage: (req, res) => `${req.method} ${req.path} completed with ${res.statusCode}`,
+  // Do not include err.message: upstream errors can contain provider payloads or secrets.
   customErrorMessage: (req, res) => `${req.method} ${req.path} failed with ${res.statusCode}`
 }));
 
