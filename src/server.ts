@@ -3,20 +3,21 @@ import { env } from './config/env.js';
 import { logger } from './config/logger.js';
 import { prisma } from './lib/prisma.js';
 import { flushDiagnosticsTelemetry } from './services/diagnostics-telemetry.service.js';
+import { registerDiscordCommands } from './routes/discord.js';
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, environment: env.NODE_ENV }, 'MAX backend started');
+  void registerDiscordCommands().catch((error) => {
+    logger.warn({ err: error instanceof Error ? error.name : typeof error }, 'Discord command registration failed');
+  });
 });
 
-// Log fatal process-level failures so they are visible in Render Live Tail.
-// uncaughtExceptionMonitor preserves Node's default crash behavior.
 process.on('uncaughtExceptionMonitor', (error, origin) => {
   logger.fatal({ err: error, origin }, 'Uncaught exception; process will terminate');
 });
 
 process.on('unhandledRejection', (reason) => {
   logger.fatal({ err: reason }, 'Unhandled promise rejection; terminating process');
-  // A process with an unhandled rejection is not considered safe to keep serving.
   setImmediate(() => process.exit(1));
 });
 

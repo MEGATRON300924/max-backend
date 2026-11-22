@@ -35,6 +35,7 @@ import { maxAuthProxyRouter } from './routes/max-auth-proxy.js';
 import { personalizationRouter } from './routes/personalization.js';
 import { filesRouter } from './routes/files.js';
 import { imagesRouter } from './routes/images.js';
+import { discordRouter } from './routes/discord.js';
 import { sanitizeDiagnosticPath } from './middleware/diagnostics.js';
 import { diagnosticsTelemetryMiddleware } from './middleware/diagnostics-telemetry.js';
 
@@ -44,14 +45,20 @@ app.disable('x-powered-by');
 app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({ origin: corsOrigins, credentials: true }));
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({
+  limit: '2mb',
+  verify: (req, _res, buffer) => {
+    if (req.url?.startsWith(`${env.API_PREFIX}/discord/interactions`)) {
+      (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+    }
+  }
+}));
 app.use(express.urlencoded({ extended: false, limit: '2mb' }));
 app.use(correlationMiddleware);
 app.use(diagnosticsTelemetryMiddleware);
 app.use(pinoHttp({
   logger,
   serializers: {
-    // Never serialize request headers or query strings into application logs.
     req: (req) => ({
       id: req.id,
       method: req.method,
@@ -59,7 +66,6 @@ app.use(pinoHttp({
         ? sanitizeDiagnosticPath(req.url.split('?')[0])
         : undefined
     }),
-    // Pino's default error serializer includes message and stack. Keep only the class.
     err: (err) => ({ type: err instanceof Error ? err.name : typeof err }),
     res: (res) => ({ statusCode: res.statusCode })
   },
@@ -73,7 +79,6 @@ app.use(pinoHttp({
     return 'info';
   },
   customSuccessMessage: (req, res) => `${req.method} ${req.path} completed with ${res.statusCode}`,
-  // Do not include err.message: upstream errors can contain provider payloads or secrets.
   customErrorMessage: (req, res) => `${req.method} ${req.path} failed with ${res.statusCode}`
 }));
 
@@ -93,6 +98,7 @@ app.get('/', (_req, res) => {
 app.use('/health', healthRouter);
 app.use(`${env.API_PREFIX}/health`, healthRouter);
 app.use(`${env.API_PREFIX}/auth`, maxAuthProxyRouter);
+app.use(`${env.API_PREFIX}/discord`, discordRouter);
 app.use(`${env.API_PREFIX}/profile`, profileRouter);
 app.use(`${env.API_PREFIX}/personalization`, personalizationRouter);
 app.use(`${env.API_PREFIX}/files`, filesRouter);
