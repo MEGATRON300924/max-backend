@@ -867,3 +867,13 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - During validation, CI first caught a missing comma in the context builder and then an outdated test assertion after the speaker label was explicitly marked untrusted. Both were corrected; the final full pipeline is green.
 - Discord server/channel/display/role names are explicitly treated as untrusted labels, while platform/source fields, Discord IDs and permission booleans are separately identified as transport metadata.
 - PR #52 remains open, non-draft and unmerged. No Render deployment or production behavior change has occurred.
+
+
+## 2026-11-23 — MAX Voice Engine Phase B prototype
+- Created branch `feature/max-voice-engine-kokoro` from the live Discord addressing merge.
+- Added a separate Dockerized FastAPI voice-engine prototype under `services/max-voice-engine`, using Kokoro ONNX INT8 on CPU. Model and voice-pack downloads are checksum-verified in the Docker build; upstream model weights are Apache-2.0 and the Kokoro ONNX runtime is MIT-licensed.
+- Prototype endpoints: public liveness/readiness; authenticated voice inventory; authenticated PCM-16 WAV synthesis. Inference is serialized initially, request text/audio are not logged, and voice/text/speed inputs are bounded.
+- Added isolated Python API tests and a dedicated GitHub Actions workflow. CI must pass before considering the prototype mergeable.
+- This is not the final MAX voice identity and is not production-deployed. The default `af_sarah` profile is temporary for smoke testing only.
+- Not implemented yet: backend provider adapter/failover, retries/circuit breaker/usage telemetry, STT in the self-hosted engine, synthesis cache/streaming, custom MAX voice design, Discord voice capture/speaker turns/barge-in, and MAX Music mixing.
+- No Render service, environment secret, paid resource, or production audio capture has been created. Benchmark memory, CPU, cold start, latency and concurrency on a candidate instance before any deployment or cost commitment.
