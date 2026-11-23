@@ -68,7 +68,7 @@ describe('resolveDeviceEventStreamSession', () => {
 
     await expect(
       resolveDeviceEventStreamSession('device-1', 'x'.repeat(43))
-    ).rejects.toMatchObject({statusCode: 401, code: 'DEVICE_REVOKED'});
+    ).rejects.toMatchObject({status: 401, code: 'DEVICE_REVOKED'});
     expect(mocks.updateSession).not.toHaveBeenCalled();
   });
 });
