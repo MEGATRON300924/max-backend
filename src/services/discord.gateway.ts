@@ -110,7 +110,7 @@ function buildDiscordContext(message: Message, speakerName: string | null, linke
 async function saveAndGenerate(message: Message, identity: NonNullable<Awaited<ReturnType<typeof getLinkedMaxIdentity>>> | null, allowAccountContext: boolean) {
   const guild = message.guild!;
   const guestSubject = 'discord-guest:' + guild.id + ':' + message.author.id;
-  const user = identity
+  const user = identity && allowAccountContext
     ? await resolveEcosystemUser({
         subject: identity.maxUserId,
         username: identity.username,
@@ -248,6 +248,79 @@ async function handleGuildMessage(message: Message) {
   }
 }
 
+
+async function handleDirectMessage(message: Message) {
+  if (message.author.bot || message.webhookId || !message.content.trim()) return;
+  const userKey = 'dm:' + message.author.id;
+  const now = Date.now();
+  if (inFlight.has(userKey) || (cooldowns.get(userKey) ?? 0) > now) return;
+  inFlight.add(userKey);
+  cooldowns.set(userKey, now + 2500);
+  try {
+    const identity = await getLinkedMaxIdentity(message.author.id).catch(() => null);
+    const guestSubject = 'discord-guest:dm:' + message.author.id;
+    const user = identity
+      ? await resolveEcosystemUser({
+          subject: identity.maxUserId,
+          username: identity.username,
+          name: identity.displayName,
+          picture: identity.avatarUrl ?? undefined,
+          claims: {}
+        } as AuthPrincipal)
+      : await prisma.ecosystemUser.upsert({
+          where: { authSubject: guestSubject },
+          create: { authSubject: guestSubject },
+          update: {}
+        });
+    const conversation = await getConversation(user.id, 'Discord DM');
+    await prisma.message.create({
+      data: { conversationId: conversation.id, role: 'USER', content: message.content.slice(0, 8000) }
+    });
+    const turns = await getTurns(conversation.id);
+    const context = [
+      'This is a direct, private Discord conversation with MAX.',
+      'The current speaker is the Discord message author. Never infer identity from another person mentioned in the message.',
+      'Speaker is linked to MAX Auth: ' + Boolean(identity) + '.',
+      'Trusted MAX display name: ' + (identity?.displayName ?? 'unknown; do not guess') + '.',
+      'There is no server role or server permission context in this direct message.'
+    ].join('\n');
+    const generated = identity
+      ? await orchestrate({
+          id: user.id,
+          displayName: user.displayName,
+          locale: user.locale,
+          timezone: user.timezone,
+          authSubject: identity.maxUserId,
+          scopes: []
+        }, conversation.id, turns, message.content, context)
+      : await orchestrateDiscordGuest({
+          id: user.id,
+          displayName: null,
+          locale: user.locale,
+          timezone: user.timezone
+        }, turns, message.content, context);
+    const reply = generated.confirmations.length
+      ? generated.text + '\n\n🔐 This action needs confirmation. Please open MAX AI to review and approve it securely.'
+      : generated.text;
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: 'ASSISTANT',
+        content: reply,
+        provider: generated.provider,
+        model: generated.model,
+        metadata: { source: 'discord-dm', linkedIdentity: Boolean(identity), tools: generated.tools }
+      }
+    });
+    await sendLongReply(message, reply);
+  } catch (error) {
+    logger.error({ errorType: error instanceof Error ? error.name : typeof error }, 'Discord DM processing failed');
+    await message.reply({ content: '⚠️ MAX could not complete that request right now. Please try again.', allowedMentions: { parse: [] } }).catch(() => undefined);
+  } finally {
+    inFlight.delete(userKey);
+  }
+}
+
 export function startDiscordGateway() {
   if (!env.DISCORD_BOT_TOKEN || !env.DISCORD_GATEWAY_ENABLED) {
     logger.info('Discord Gateway is disabled or DISCORD_BOT_TOKEN is not configured');
@@ -266,7 +339,8 @@ export function startDiscordGateway() {
     logger.info({ botUser: readyClient.user.tag, guildCount: readyClient.guilds.cache.size }, 'MAX Discord Gateway connected');
   });
   client.on('messageCreate', (message) => {
-    void handleGuildMessage(message);
+    if (message.guild) void handleGuildMessage(message);
+    else void handleDirectMessage(message);
   });
   client.on('error', (error) => {
     logger.error({ errorType: error.name }, 'MAX Discord Gateway client error');
