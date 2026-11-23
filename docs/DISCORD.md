@@ -36,8 +36,8 @@ After enabling a channel, MAX responds to normal messages there; no /ask command
 
 - MAX Auth's existing Discord account link is the only source of a linked MAX identity. The speaker's Discord ID is looked up; mentioned or quoted users are never used as the authenticated principal.
 - Unlinked speakers receive an isolated guest conversation. Guest mode has no MAX memories, connected-service personalisation, or account tools.
-- Public guild channels always use restricted guest mode. A linked speaker's likely personal/account request is processed under that speaker's linked MAX identity and delivered by DM. If DM delivery fails, no private answer is posted in the channel.
-- A linked speaker in a channel hidden from @everyone can use account features there. Discord server roles and permissions do not grant MAX account privileges.
+- All guild channels use restricted guest mode, including channels hidden from @everyone, because a private server channel may still contain multiple members. A linked speaker's likely personal/account request is processed under that speaker's linked MAX identity and delivered by DM. If DM delivery fails, no private answer is posted in the channel.
+- Account tools are available through private DMs for linked speakers. Discord server roles and permissions do not grant MAX account privileges.
 - The server owner, channel, role hierarchy, and permission context are provided to MAX as Discord context only.
 - The bot ignores bot/webhook messages and applies per-user cooldowns.
 
