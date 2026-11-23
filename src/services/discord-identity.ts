@@ -1,6 +1,5 @@
 export type DiscordIdentityContext = {
   displayName?: string;
-  [key: string]: unknown;
 };
 
 /**
@@ -32,4 +31,36 @@ export function splitDiscordMessage(content: string, maxLength = 1900): string[]
     chunks.push(characters.slice(index, index + maxLength).join(''));
   }
   return chunks;
+}
+
+/** Return only non-sensitive status/code fields from provider and API errors. */
+export function getDiscordErrorMetadata(error: unknown): {
+  errorType: string;
+  errorCode?: string | number;
+  errorStatus?: string | number;
+} {
+  if (!error || typeof error !== 'object') {
+    return { errorType: typeof error };
+  }
+  const candidate = error as {
+    name?: unknown;
+    code?: unknown;
+    status?: unknown;
+    statusCode?: unknown;
+  };
+  const metadata: {
+    errorType: string;
+    errorCode?: string | number;
+    errorStatus?: string | number;
+  } = {
+    errorType: typeof candidate.name === 'string' ? candidate.name : 'Error'
+  };
+  if (typeof candidate.code === 'string' || typeof candidate.code === 'number') {
+    metadata.errorCode = candidate.code;
+  }
+  const status = candidate.status ?? candidate.statusCode;
+  if (typeof status === 'string' || typeof status === 'number') {
+    metadata.errorStatus = status;
+  }
+  return metadata;
 }
