@@ -867,3 +867,13 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - During validation, CI first caught a missing comma in the context builder and then an outdated test assertion after the speaker label was explicitly marked untrusted. Both were corrected; the final full pipeline is green.
 - Discord server/channel/display/role names are explicitly treated as untrusted labels, while platform/source fields, Discord IDs and permission booleans are separately identified as transport metadata.
 - PR #52 remains open, non-draft and unmerged. No Render deployment or production behavior change has occurred.
+
+
+### Discord addressing/context merged and deployed — 2026-11-23
+- PR #52 merged into `main`: https://github.com/MEGATRON300924/max-backend/pull/52
+- Merge commit: `7b5de91532140def91d8e4920a5d263ee8eadbce`.
+- Main-branch GitHub Actions run #445 (45232862703) completed successfully on the merge commit.
+- Render service `max-backend` automatically deployed merge commit `7b5de91532140def91d8e4920a5d263ee8eadbce`; deploy `dep-dc27sjbbc2fs738hcbdg` reached status `live`.
+- Production deployment is confirmed. Real Discord scenario checks (silence for member-to-member replies, explicit mention/name, reply context, Japanese translation, and Webchat source marker) remain to be performed with live test messages.
+- Updated `docs/DISCORD.md` separately because the previous instructions incorrectly described ordinary-message responses and showed outdated channel command syntax.
+- Voice roadmap status: the backend already contains authenticated ElevenLabs STT/TTS endpoints, but the provider-neutral MAX Voice Engine, self-hosted Kokoro runtime, robust failover/telemetry, and Discord voice sessions are not implemented by this merge. Do not claim voice readiness. Continue with a separately reviewed Phase B implementation and benchmark before any paid Render resource or production audio capture.
