@@ -758,3 +758,12 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Added direct-message support, plus Discord server/channel/owner/role/permission context. Discord roles never become MAX account authorisation.
 - Kept the existing /ask HTTP interaction route.
 - Pending validation: GitHub Actions CI and Render deployment. Enable Message Content Intent in the Discord Developer Portal and set DISCORD_GATEWAY_ENABLED=true in Render after deployment.
+
+
+## Discord slash-command registration diagnostics — 2026-11-23
+- Investigated Render logs after the user confirmed two restarts and configured the Discord Interactions Endpoint URL.
+- Confirmed MAX Gateway connects as max#9506, while startup command registration fails on every deployment. Discord also sent an interaction-endpoint validation request that received HTTP 401 before a later HTTP 200 response; do not conflate endpoint signature validation with Gateway command registration.
+- Root cause is not yet known because the previous startup catch logged only the generic Error class, hiding the Discord API HTTP status and response body.
+- Created branch `fix/discord-command-registration-diagnostics` from current main. Updated Discord command registration errors to retain the Discord HTTP status and bounded response body, and updated startup logging to emit the bounded error message. No secrets or request authorization headers are logged.
+- Commits: `03c892999027bbee70bb35fb481e01058ae8a4c8` (Discord API error detail) and `b1295617e0ad2d30dd1215acb3e15544e798e861` (startup log detail).
+- Pending: run CI, open a PR, deploy the diagnostic change, inspect the exact Discord API rejection, then fix the underlying registration or credential mismatch. No merge or deployment performed.
