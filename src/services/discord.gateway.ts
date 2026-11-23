@@ -203,10 +203,12 @@ async function handleGuildMessage(message: Message) {
     if (needsPrivateContext) {
       const reply = await saveAndGenerate(message, identity, true);
       try {
-        await message.author.send({
-          content: ('🔒 **Private reply from MAX · ' + guild.name + '**\n\n' + reply).slice(0, 2000),
-          allowedMentions: { parse: [] }
-        });
+        const dmChannel = await message.author.createDM();
+        const privateReply = '🔒 **Private reply from MAX · ' + guild.name + '**\n\n' + reply;
+        const privateChunks = privateReply.match(/[\\s\\S]{1,1900}/g) ?? [];
+        for (const chunk of privateChunks) {
+          await dmChannel.send({ content: chunk, allowedMentions: { parse: [] } });
+        }
         await message.reply({
           content: '🔒 I’ve sent you a private reply in DMs. I won’t share account information in this channel.',
           allowedMentions: { parse: [] }
