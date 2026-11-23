@@ -11,6 +11,7 @@ import { logger } from '../config/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { resolveEcosystemUser } from './user.service.js';
 import { orchestrate, orchestrateDiscordGuest } from './orchestrator.service.js';
+import { parseChannelAdminCommand } from './discord-channel-admin.js';
 import type { AuthPrincipal } from '../types/auth.js';
 
 type DiscordIdentityResponse = {
@@ -226,14 +227,9 @@ async function resolveGuildTextChannels(message: Message, references: string[]) 
 }
 
 async function handleStaffChannelAdminCommand(message: Message) {
-  const match = message.content.trim().match(/^!max-channel(?:\s+([\s\S]*))?$/i);
-  if (!match) return false;
-  const remainder = (match[1] ?? '').trim();
-  const firstSpace = remainder.search(/\s/);
-  const firstToken = (firstSpace === -1 ? remainder : remainder.slice(0, firstSpace)).toLowerCase();
-  const action = (['enable', 'disable', 'status', 'clear', 'help'].includes(firstToken) ? firstToken : 'enable') as ChannelAdminAction;
-  const references = !remainder ? [] : (action === 'enable' && firstToken !== 'enable' ? remainder : firstSpace === -1 ? '' : remainder.slice(firstSpace + 1))
-    .split(',').map((value) => value.trim()).filter(Boolean);
+  const parsed = parseChannelAdminCommand(message.content);
+  if (!parsed) return false;
+  const { action, references } = parsed;
   if (message.channelId !== env.DISCORD_STAFF_CHANNEL_ID) return true;
   const permissions = message.member?.permissions;
   const canManage = Boolean(permissions?.has(PermissionFlagsBits.Administrator) || permissions?.has(PermissionFlagsBits.ManageGuild));
