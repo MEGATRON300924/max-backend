@@ -848,4 +848,5 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Guild and DM orchestration now receive trusted platform metadata identifying Discord and the surface. Authenticated MAX Webchat normal and streaming routes now receive trusted Webchat source metadata.
 - Public guild conversations continue to use guest-safe orchestration. The linked user's private identity and account context remain excluded from shared-channel guest context; private account requests continue to use the existing DM-only path.
 - Added pure-function tests for mention/name/reply addressing, silence for ordinary messages, speaker/referenced-author separation, Japanese referenced text, and bounded history.
+- Always-listening mode is intentionally not enabled or exposed in this delivery; the confirmed default is address-only. A future administrator opt-in can be added separately if requested.
 - Pending: verify all source edits, run TypeScript typecheck, Vitest and production build through GitHub Actions, review PR diff, then request merge approval. No database migration, Render configuration change, merge or deployment performed.
