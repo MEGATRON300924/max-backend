@@ -10,7 +10,7 @@ const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, environment: env.NODE_ENV }, 'MAX backend started');
   startDiscordGateway();
   void registerDiscordCommands().catch((error) => {
-    logger.warn({ err: error instanceof Error ? error.name : typeof error }, 'Discord command registration failed');
+    logger.error({ errorType: error instanceof Error ? error.name : typeof error, errorMessage: error instanceof Error ? error.message.slice(0, 700) : 'Unknown error' }, 'Discord command registration failed');
   });
 });
 

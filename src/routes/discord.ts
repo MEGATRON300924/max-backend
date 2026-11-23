@@ -281,7 +281,7 @@ export async function registerDiscordCommands() {
   });
   if (!response.ok) {
     const detail = await response.text().catch(() => '');
-    throw new Error(`Discord command registration failed with ${response.status}: ${detail.slice(0, 300)}`);
+    throw new Error(`Discord command registration failed (HTTP ${response.status}): ${detail.slice(0, 500)}`);
   }
   logger.info('Discord /ask and /max-channel commands registered');
 }
