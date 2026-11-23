@@ -787,3 +787,11 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Render logs at 2026-11-23 14:34 UTC captured an `ApiError` during Discord Gateway message processing, but the existing logger recorded only the error class. The underlying provider status/code is therefore not recoverable from that event. Follow-up will add safe status/code metadata without logging message content, prompts, tokens or raw provider payloads.
 - Added safe error metadata logging for Discord Gateway identity, guild-message and DM failures. Logs now retain only error class, provider/API code and status when available; they do not include message content, prompts, tokens or raw provider payloads.
 - Pending: run GitHub Actions typecheck, Vitest and production build; inspect PR and CI. No merge or production deployment has been performed.
+
+
+### Discord identity isolation CI result — 2026-11-23
+- GitHub Actions run #433 (45196492140) passed on code head `b2ecf0d9d1638ccb7b77cb8ea63b5526590063fa`.
+- All validation stages passed: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite and production build.
+- PR #51 remains open and unmerged. No Render deployment or production behavior change has occurred.
+- The earlier run #432 was against the prior head and failed its test step because the private-request detector treated the ordinary phrase “Tell me a joke” as a private request. Removed the generic `me` token from the detector; the current head passed the full pipeline.
+- Next: review and merge PR #51 only with user approval, then verify Render deployment and retest Discord identity responses in both a shared guild channel and a private DM.
