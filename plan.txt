@@ -731,3 +731,12 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Security boundary: the device session credential can read only that registered device's user/home/room event stream; it is not accepted by MAX Auth or general MAX Backend write routes.
 - Pending: native MAX AI registration/Keystore storage, Android foreground event receiver, cursor persistence and user-controlled opt-in; emit response-completed NOTIFICATION events; end-to-end device stream tests; run Vitest and TypeScript checks; deploy only after tests pass.
 - No deployment or production credential changes were made in this task.
+
+## MAX Project Builder document-generation failure — 2026-11-23
+- Investigated the user-reported MAX Chat error: “MAX couldn't prepare the document content. Your request is still in the conversation.”
+- Render production logs for `POST /api/v1/files/generate-content` recorded HTTP 502 with safe error code `DOCUMENT_INVALID_RESPONSE` on 2026-11-23 at 07:25:13 UTC. This confirms the MAX Backend reached the file-generation route and rejected Gemini's response as invalid JSON; it was not an authentication failure or ZIP packaging failure.
+- Root cause candidate: the document writer used Gemini `generateContent` with `responseMimeType: application/json` but capped output at 5,000 tokens. A multi-file Flutter project can exceed this response ceiling, causing incomplete JSON that cannot be parsed or packaged. The logs prove invalid JSON, but do not independently expose Gemini's finish reason, so token truncation is treated as the likely cause rather than a confirmed provider finish reason.
+- On branch `fix/document-project-output-truncation`, raised the generation output budget to 16,000 tokens, added explicit handling for Gemini `MAX_TOKENS` and other non-success finish reasons, improved JSON parsing to tolerate BOM/Markdown fences/leading text while requiring a complete balanced JSON object, and clarified that software ZIPs should be complete but concise.
+- Preserved MAX Auth authentication, existing Gemini model/provider, endpoint path and response envelope. No secrets, environment variables, database schema, or unrelated AI routing changed.
+- Validation pending: run MAX Backend TypeScript typecheck, tests and production build through GitHub Actions; inspect the PR; test authenticated Flutter ZIP generation against the Render preview/production endpoint and verify archive extraction/file count.
+- No merge or Render production deployment performed.
