@@ -28,3 +28,5 @@ jobs:
         run: python -m pip install -r requirements-dev.txt
       - name: Run API tests
         run: pytest -q
+      - name: Build Docker image
+        run: docker build -t max-voice-engine:ci .
