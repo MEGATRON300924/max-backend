@@ -1,0 +1,30 @@
+name: MAX Voice Engine
+
+on:
+  pull_request:
+    paths:
+      - "services/max-voice-engine/**"
+      - ".github/workflows/max-voice-engine.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/max-voice-engine/**"
+      - ".github/workflows/max-voice-engine.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/max-voice-engine
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: services/max-voice-engine/requirements-dev.txt
+      - name: Install dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Run API tests
+        run: pytest -q
