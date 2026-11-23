@@ -423,7 +423,8 @@ export async function orchestrateStream(
   turns: ChatTurn[],
   latestContent: string,
   onText: (text: string) => void,
-  onActivity?: (activity: ActivityUpdate) => void
+  onActivity?: (activity: ActivityUpdate) => void,
+  additionalSystemContext?: string
 ): Promise<OrchestrationResult> {
   const explicitConnectionProvider = detectExplicitIntegrationConnect(latestContent);
   if (explicitConnectionProvider) {
@@ -441,7 +442,7 @@ export async function orchestrateStream(
   }
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
-  const system = buildSystemPrompt(user, memories, intent, personalization);
+  const system = [buildSystemPrompt(user, memories, intent, personalization), additionalSystemContext ?? ''].filter(Boolean).join('\\n\\n');
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
