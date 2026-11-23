@@ -850,3 +850,12 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Added pure-function tests for mention/name/reply addressing, silence for ordinary messages, speaker/referenced-author separation, Japanese referenced text, and bounded history.
 - Always-listening mode is intentionally not enabled or exposed in this delivery; the confirmed default is address-only. A future administrator opt-in can be added separately if requested.
 - Pending: verify all source edits, run TypeScript typecheck, Vitest and production build through GitHub Actions, review PR diff, then request merge approval. No database migration, Render configuration change, merge or deployment performed.
+
+
+### Discord addressing/context CI result — 2026-11-23
+- PR #52: https://github.com/MEGATRON300924/max-backend/pull/52
+- Final implementation head: `2da13e3e4e13c59dcd77c07e68a6d97a98c574ab`.
+- GitHub Actions run #438 (45228880625) passed on the exact final head: dependency installation, Prisma Client generation, TypeScript typecheck, Vitest suite and production build.
+- The implementation uses the existing Discord Gateway and Prisma schema; no database migration or new environment variable is required.
+- PR #52 is open and ready for review. It has not been merged. Render has not deployed these changes, and no production Discord behavior change is claimed.
+- Next: user reviews and merges PR #52; then verify Render deployment and test that ordinary replies to other users stay silent, explicit MAX mentions/name invocations respond, replies to MAX respond with the referenced message and recent context, and Webchat normal/streaming prompts carry the trusted Webchat source marker.
