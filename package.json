@@ -27,7 +27,8 @@
     "jose": "^6.1.0",
     "pino": "^9.6.0",
     "pino-http": "^10.4.0",
-    "zod": "^3.25.67"
+    "zod": "^3.25.67",
+    "discord.js": "^14.22.1"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
