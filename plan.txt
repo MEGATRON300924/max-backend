@@ -785,4 +785,5 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Fixed the private guild-reply chunking expression. The previous over-escaped regular expression could omit ordinary text from the DM response; both normal and private replies now use one tested Unicode-safe chunking helper.
 - Added unit coverage for guest identity isolation, private identity retention, private-request classification and message chunking.
 - Render logs at 2026-11-23 14:34 UTC captured an `ApiError` during Discord Gateway message processing, but the existing logger recorded only the error class. The underlying provider status/code is therefore not recoverable from that event. Follow-up will add safe status/code metadata without logging message content, prompts, tokens or raw provider payloads.
+- Added safe error metadata logging for Discord Gateway identity, guild-message and DM failures. Logs now retain only error class, provider/API code and status when available; they do not include message content, prompts, tokens or raw provider payloads.
 - Pending: run GitHub Actions typecheck, Vitest and production build; inspect PR and CI. No merge or production deployment has been performed.
