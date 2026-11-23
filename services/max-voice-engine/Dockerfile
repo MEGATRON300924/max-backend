@@ -17,7 +17,7 @@ RUN mkdir -p /models \
     && curl -fsSL --retry 3 \
       https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/kokoro-v1.0.int8.onnx \
       -o /models/kokoro-v1.0.int8.onnx \
-    && echo "ae31579b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c9  /models/kokoro-v1.0.int8.onnx" | sha256sum -c - \
+    && echo "ae315a79b623f244700e4afb9246c46a26066782e049ba174bf3ba433970ee9c  /models/kokoro-v1.0.int8.onnx" | sha256sum -c - \
     && curl -fsSL --retry 3 \
       https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/voices-v1.0.bin \
       -o /models/voices-v1.0.bin \
