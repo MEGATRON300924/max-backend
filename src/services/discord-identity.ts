@@ -14,7 +14,7 @@ export function getDiscordIdentityForContext<T extends DiscordIdentityContext>(
 }
 
 const PRIVATE_CONTEXT_PATTERN =
-  /\b(my|mine|me|i am|i'm|i have|i've|my account|my home|my devices|my files|my memories|my email|my calendar|my inbox|my address|my location|my subscription|my payment|my profile|my sessions|my logins|home devices|connected devices|account details|personal data|private data|remembered about me|remember about me|forget me|delete my|send my|read my|who am i|what do you know about me)\b/i;
+  /\b(my|mine|i am|i'm|i have|i've|my account|my home|my devices|my files|my memories|my email|my calendar|my inbox|my address|my location|my subscription|my payment|my profile|my sessions|my logins|home devices|connected devices|account details|personal data|private data|remembered about me|remember about me|forget me|delete my|send my|read my|who am i|what do you know about me)\b/i;
 
 export function isLikelyPrivateDiscordRequest(content: string): boolean {
   return PRIVATE_CONTEXT_PATTERN.test(content);
