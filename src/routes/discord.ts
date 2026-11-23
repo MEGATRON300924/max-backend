@@ -181,48 +181,12 @@ router.post('/interactions', (req, res) => {
     return;
   }
 
-  if (interaction.type !== 2 || !['ask', 'max-channel'].includes(interaction.data?.name ?? '')) {
+  if (interaction.type !== 2 || interaction.data?.name !== 'ask') {
     res.status(400).json({ error: 'Unsupported Discord interaction.' });
     return;
   }
 
   const discordUserId = interaction.member?.user?.id ?? interaction.user?.id;
-  if (interaction.data?.name === 'max-channel') {
-    const permissions = BigInt(interaction.member?.permissions ?? '0');
-    const canManage = (permissions & 8n) === 8n || (permissions & 32n) === 32n;
-    const action = interaction.data.options?.find((option) => option.name === 'action')?.value;
-    const targetChannelId = interaction.data.options?.find((option) => option.name === 'channel')?.value ?? interaction.channel_id;
-    if (!discordUserId || !interaction.guild_id || !canManage) {
-      res.status(200).json({ type: 4, data: { content: 'Only server administrators or members with Manage Server can configure MAX channels.', flags: 64 } });
-      return;
-    }
-    if (!targetChannelId || !['enable', 'disable', 'status'].includes(action ?? '')) {
-      res.status(200).json({ type: 4, data: { content: 'Choose enable, disable, or status and select a channel.', flags: 64 } });
-      return;
-    }
-    res.status(200).json({ type: 5, data: { flags: 64 } });
-    void (async () => {
-      const where = { guildId_channelId: { guildId: interaction.guild_id!, channelId: targetChannelId } };
-      if (action === 'status') {
-        const current = await prisma.discordChannelConfig.findUnique({ where });
-        await sendInteractionReply(interaction, current?.enabled ? '✅ MAX is enabled in that channel.' : '⏸️ MAX is disabled in that channel.');
-        return;
-      }
-      const enabled = action === 'enable';
-      await prisma.discordChannelConfig.upsert({
-        where,
-        create: { guildId: interaction.guild_id!, channelId: targetChannelId, enabled, configuredByDiscordId: discordUserId! },
-        update: { enabled, configuredByDiscordId: discordUserId! }
-      });
-      await sendInteractionReply(interaction, enabled
-        ? '✅ MAX is now enabled in that channel. I’ll respond to normal messages there.'
-        : '⏸️ MAX is now disabled in that channel.');
-    })().catch((error) => {
-      logger.error({ errorType: error instanceof Error ? error.name : typeof error }, 'Discord channel configuration failed');
-      void sendInteractionReply(interaction, '⚠️ I could not update that channel configuration. Please try again.');
-    });
-    return;
-  }
 
   const prompt = interaction.data?.options?.find((option) => option.name === 'prompt')?.value?.trim();
   if (!discordUserId || !prompt) {
@@ -237,12 +201,13 @@ router.post('/interactions', (req, res) => {
 export async function registerDiscordCommands() {
   if (!env.DISCORD_APPLICATION_ID || !env.DISCORD_BOT_TOKEN) return;
   const response = await fetch(`${DISCORD_API}/applications/${encodeURIComponent(env.DISCORD_APPLICATION_ID)}/commands`, {
-    method: 'POST',
+    method: 'PUT',
     headers: {
       Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
       'Content-Type': 'application/json'
     },
     body: JSON.stringify([{
+      type: 1,
       name: 'ask',
       description: 'Ask MAX AI anything',
       options: [{
@@ -253,29 +218,6 @@ export async function registerDiscordCommands() {
         min_length: 1,
         max_length: 2000
       }]
-    }, {
-      name: 'max-channel',
-      description: 'Configure MAX in a server channel',
-      default_member_permissions: '32',
-      options: [
-        {
-          type: 3,
-          name: 'action',
-          description: 'Enable, disable, or check MAX in a channel',
-          required: true,
-          choices: [
-            { name: 'Enable', value: 'enable' },
-            { name: 'Disable', value: 'disable' },
-            { name: 'Status', value: 'status' }
-          ]
-        },
-        {
-          type: 7,
-          name: 'channel',
-          description: 'Channel to configure (defaults to this channel)',
-          required: false
-        }
-      ]
     }]),
     signal: AbortSignal.timeout(10000)
   });
@@ -283,7 +225,7 @@ export async function registerDiscordCommands() {
     const detail = await response.text().catch(() => '');
     throw new Error(`Discord command registration failed (HTTP ${response.status}): ${detail.slice(0, 500)}`);
   }
-  logger.info('Discord /ask and /max-channel commands registered');
+  logger.info('Discord /ask command registered; channel administration uses the staff-chat text command');
 }
 
 export const discordRouter = router;

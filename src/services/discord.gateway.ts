@@ -1,4 +1,5 @@
 import {
+  ChannelType,
   Client,
   GatewayIntentBits,
   PermissionFlagsBits,
@@ -10,6 +11,7 @@ import { logger } from '../config/logger.js';
 import { prisma } from '../lib/prisma.js';
 import { resolveEcosystemUser } from './user.service.js';
 import { orchestrate, orchestrateDiscordGuest } from './orchestrator.service.js';
+import { parseChannelAdminCommand } from './discord-channel-admin.js';
 import type { AuthPrincipal } from '../types/auth.js';
 
 type DiscordIdentityResponse = {
@@ -179,8 +181,133 @@ async function sendLongReply(message: Message, content: string) {
   }
 }
 
+
+async function resolveGuildTextChannels(message: Message, references: string[]) {
+  const guild = message.guild!;
+  await guild.channels.fetch();
+  const resolved: Array<{ id: string; name: string }> = [];
+  const errors: string[] = [];
+  for (const reference of references) {
+    const mention = reference.match(/^<#(\d+)>$/);
+    const rawId = reference.match(/^\d{15,22}$/) ? reference : mention?.[1];
+    const normalizedName = reference.replace(/^#/, '').toLowerCase();
+    const matches = rawId
+      ? [guild.channels.cache.get(rawId)].filter(Boolean)
+      : [...guild.channels.cache.values()].filter((channel) => channel.name?.toLowerCase() === normalizedName);
+    const valid = matches.filter((channel) =>
+      channel && (channel.type === ChannelType.GuildText || channel.type === ChannelType.GuildAnnouncement)
+    );
+    if (valid.length !== 1) {
+      errors.push(valid.length > 1
+        ? reference + ' is ambiguous; use its channel ID.'
+        : reference + ' was not found as a text or announcement channel in this server.');
+      continue;
+    }
+    const channel = valid[0]!;
+    if (!resolved.some((item) => item.id === channel.id)) resolved.push({ id: channel.id, name: channel.name });
+  }
+  return { channels: resolved, errors };
+}
+
+async function handleStaffChannelAdminCommand(message: Message) {
+  const parsed = parseChannelAdminCommand(message.content);
+  if (!parsed) return false;
+  const { action, references } = parsed;
+  if (message.channelId !== env.DISCORD_STAFF_CHANNEL_ID) return true;
+  const member = message.member ?? await message.guild!.members.fetch(message.author.id).catch(() => null);
+  const permissions = member?.permissions;
+  const canManage = Boolean(permissions?.has(PermissionFlagsBits.Administrator) || permissions?.has(PermissionFlagsBits.ManageGuild));
+  if (!canManage) {
+    await message.reply({ content: '⛔ Only server administrators or members with Manage Server permission can use this command.', allowedMentions: { parse: [] } });
+    return true;
+  }
+  if (action === 'help') {
+    await message.reply({
+      content: [
+        'MAX channel administration',
+        '!max-channel #general, #support — enable MAX in multiple channels',
+        '!max-channel 123456789012345678, <#123456789012345678> — IDs and mentions also work',
+        '!max-channel disable #general, #support — disable selected channels',
+        '!max-channel status — list enabled channels',
+        '!max-channel status #general, #support — check selected channels',
+        '!max-channel disable — disable all configured channels in this server',
+        '!max-channel clear — remove all channel configurations'
+      ].join('\n'),
+      allowedMentions: { parse: [] }
+    });
+    return true;
+  }
+  if (action === 'clear') {
+    const result = await prisma.discordChannelConfig.deleteMany({ where: { guildId: message.guildId! } });
+    await message.reply({ content: '🧹 Cleared ' + result.count + ' MAX channel configuration(s). All channels are now disabled by default.', allowedMentions: { parse: [] } });
+    return true;
+  }
+  if (action === 'disable' && references.length === 0) {
+    const result = await prisma.discordChannelConfig.updateMany({
+      where: { guildId: message.guildId!, enabled: true },
+      data: { enabled: false, configuredByDiscordId: message.author.id }
+    });
+    await message.reply({ content: '⏸️ Disabled MAX in ' + result.count + ' configured channel(s).', allowedMentions: { parse: [] } });
+    return true;
+  }
+  if (references.length === 0) {
+    if (action === 'status') {
+      const configured = await prisma.discordChannelConfig.findMany({ where: { guildId: message.guildId!, enabled: true } });
+      await message.reply({
+        content: configured.length ? '✅ MAX is enabled in:\n' + configured.map((item) => '<#' + item.channelId + '>').join(', ') : '⏸️ MAX is not enabled in any channel in this server.',
+        allowedMentions: { parse: [] }
+      });
+      return true;
+    }
+    await message.reply({ content: 'Add one or more channel IDs, mentions, or names separated by commas. Use !max-channel help for examples.', allowedMentions: { parse: [] } });
+    return true;
+  }
+  if (references.length > 25) {
+    await message.reply({ content: '⚠️ You can configure up to 25 channels in one command.', allowedMentions: { parse: [] } });
+    return true;
+  }
+  const { channels, errors } = await resolveGuildTextChannels(message, references);
+  if (errors.length) {
+    await message.reply({ content: '⚠️ Nothing was changed. Please fix these channel references:\n' + errors.join('\n'), allowedMentions: { parse: [] } });
+    return true;
+  }
+  if (action === 'status') {
+    const configs = await prisma.discordChannelConfig.findMany({
+      where: { guildId: message.guildId!, channelId: { in: channels.map((channel) => channel.id) } }
+    });
+    const enabledIds = new Set(configs.filter((config) => config.enabled).map((config) => config.channelId));
+    await message.reply({
+      content: channels.map((channel) => (enabledIds.has(channel.id) ? '✅' : '⏸️') + ' <#' + channel.id + '> — ' + (enabledIds.has(channel.id) ? 'enabled' : 'disabled')).join('\n'),
+      allowedMentions: { parse: [] }
+    });
+    return true;
+  }
+  const enabled = action === 'enable';
+  await prisma.$transaction(channels.map((channel) => prisma.discordChannelConfig.upsert({
+    where: { guildId_channelId: { guildId: message.guildId!, channelId: channel.id } },
+    create: { guildId: message.guildId!, channelId: channel.id, enabled, configuredByDiscordId: message.author.id },
+    update: { enabled, configuredByDiscordId: message.author.id }
+  })));
+  await message.reply({
+    content: (enabled ? '✅ Enabled MAX in ' : '⏸️ Disabled MAX in ') + channels.map((channel) => '<#' + channel.id + '>').join(', ') + '.',
+    allowedMentions: { parse: [] }
+  });
+  return true;
+}
+
 async function handleGuildMessage(message: Message) {
   if (!message.guild || message.author.bot || message.webhookId || !message.content.trim()) return;
+  if (/^!max-channel(?:\s|$)/i.test(message.content.trim())) {
+    if (message.channelId === env.DISCORD_STAFF_CHANNEL_ID) {
+      try {
+        await handleStaffChannelAdminCommand(message);
+      } catch (error) {
+        logger.error({ errorType: error instanceof Error ? error.name : typeof error, guildId: message.guildId }, 'Discord staff channel command failed');
+        await message.reply({ content: '⚠️ MAX could not update the channel configuration. Please check status and try again.', allowedMentions: { parse: [] } }).catch(() => undefined);
+      }
+    }
+    return;
+  }
   const channel = message.channel as any;
   const directConfig = await prisma.discordChannelConfig.findUnique({
     where: { guildId_channelId: { guildId: message.guildId!, channelId: message.channelId } }

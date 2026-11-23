@@ -767,3 +767,12 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Created branch `fix/discord-command-registration-diagnostics` from current main. Updated Discord command registration errors to retain the Discord HTTP status and bounded response body, and updated startup logging to emit the bounded error message. No secrets or request authorization headers are logged.
 - Commits: `03c892999027bbee70bb35fb481e01058ae8a4c8` (Discord API error detail) and `b1295617e0ad2d30dd1215acb3e15544e798e861` (startup log detail).
 - Pending: run CI, open a PR, deploy the diagnostic change, inspect the exact Discord API rejection, then fix the underlying registration or credential mismatch. No merge or deployment performed.
+
+
+## Discord staff-chat text channel administration — 2026-11-23
+- Added a staff-chat-only !max-channel command, with the configured staff channel ID defaulting to 1358871225119539303 and an optional Render override via DISCORD_STAFF_CHANNEL_ID.
+- Commands accept comma-separated #channel-name, raw channel IDs, and Discord channel mentions. Resolution is limited to text and announcement channels in the same server; ambiguous or invalid references abort the whole operation before any configuration is written.
+- Added enable (default), disable, status, clear, and help actions. Only members with Administrator or Manage Server permission can administer channels, and commands are ignored outside the configured staff chat.
+- Channel enablement continues to use the existing per-guild/per-channel Prisma configuration; channels remain disabled by default and threads continue to inherit parent configuration.
+- Removed the slash-based /max-channel command. Kept /ask and corrected command registration to use Discord bulk-overwrite PUT with a single valid command definition, rather than POSTing an array to the create-command endpoint.
+- Added parser unit tests for multi-channel names, mentions, IDs, actions, and unrelated messages. CI typecheck, full tests and build are pending; no merge or Render deployment has been performed.
