@@ -224,7 +224,7 @@ router.post('/interactions', (req, res) => {
     return;
   }
 
-  const prompt = interaction.data.options?.find((option) => option.name === 'prompt')?.value?.trim();
+  const prompt = interaction.data?.options?.find((option) => option.name === 'prompt')?.value?.trim();
   if (!discordUserId || !prompt) {
     res.status(400).json({ error: 'A Discord user and prompt are required.' });
     return;
