@@ -12,6 +12,7 @@ import { prisma } from '../lib/prisma.js';
 import { resolveEcosystemUser } from './user.service.js';
 import { orchestrate, orchestrateDiscordGuest } from './orchestrator.service.js';
 import { parseChannelAdminCommand } from './discord-channel-admin.js';
+import { getDiscordErrorMetadata, getDiscordIdentityForContext, isLikelyPrivateDiscordRequest, splitDiscordMessage } from './discord-identity.js';
 import type { AuthPrincipal } from '../types/auth.js';
 
 type DiscordIdentityResponse = {
@@ -29,13 +30,6 @@ type DiscordIdentityResponse = {
 const cooldowns = new Map<string, number>();
 const inFlight = new Set<string>();
 let client: Client | null = null;
-
-const PRIVATE_CONTEXT_PATTERN =
-  /\b(my|mine|me|i am|i'm|i have|i've|my account|my home|my devices|my files|my memories|my email|my calendar|my inbox|my address|my location|my subscription|my payment|my profile|my sessions|my logins|home devices|connected devices|account details|personal data|private data|remembered about me|remember about me|forget me|delete my|send my|read my)\b/i;
-
-function isLikelyPrivateRequest(content: string) {
-  return PRIVATE_CONTEXT_PATTERN.test(content);
-}
 
 async function getLinkedMaxIdentity(discordUserId: string) {
   if (!env.MAX_AUTH_SERVICE_TOKEN) return null;
@@ -102,6 +96,7 @@ function buildDiscordContext(message: Message, speakerName: string | null, linke
     'Channel: #' + channelName + ' (ID ' + message.channelId + ')' + (parentName ? '; parent channel: #' + parentName : '') + '.',
     'Speaker is linked to MAX Auth: ' + linked + '.',
     'Trusted MAX display name for speaker: ' + (linked ? speakerName ?? 'not supplied' : 'unknown; do not guess') + '.',
+    'Identity provenance: if asked how you know the speaker name, explain that it comes from the speaker’s linked MAX account profile only when the speaker is linked and a trusted name is supplied. Otherwise say you only know a name if the speaker included it in their message. Never imply access to hidden Discord profile data.',
     'Speaker Discord role names, highest first: ' + (roleNames.length ? roleNames.join(', ') : 'none supplied') + '.',
     'Speaker has Discord Administrator permission: ' + isAdmin + '. Manage Server permission: ' + isManager + '.',
     'Discord role and permission information may be used only to understand server governance and moderation context. It does not grant MAX account permissions or access to another user’s private data.',
@@ -132,8 +127,9 @@ async function saveAndGenerate(message: Message, identity: NonNullable<Awaited<R
     data: { conversationId: conversation.id, role: 'USER', content: message.content.slice(0, 8000) }
   });
   const turns = await getTurns(conversation.id);
-  const speakerName = identity?.displayName ?? null;
-  const context = buildDiscordContext(message, speakerName, Boolean(identity));
+  const contextIdentity = getDiscordIdentityForContext(identity, allowAccountContext);
+  const speakerName = contextIdentity?.displayName ?? null;
+  const context = buildDiscordContext(message, speakerName, Boolean(contextIdentity));
 
   const generated = identity && allowAccountContext
     ? await orchestrate({
@@ -175,7 +171,7 @@ async function saveAndGenerate(message: Message, identity: NonNullable<Awaited<R
 
 async function sendLongReply(message: Message, content: string) {
   const safeContent = content.trim() || 'I could not generate a response just now.';
-  const chunks = safeContent.match(/[\s\S]{1,1900}/g) ?? [];
+  const chunks = splitDiscordMessage(safeContent);
   for (const chunk of chunks) {
     await message.reply({ content: chunk, allowedMentions: { parse: [] } });
   }
@@ -302,7 +298,7 @@ async function handleGuildMessage(message: Message) {
       try {
         await handleStaffChannelAdminCommand(message);
       } catch (error) {
-        logger.error({ errorType: error instanceof Error ? error.name : typeof error, guildId: message.guildId }, 'Discord staff channel command failed');
+        logger.error({ ...getDiscordErrorMetadata(error), guildId: message.guildId }, 'Discord staff channel command failed');
         await message.reply({ content: '⚠️ MAX could not update the channel configuration. Please check status and try again.', allowedMentions: { parse: [] } }).catch(() => undefined);
       }
     }
@@ -329,17 +325,17 @@ async function handleGuildMessage(message: Message) {
   try {
     const guild = message.guild;
     const identity = await getLinkedMaxIdentity(message.author.id).catch((error) => {
-      logger.warn({ errorType: error instanceof Error ? error.name : typeof error }, 'Discord MAX identity lookup failed');
+      logger.warn(getDiscordErrorMetadata(error), 'Discord MAX identity lookup failed');
       return null;
     });
-    const needsPrivateContext = Boolean(identity && isLikelyPrivateRequest(message.content));
+    const needsPrivateContext = Boolean(identity && isLikelyPrivateDiscordRequest(message.content));
 
     if (needsPrivateContext) {
       const reply = await saveAndGenerate(message, identity, true);
       try {
         const dmChannel = await message.author.createDM();
         const privateReply = '🔒 **Private reply from MAX · ' + guild.name + '**\n\n' + reply;
-        const privateChunks = privateReply.match(/[\\s\\S]{1,1900}/g) ?? [];
+        const privateChunks = splitDiscordMessage(privateReply);
         for (const chunk of privateChunks) {
           await dmChannel.send({ content: chunk, allowedMentions: { parse: [] } });
         }
@@ -363,7 +359,7 @@ async function handleGuildMessage(message: Message) {
     await sendLongReply(message, reply);
   } catch (error) {
     logger.error({
-      errorType: error instanceof Error ? error.name : typeof error,
+      ...getDiscordErrorMetadata(error),
       guildId: message.guildId,
       channelId: message.channelId
     }, 'Discord Gateway message processing failed');
@@ -410,6 +406,7 @@ async function handleDirectMessage(message: Message) {
       'The current speaker is the Discord message author. Never infer identity from another person mentioned in the message.',
       'Speaker is linked to MAX Auth: ' + Boolean(identity) + '.',
       'Trusted MAX display name: ' + (identity?.displayName ?? 'unknown; do not guess') + '.',
+      'Identity provenance: if asked how you know the speaker name, explain that it comes from the speaker’s linked MAX account profile only when linked and a trusted name is supplied. Otherwise say you only know a name if the speaker included it in their message.',
       'There is no server role or server permission context in this direct message.'
     ].join('\n');
     const generated = identity
@@ -442,7 +439,7 @@ async function handleDirectMessage(message: Message) {
     });
     await sendLongReply(message, reply);
   } catch (error) {
-    logger.error({ errorType: error instanceof Error ? error.name : typeof error }, 'Discord DM processing failed');
+    logger.error(getDiscordErrorMetadata(error), 'Discord DM processing failed');
     await message.reply({ content: '⚠️ MAX could not complete that request right now. Please try again.', allowedMentions: { parse: [] } }).catch(() => undefined);
   } finally {
     inFlight.delete(userKey);
