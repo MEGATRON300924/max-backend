@@ -736,3 +736,19 @@ model HomeSubscription {
   @@map("home_subscriptions")
   @@schema("max_backend")
 }
+
+
+model DiscordChannelConfig {
+  id                    String   @id @default(uuid()) @db.Uuid
+  guildId               String   @map("guild_id")
+  channelId             String   @map("channel_id")
+  enabled               Boolean  @default(false)
+  configuredByDiscordId String   @map("configured_by_discord_id")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([guildId, channelId])
+  @@index([guildId, enabled])
+  @@map("discord_channel_configs")
+  @@schema("max_backend")
+}
