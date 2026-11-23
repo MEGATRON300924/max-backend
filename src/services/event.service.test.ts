@@ -14,6 +14,20 @@ vi.mock('../lib/prisma.js', () => ({
 
 import {listEventsForDevice} from './event.service.js';
 
+function getFindManyQuery() {
+  const call = mocks.findMany.mock.calls[0];
+  if (!call) {
+    throw new Error('Expected maxEvent.findMany to be called');
+  }
+
+  const [query] = call;
+  if (!query) {
+    throw new Error('Expected maxEvent.findMany to receive query arguments');
+  }
+
+  return query;
+}
+
 describe('listEventsForDevice replay query', () => {
   beforeEach(() => vi.clearAllMocks());
 
@@ -27,7 +41,7 @@ describe('listEventsForDevice replay query', () => {
 
     await listEventsForDevice('user-1', 'device-1', new Date('2026-11-20T10:00:00.000Z'), 100, '00000000-0000-4000-8000-000000000001');
 
-    const query = mocks.findMany.mock.calls[0][0];
+    const query = getFindManyQuery();
     expect(query.orderBy).toEqual([{createdAt: 'asc'}, {id: 'asc'}]);
     expect(query.take).toBe(100);
     expect(query.where.AND).toHaveLength(3);
@@ -53,6 +67,6 @@ describe('listEventsForDevice replay query', () => {
 
     await listEventsForDevice('user-1', 'device-1', undefined, 500);
 
-    expect(mocks.findMany.mock.calls[0][0].take).toBe(100);
+    expect(getFindManyQuery().take).toBe(100);
   });
 });
