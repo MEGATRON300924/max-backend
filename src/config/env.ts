@@ -19,6 +19,7 @@ const schema = z.object({
   DISCORD_APPLICATION_ID: z.string().optional(),
   DISCORD_BOT_TOKEN: z.string().optional(),
   DISCORD_PUBLIC_KEY: z.string().regex(/^[a-f0-9]{64}$/i).optional(),
+  DISCORD_STAFF_CHANNEL_ID: z.string().regex(/^\d{15,22}$/).default('1358871225119539303'),
   DISCORD_GATEWAY_ENABLED: z.enum(['true', 'false']).default('true').transform((value) => value === 'true'),
   ELEVENLABS_API_KEY: z.string().optional(),
   ELEVENLABS_VOICE_ID: z.string().optional(),
