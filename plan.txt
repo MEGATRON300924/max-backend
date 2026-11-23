@@ -748,3 +748,13 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Created branch `fix/event-service-test-typecheck` from current `main`. Added a small `getFindManyQuery()` test helper that explicitly checks the mock call and query argument before returning it; replaced both unsafe direct array accesses. No production service logic, runtime behavior, schema, dependencies or environment configuration changed.
 - Fix commit: `421d44c9c030573557eb435024b05a014a74a5b0`.
 - Validation pending: run the repository's TypeScript typecheck, Vitest suite and production build through CI; open a PR only after reviewing the diff. Do not merge or trigger another production deployment until checks pass and the user approves the merge.
+
+
+## 2026-11-23 — Discord Gateway chat implementation (PR branch: feature/discord-gateway-chat)
+- Added a persistent discord.js Gateway client for normal messages in explicitly enabled guild channels; discord.js manages heartbeats, reconnects, and session resumption.
+- Added per-guild/per-channel enablement storage and the /max-channel command. Only Discord Administrator or Manage Server permission can configure channels; all channels remain disabled by default.
+- Added speaker-only MAX Auth identity lookup and isolated guest orchestration with no memory, personalisation, or tools.
+- Public guild channels always use guest-safe mode. Likely personal requests from linked users are processed only under the speaker's linked MAX identity and delivered by DM; private content is never posted in public channels.
+- Added direct-message support, plus Discord server/channel/owner/role/permission context. Discord roles never become MAX account authorisation.
+- Kept the existing /ask HTTP interaction route.
+- Pending validation: GitHub Actions CI and Render deployment. Enable Message Content Intent in the Discord Developer Portal and set DISCORD_GATEWAY_ENABLED=true in Render after deployment.
