@@ -218,7 +218,7 @@ export async function registerDiscordCommands() {
         min_length: 1,
         max_length: 2000
       }]
-    }),
+    }]),
     signal: AbortSignal.timeout(10000)
   });
   if (!response.ok) {

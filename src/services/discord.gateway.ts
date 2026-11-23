@@ -182,23 +182,6 @@ async function sendLongReply(message: Message, content: string) {
 }
 
 
-type ChannelAdminAction = 'enable' | 'disable' | 'status' | 'clear' | 'help';
-
-function parseChannelAdminCommand(content: string): { action: ChannelAdminAction; references: string[] } | null {
-  const match = content.trim().match(/^!max-channel(?:\s+([\s\S]*))?$/i);
-  if (!match) return null;
-  const remainder = (match[1] ?? '').trim();
-  if (!remainder) return { action: 'help', references: [] };
-  const firstSpace = remainder.search(/\s/);
-  const firstToken = (firstSpace === -1 ? remainder : remainder.slice(0, firstSpace)).toLowerCase();
-  if (['enable', 'disable', 'status', 'clear', 'help'].includes(firstToken)) {
-    const action = firstToken as ChannelAdminAction;
-    const rest = firstSpace === -1 ? '' : remainder.slice(firstSpace + 1);
-    return { action, references: rest.split(',').map((value) => value.trim()).filter(Boolean) };
-  }
-  return { action: 'enable', references: remainder.split(',').map((value) => value.trim()).filter(Boolean) };
-}
-
 async function resolveGuildTextChannels(message: Message, references: string[]) {
   const guild = message.guild!;
   await guild.channels.fetch();
@@ -231,7 +214,8 @@ async function handleStaffChannelAdminCommand(message: Message) {
   if (!parsed) return false;
   const { action, references } = parsed;
   if (message.channelId !== env.DISCORD_STAFF_CHANNEL_ID) return true;
-  const permissions = message.member?.permissions;
+  const member = message.member ?? await message.guild!.members.fetch(message.author.id).catch(() => null);
+  const permissions = member?.permissions;
   const canManage = Boolean(permissions?.has(PermissionFlagsBits.Administrator) || permissions?.has(PermissionFlagsBits.ManageGuild));
   if (!canManage) {
     await message.reply({ content: '⛔ Only server administrators or members with Manage Server permission can use this command.', allowedMentions: { parse: [] } });
