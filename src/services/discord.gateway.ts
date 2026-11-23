@@ -194,16 +194,13 @@ async function handleGuildMessage(message: Message) {
 
   try {
     const guild = message.guild;
-    const channel = message.channel as any;
-    const everyoneCanView = channel.permissionsFor?.(guild.roles.everyone)?.has(PermissionFlagsBits.ViewChannel) ?? true;
-    const isPrivateChannel = !everyoneCanView;
     const identity = await getLinkedMaxIdentity(message.author.id).catch((error) => {
       logger.warn({ errorType: error instanceof Error ? error.name : typeof error }, 'Discord MAX identity lookup failed');
       return null;
     });
     const needsPrivateContext = Boolean(identity && isLikelyPrivateRequest(message.content));
 
-    if (needsPrivateContext && !isPrivateChannel) {
+    if (needsPrivateContext) {
       const reply = await saveAndGenerate(message, identity, true);
       try {
         await message.author.send({
@@ -223,15 +220,9 @@ async function handleGuildMessage(message: Message) {
       return;
     }
 
-    if (isPrivateChannel && identity) {
-      await channel.sendTyping?.();
-      const reply = await saveAndGenerate(message, identity, true);
-      await sendLongReply(message, reply);
-      return;
-    }
-
-    // Public guild channels always use restricted guest mode, even for linked speakers.
-    await channel.sendTyping?.();
+    // Every guild channel uses restricted guest mode, even if it is hidden from @everyone.
+    // A private channel can still contain multiple members; account data belongs in DMs only.
+    await (message.channel as any).sendTyping?.();
     const reply = await saveAndGenerate(message, identity, false);
     await sendLongReply(message, reply);
   } catch (error) {
