@@ -839,3 +839,13 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - For each stage, update this plan with branch/commit, CI outcome, PR state, deployment ID and actual production verification. Never equate a merge with a successful Render deployment.
 - No voice provider credentials, audio samples, user voice recordings or secrets may be committed to Git.
 - No Render environment changes, paid resource upgrades, production voice capture or deployment are authorised by this planning decision alone.
+
+
+## 2026-11-23 — Discord addressing and platform context implementation checkpoint
+- Started implementation on `feature/discord-addressing-context`, based on the previously recorded Discord/Voice plan branch.
+- Added a silence-first Discord addressing decision: actual bot mention, explicit leading/vocative MAX name invocation, or reply to MAX. Ordinary messages and replies to other members are ignored.
+- Guild replies now retrieve the referenced Discord message and up to eight preceding channel messages, label each author separately, preserve original Unicode text (including Japanese), and pass bounded untrusted conversation context to MAX.
+- Guild and DM orchestration now receive trusted platform metadata identifying Discord and the surface. Authenticated MAX Webchat normal and streaming routes now receive trusted Webchat source metadata.
+- Public guild conversations continue to use guest-safe orchestration. The linked user's private identity and account context remain excluded from shared-channel guest context; private account requests continue to use the existing DM-only path.
+- Added pure-function tests for mention/name/reply addressing, silence for ordinary messages, speaker/referenced-author separation, Japanese referenced text, and bounded history.
+- Pending: verify all source edits, run TypeScript typecheck, Vitest and production build through GitHub Actions, review PR diff, then request merge approval. No database migration, Render configuration change, merge or deployment performed.
