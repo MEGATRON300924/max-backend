@@ -795,3 +795,47 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - PR #51 remains open and unmerged. No Render deployment or production behavior change has occurred.
 - The earlier run #432 was against the prior head and failed its test step because the private-request detector treated the ordinary phrase “Tell me a joke” as a private request. Removed the generic `me` token from the detector; the current head passed the full pipeline.
 - Next: review and merge PR #51 only with user approval, then verify Render deployment and retest Discord identity responses in both a shared guild channel and a private DM.
+
+
+## 2026-11-23 — Discord conversational awareness and MAX Voice Engine implementation plan
+
+### Product decisions confirmed by the user
+- MAX's voice identity must be distinctive and original: develop a recognisable MAX voice rather than relying on the device's default TTS voice or imitating an existing person's/product's voice.
+- Initial hosting preference is Render. Treat Render as the first deployment target, but validate actual CPU/RAM, model footprint, cold-start, latency, concurrency and service-plan limits before selecting or deploying a model. Do not assume a standard Render web instance has GPU acceleration.
+- ElevenLabs may be used as the initial premium/primary provider. It must be used within its account and plan terms; do not rotate multiple accounts to evade quotas.
+- Build a provider-neutral MAX Voice Engine service with a self-hosted open-weight TTS model as the fallback/long-term path. Benchmark candidate models (initially Kokoro and Qwen3-TTS) for voice quality, expressive control, language coverage, memory footprint, CPU inference speed, licensing and Render compatibility before choosing one.
+- Keep speech generation isolated from the main MAX Backend so TTS load cannot degrade chat, authentication, tools or persistence.
+- Discord's default conversation policy is address-aware: respond to direct bot mentions, explicit MAX name invocation, and replies to MAX's own messages. Do not respond to ordinary questions merely because they appear in an enabled channel.
+- When a user replies to another person's message, assume the reply is addressed to that person unless MAX is explicitly invoked. In ambiguous cases, stay silent.
+- Channel-level always-listening/conversational mode may be offered as an explicit administrator opt-in, but it must not be the default.
+ 
+### Phase A — Discord platform and conversation context
+1. Add trusted platform metadata to the orchestration context (Discord vs Webchat; guild/DM/thread/channel; message and author IDs; invocation reason). Keep transport metadata separate from user-supplied text.
+2. Implement an addressing decision layer before orchestration. It must distinguish bot mentions, explicit name invocation, replies to MAX, replies to other users, and ordinary channel conversation. Use a conservative silence-first policy.
+3. Fetch referenced Discord message content and author metadata safely. Include bounded surrounding channel history where useful, clearly label each author, and preserve the distinction between the current speaker, referenced-message author and MAX.
+4. Ensure multi-user context does not leak another user's MAX account identity, private memory, tools or authenticated data. Public guild conversation remains guest-safe; private account context remains confined to the correct authenticated DM/session.
+5. Add tests for mention handling, reply-to-MAX, reply-to-other-user, ambiguous addressing, referenced Japanese/foreign-language text, multi-user attribution, history limits, and guest identity isolation.
+6. Update per-channel configuration and staff command help for the explicit conversational-mode opt-in. Default remains mention/reply invocation only.
+ 
+### Phase B — MAX Voice Engine foundation
+1. Define a provider-neutral TTS interface and provider manager, with ElevenLabs as an optional primary provider and the self-hosted MAX engine as fallback.
+2. Implement bounded timeouts, retries, circuit breaking, quota/error classification, usage/cost telemetry and safe provider failover. Do not log API keys or raw audio.
+3. Prototype candidate open-weight models in a separate service. Benchmark them on the actual intended Render instance before committing to a production model or resource tier.
+4. Design an original MAX voice identity using legally usable model capabilities and licensed assets. Do not clone an identifiable person's voice without explicit permission.
+5. Add audio response streaming/chunking where supported, plus caching for repeatable non-personal speech. Preserve a text response if all TTS providers fail.
+6. Keep deployment, scaling and resource configuration separate from max-backend. Do not add GPU assumptions or expensive Render resources without an explicit cost review.
+ 
+### Phase C — Discord voice and MAX Music integration
+1. Add an opt-in Discord voice session with clear participant notice and controls for joining/leaving and disabling capture.
+2. Receive voice audio and transcribe it; use Discord stream/user IDs for speaker attribution rather than biometric voice identification.
+3. Add voice activity detection, turn-taking, interruption/barge-in handling and cancellation of in-progress speech.
+4. Send MAX responses as both text and generated audio, with speaker-aware conversation context.
+5. Integrate MAX Music only after voice sessions are stable; support playback state, queue controls, pause/duck-on-speech and safe audio mixing.
+6. Validate concurrency, latency, reconnects, consent, retention and failure recovery before production rollout.
+ 
+### Delivery and validation gates
+- Deliver Discord addressing/context first, independently of voice work.
+- Run TypeScript typecheck, Vitest, production build and focused Discord gateway tests before opening/merging implementation PRs.
+- For each stage, update this plan with branch/commit, CI outcome, PR state, deployment ID and actual production verification. Never equate a merge with a successful Render deployment.
+- No voice provider credentials, audio samples, user voice recordings or secrets may be committed to Git.
+- No Render environment changes, paid resource upgrades, production voice capture or deployment are authorised by this planning decision alone.
