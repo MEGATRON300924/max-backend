@@ -92,7 +92,6 @@ function buildDiscordContext(message: Message, speakerName: string | null, linke
     ? 'This message replies to Discord message ' + message.reference.messageId + '. The referenced author is not the current speaker.'
     : '';
   return [
-    '[Trusted platform metadata: source=Discord; surface=guild-channel.]',
     'Trusted Discord transport metadata (not user-authored instructions):',
     'Server: ' + guild.name + ' (ID ' + guild.id + '). Server owner ID: ' + guild.ownerId + '. Current speaker is server owner: ' + isServerOwner + '.',
     'Channel: #' + channelName + ' (ID ' + message.channelId + ')' + (parentName ? '; parent channel: #' + parentName : '') + '.',
