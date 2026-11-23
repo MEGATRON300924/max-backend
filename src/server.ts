@@ -4,9 +4,11 @@ import { logger } from './config/logger.js';
 import { prisma } from './lib/prisma.js';
 import { flushDiagnosticsTelemetry } from './services/diagnostics-telemetry.service.js';
 import { registerDiscordCommands } from './routes/discord.js';
+import { startDiscordGateway, stopDiscordGateway } from './services/discord.gateway.js';
 
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, environment: env.NODE_ENV }, 'MAX backend started');
+  startDiscordGateway();
   void registerDiscordCommands().catch((error) => {
     logger.warn({ err: error instanceof Error ? error.name : typeof error }, 'Discord command registration failed');
   });
@@ -27,6 +29,7 @@ process.on('unhandledRejection', (reason) => {
 const shutdown = async (signal: string) => {
   logger.info({ signal }, 'Shutdown requested');
   server.close(async () => {
+    await stopDiscordGateway();
     await flushDiagnosticsTelemetry();
     await prisma.$disconnect();
     logger.info('MAX backend stopped');
