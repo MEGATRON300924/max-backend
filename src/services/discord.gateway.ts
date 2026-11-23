@@ -181,9 +181,16 @@ async function sendLongReply(message: Message, content: string) {
 
 async function handleGuildMessage(message: Message) {
   if (!message.guild || message.author.bot || message.webhookId || !message.content.trim()) return;
-  const config = await prisma.discordChannelConfig.findUnique({
+  const channel = message.channel as any;
+  const directConfig = await prisma.discordChannelConfig.findUnique({
     where: { guildId_channelId: { guildId: message.guildId!, channelId: message.channelId } }
   });
+  const inheritedConfig = !directConfig && channel.parentId
+    ? await prisma.discordChannelConfig.findUnique({
+        where: { guildId_channelId: { guildId: message.guildId!, channelId: channel.parentId } }
+      })
+    : null;
+  const config = directConfig ?? inheritedConfig;
   if (!config?.enabled) return;
 
   const userKey = message.guildId + ':' + message.author.id;
