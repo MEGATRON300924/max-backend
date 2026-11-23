@@ -517,7 +517,7 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
       { role: 'USER', content: input.content }
     ]);
 
-    const generated = await orchestrate(user, conversation.id, turns, input.content);
+    const generated = await orchestrate(user, conversation.id, turns, input.content, '[Trusted platform metadata: source=Webchat; surface=authenticated MAX Webchat; speaker is the authenticated conversation owner.]');
     const assistantMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -610,7 +610,8 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
       },
       (activity) => {
         res.write(`event: activity\ndata: ${JSON.stringify(activity)}\n\n`);
-      }
+      },
+      '[Trusted platform metadata: source=Webchat; surface=authenticated MAX Webchat; speaker is the authenticated conversation owner.]'
     );
 
     const assistantMessage = await prisma.message.create({
