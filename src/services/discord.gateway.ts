@@ -1,7 +1,8 @@
 import {
   Client,
   GatewayIntentBits,
-  PermissionFlagsBits
+  PermissionFlagsBits,
+  Partials
 } from 'discord.js';
 import type { Message } from 'discord.js';
 import { env } from '../config/env.js';
@@ -329,9 +330,11 @@ export function startDiscordGateway() {
   if (client) return;
 
   client = new Client({
+    partials: [Partials.Channel],
     intents: [
       GatewayIntentBits.Guilds,
       GatewayIntentBits.GuildMessages,
+      GatewayIntentBits.DirectMessages,
       GatewayIntentBits.MessageContent
     ]
   });
