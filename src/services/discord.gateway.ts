@@ -444,7 +444,7 @@ async function handleDirectMessage(message: Message) {
         });
     const conversation = await getConversation(user.id, 'Discord DM');
     await prisma.message.create({
-      data: { conversationId: conversation.id, role: 'USER', content: message.content.slice(0, 8000) }
+      data: { conversationId: conversation.id, role: 'USER', content: message.content.slice(0, 8000), metadata: { source: 'Discord', surface: 'direct-message', discordMessageId: message.id, discordAuthorId: message.author.id } }
     });
     const turns = await getTurns(conversation.id);
     const context = [
