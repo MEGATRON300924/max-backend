@@ -12,7 +12,7 @@ import { prisma } from '../lib/prisma.js';
 import { resolveEcosystemUser } from './user.service.js';
 import { orchestrate, orchestrateDiscordGuest } from './orchestrator.service.js';
 import { parseChannelAdminCommand } from './discord-channel-admin.js';
-import { getDiscordIdentityForContext, isLikelyPrivateDiscordRequest, splitDiscordMessage } from './discord-identity.js';
+import { getDiscordErrorMetadata, getDiscordIdentityForContext, isLikelyPrivateDiscordRequest, splitDiscordMessage } from './discord-identity.js';
 import type { AuthPrincipal } from '../types/auth.js';
 
 type DiscordIdentityResponse = {
@@ -298,7 +298,7 @@ async function handleGuildMessage(message: Message) {
       try {
         await handleStaffChannelAdminCommand(message);
       } catch (error) {
-        logger.error({ errorType: error instanceof Error ? error.name : typeof error, guildId: message.guildId }, 'Discord staff channel command failed');
+        logger.error({ ...getDiscordErrorMetadata(error), guildId: message.guildId }, 'Discord staff channel command failed');
         await message.reply({ content: '⚠️ MAX could not update the channel configuration. Please check status and try again.', allowedMentions: { parse: [] } }).catch(() => undefined);
       }
     }
@@ -325,7 +325,7 @@ async function handleGuildMessage(message: Message) {
   try {
     const guild = message.guild;
     const identity = await getLinkedMaxIdentity(message.author.id).catch((error) => {
-      logger.warn({ errorType: error instanceof Error ? error.name : typeof error }, 'Discord MAX identity lookup failed');
+      logger.warn(getDiscordErrorMetadata(error), 'Discord MAX identity lookup failed');
       return null;
     });
     const needsPrivateContext = Boolean(identity && isLikelyPrivateDiscordRequest(message.content));
@@ -359,7 +359,7 @@ async function handleGuildMessage(message: Message) {
     await sendLongReply(message, reply);
   } catch (error) {
     logger.error({
-      errorType: error instanceof Error ? error.name : typeof error,
+      ...getDiscordErrorMetadata(error),
       guildId: message.guildId,
       channelId: message.channelId
     }, 'Discord Gateway message processing failed');
@@ -439,7 +439,7 @@ async function handleDirectMessage(message: Message) {
     });
     await sendLongReply(message, reply);
   } catch (error) {
-    logger.error({ errorType: error instanceof Error ? error.name : typeof error }, 'Discord DM processing failed');
+    logger.error(getDiscordErrorMetadata(error), 'Discord DM processing failed');
     await message.reply({ content: '⚠️ MAX could not complete that request right now. Please try again.', allowedMentions: { parse: [] } }).catch(() => undefined);
   } finally {
     inFlight.delete(userKey);
