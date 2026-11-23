@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  getDiscordErrorMetadata,
   getDiscordIdentityForContext,
   isLikelyPrivateDiscordRequest,
   splitDiscordMessage
@@ -34,5 +35,20 @@ describe('Discord message chunking', () => {
 
   it('returns no chunks for empty content', () => {
     expect(splitDiscordMessage('   ')).toEqual([]);
+  });
+});
+
+describe('Discord safe error metadata', () => {
+  it('records only error type, code and status', () => {
+    expect(getDiscordErrorMetadata({
+      name: 'ApiError',
+      code: 'RESOURCE_EXHAUSTED',
+      status: 429,
+      message: 'private provider payload'
+    })).toEqual({
+      errorType: 'ApiError',
+      errorCode: 'RESOURCE_EXHAUSTED',
+      errorStatus: 429
+    });
   });
 });
