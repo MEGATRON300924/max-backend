@@ -740,3 +740,11 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Preserved MAX Auth authentication, existing Gemini model/provider, endpoint path and response envelope. No secrets, environment variables, database schema, or unrelated AI routing changed.
 - Validation pending: run MAX Backend TypeScript typecheck, tests and production build through GitHub Actions; inspect the PR; test authenticated Flutter ZIP generation against the Render preview/production endpoint and verify archive extraction/file count.
 - No merge or Render production deployment performed.
+
+
+## Render build failure follow-up — event service test typecheck — 2026-11-23
+- Investigated failed manual Render deploy `dep-dc2376mc6qcc73c9b7jg` for merged Project Builder fix commit `33883ff11358a1b158b30563fdda6dde959462f0`.
+- Render successfully checked out the correct `main` commit, installed dependencies and generated Prisma Client. The build then failed during `tsc -p tsconfig.json` with TS2532 at `src/services/event.service.test.ts:30:19` and `:56:12`: mocked `findMany.mock.calls[0][0]` was accessed without guarding the possibly absent call/argument.
+- Created branch `fix/event-service-test-typecheck` from current `main`. Added a small `getFindManyQuery()` test helper that explicitly checks the mock call and query argument before returning it; replaced both unsafe direct array accesses. No production service logic, runtime behavior, schema, dependencies or environment configuration changed.
+- Fix commit: `421d44c9c030573557eb435024b05a014a74a5b0`.
+- Validation pending: run the repository's TypeScript typecheck, Vitest suite and production build through CI; open a PR only after reviewing the diff. Do not merge or trigger another production deployment until checks pass and the user approves the merge.
