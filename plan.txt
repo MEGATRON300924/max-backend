@@ -859,3 +859,11 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - The implementation uses the existing Discord Gateway and Prisma schema; no database migration or new environment variable is required.
 - PR #52 is open and ready for review. It has not been merged. Render has not deployed these changes, and no production Discord behavior change is claimed.
 - Next: user reviews and merges PR #52; then verify Render deployment and test that ordinary replies to other users stay silent, explicit MAX mentions/name invocations respond, replies to MAX respond with the referenced message and recent context, and Webchat normal/streaming prompts carry the trusted Webchat source marker.
+
+
+### Discord addressing/context final validation — 2026-11-23
+- Final branch head: `f6a484e80b0f37af7f557264744b81740d2c5ccd`.
+- GitHub Actions run #441 (45229567739) passed on the exact final head: dependency installation, Prisma Client generation, TypeScript typecheck, all Vitest tests and production build.
+- During validation, CI first caught a missing comma in the context builder and then an outdated test assertion after the speaker label was explicitly marked untrusted. Both were corrected; the final full pipeline is green.
+- Discord server/channel/display/role names are explicitly treated as untrusted labels, while platform/source fields, Discord IDs and permission booleans are separately identified as transport metadata.
+- PR #52 remains open, non-draft and unmerged. No Render deployment or production behavior change has occurred.
