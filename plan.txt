@@ -912,3 +912,10 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Added Prisma models and a migration for `project_workspaces` and `project_files`; added `/api/v1/projects` route registration.
 - Security model: every route requires MAX Auth, and all reads/writes scope through the authenticated MAX Backend user ID. Conversation association is validated against that same owner.
 - Pending validation: Prisma Client generation, TypeScript typecheck, Vitest, migration deployment against a staging database, API ownership/expiry/path/size tests, and authenticated integration tests. No Render environment changes, merge or production deployment performed.
+
+
+### MAX Project Workspace backend follow-up — 2026-11-24
+- Added inverse Prisma relations for workspace ownership and optional conversation association, and aligned Prisma string column types with the SQL migration.
+- Added a backend cleanup task that removes expired workspace rows at service startup and every 15 minutes. Cleanup is best-effort and logs only a count/error class; expired workspaces are also deleted when a user lists or creates projects.
+- Added focused Vitest coverage for Windows path normalization, nested relative paths, dotfiles, traversal/absolute path rejection, and preview MIME mapping.
+- Validation still pending on the branch: Prisma schema/client generation, TypeScript typecheck, full Vitest suite, production build, migration application, and authenticated API ownership/retention tests.
