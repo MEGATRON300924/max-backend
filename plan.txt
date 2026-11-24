@@ -919,3 +919,11 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Added a backend cleanup task that removes expired workspace rows at service startup and every 15 minutes. Cleanup is best-effort and logs only a count/error class; expired workspaces are also deleted when a user lists or creates projects.
 - Added focused Vitest coverage for Windows path normalization, nested relative paths, dotfiles, traversal/absolute path rejection, and preview MIME mapping.
 - Validation still pending on the branch: Prisma schema/client generation, TypeScript typecheck, full Vitest suite, production build, migration application, and authenticated API ownership/retention tests.
+
+
+### MAX Project Workspace generation endpoint — 2026-11-24
+- Added `POST /api/v1/projects/:projectId/generate`, which passes the authenticated user's instruction and bounded current project source context to the configured Gemini model.
+- Gemini is instructed to return complete files to create or replace, preserve the existing project conventions, treat source contents as untrusted, and never claim execution/build/deployment.
+- Validates returned JSON, safe relative paths, duplicate paths, per-file size, total project size and file-count limits before persisting updates transactionally.
+- The endpoint returns a concise summary and updated file metadata; clients retrieve file contents through the separately owner-scoped file-read endpoint.
+- MAX Chat integration is being developed separately and depends on this backend PR being merged and deployed before end-to-end use.
