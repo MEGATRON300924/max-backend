@@ -901,3 +901,46 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Pending: add focused adapter tests, run typecheck, full Vitest suite and production build, review the complete diff, open a PR, then wait for user merge approval. Render service creation and production secret configuration remain blocked on explicit cost approval.
 
 - CI follow-up: the first typecheck run identified that TTS metadata was referenced before synthesis and one test accessed a possibly undefined mocked request argument. Corrected persistence order (assistant text is saved before TTS; TTS metadata is attached only after successful synthesis) and guarded the test mock access. Re-run validation on the latest branch head before merge.
+
+
+## 2026-11-24 — MAX Project Workspace backend foundation
+- Started branch `feat/max-project-workspaces` from current `main`.
+- Added authenticated, user-owned project workspaces to MAX Backend, optionally associated with a conversation the same user owns.
+- Added project file create/update, list, read and delete endpoints. File paths are normalized and reject absolute paths, traversal segments and invalid characters.
+- Limits: 20 active workspaces per user, 100 files per workspace, 512 KB per file, 5 MB total source per workspace. Workspaces expire after 24 hours of inactivity; expired rows are purged when the owner lists or creates projects, and expired workspaces cannot be accessed.
+- Files are stored as text in the existing PostgreSQL database; no generated content is written into the MAX Chat deployment filesystem or GitHub repository. Existing ZIP generation remains available as an export path.
+- Added Prisma models and a migration for `project_workspaces` and `project_files`; added `/api/v1/projects` route registration.
+- Security model: every route requires MAX Auth, and all reads/writes scope through the authenticated MAX Backend user ID. Conversation association is validated against that same owner.
+- Pending validation: Prisma Client generation, TypeScript typecheck, Vitest, migration deployment against a staging database, API ownership/expiry/path/size tests, and authenticated integration tests. No Render environment changes, merge or production deployment performed.
+
+
+### MAX Project Workspace backend follow-up — 2026-11-24
+- Added inverse Prisma relations for workspace ownership and optional conversation association, and aligned Prisma string column types with the SQL migration.
+- Added a backend cleanup task that removes expired workspace rows at service startup and every 15 minutes. Cleanup is best-effort and logs only a count/error class; expired workspaces are also deleted when a user lists or creates projects.
+- Added focused Vitest coverage for Windows path normalization, nested relative paths, dotfiles, traversal/absolute path rejection, and preview MIME mapping.
+- Validation still pending on the branch: Prisma schema/client generation, TypeScript typecheck, full Vitest suite, production build, migration application, and authenticated API ownership/retention tests.
+
+
+### MAX Project Workspace generation endpoint — 2026-11-24
+- Added `POST /api/v1/projects/:projectId/generate`, which passes the authenticated user's instruction and bounded current project source context to the configured Gemini model.
+- Gemini is instructed to return complete files to create or replace, preserve the existing project conventions, treat source contents as untrusted, and never claim execution/build/deployment.
+- Validates returned JSON, safe relative paths, duplicate paths, per-file size, total project size and file-count limits before persisting updates transactionally.
+- The endpoint returns a concise summary and updated file metadata; clients retrieve file contents through the separately owner-scoped file-read endpoint.
+- MAX Chat integration is being developed separately and depends on this backend PR being merged and deployed before end-to-end use.
+
+
+### MAX Project Workspace backend CI — 2026-11-24
+- Final backend PR head: `ac6559321b00be8543e0bd3f838ecd66497b237f`.
+- GitHub Actions run #45434952132 passed on the exact head: Prisma Client generation, TypeScript typecheck, complete Vitest suite (including the 9 new project path/MIME tests), and production TypeScript build. The separate MAX Voice Engine test job also passed.
+- During the first test run, an existing voice-provider test mocked the environment without `LOG_LEVEL`, which caused Pino logger initialization to fail. Added a safe `info` fallback for a missing log level; the full suite then passed.
+- PR #56 is open and reports a clean merge state. The SQL migration has not been applied to the production database; Render has not deployed this code. Authenticated API and Gemini generation integration tests against a migrated staging/production database remain outstanding.
+
+
+### MAX Project Workspace source export endpoint — 2026-11-24
+- Added owner-scoped `GET /api/v1/projects/:projectId/export`, returning the selected project's complete text source files in one authenticated response for on-demand archive export.
+- The endpoint refreshes workspace inactivity expiry and refuses empty or expired projects. ZIP construction remains in MAX Chat's existing serverless API layer, which validates paths and creates the downloadable archive only after the user chooses Export.
+
+
+### MAX Project Workspace export endpoint CI — 2026-11-24
+- GitHub Actions run #45436275002 passed on the code head that includes the authenticated project source export endpoint: Prisma Client generation, TypeScript typecheck, full Vitest suite, production build, and MAX Voice Engine tests.
+- No schema changes were introduced by the export endpoint; the existing workspace migration remains pending application after the backend PR is merged.

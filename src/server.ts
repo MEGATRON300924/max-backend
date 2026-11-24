@@ -6,6 +6,21 @@ import { flushDiagnosticsTelemetry } from './services/diagnostics-telemetry.serv
 import { registerDiscordCommands } from './routes/discord.js';
 import { startDiscordGateway, stopDiscordGateway } from './services/discord.gateway.js';
 
+const PROJECT_WORKSPACE_CLEANUP_INTERVAL_MS = 15 * 60 * 1000;
+
+async function removeExpiredProjectWorkspaces() {
+  try {
+    const result = await prisma.projectWorkspace.deleteMany({ where: { expiresAt: { lte: new Date() } } });
+    if (result.count) logger.info({ deletedWorkspaces: result.count }, 'Expired MAX project workspaces removed');
+  } catch (error) {
+    logger.warn({ errorType: error instanceof Error ? error.name : typeof error }, 'Expired project workspace cleanup failed');
+  }
+}
+
+void removeExpiredProjectWorkspaces();
+const projectWorkspaceCleanup = setInterval(() => void removeExpiredProjectWorkspaces(), PROJECT_WORKSPACE_CLEANUP_INTERVAL_MS);
+projectWorkspaceCleanup.unref();
+
 const server = app.listen(env.PORT, () => {
   logger.info({ port: env.PORT, environment: env.NODE_ENV }, 'MAX backend started');
   startDiscordGateway();
@@ -28,6 +43,7 @@ process.on('unhandledRejection', (reason) => {
 
 const shutdown = async (signal: string) => {
   logger.info({ signal }, 'Shutdown requested');
+  clearInterval(projectWorkspaceCleanup);
   server.close(async () => {
     await stopDiscordGateway();
     await flushDiagnosticsTelemetry();
