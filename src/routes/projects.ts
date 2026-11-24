@@ -6,6 +6,8 @@ import { ApiError } from '../middleware/errors.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 import { env } from '../config/env.js';
+import { logger } from '../config/logger.js';
+import { extractGeminiProviderError } from '../services/project-generation.provider.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -255,10 +257,30 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
         })
       }
     );
-    const payload = await response.json().catch(() => ({}));
+    const responseText = await response.text().catch(() => '');
+    let payload: any = {};
+    try {
+      payload = responseText ? JSON.parse(responseText) : {};
+    } catch {
+      payload = {};
+    }
     if (!response.ok) {
+      const providerError = extractGeminiProviderError(payload);
+      logger.error({
+        event: 'project.generation.provider_failed',
+        correlationId: res.locals.correlationId,
+        provider: 'gemini',
+        model: env.GEMINI_MODEL,
+        providerHttpStatus: response.status,
+        providerCode: providerError.code,
+        providerStatus: providerError.status,
+        providerMessage: providerError.message
+      }, 'Gemini rejected MAX project generation');
       throw new ApiError(response.status === 429 ? 429 : 502, 'PROJECT_GENERATION_PROVIDER_ERROR',
         response.status === 429 ? 'MAX project generation is temporarily rate-limited. Please retry shortly.' : 'MAX could not generate the requested project files.');
+    }
+    if (!responseText || !Object.keys(payload).length) {
+      throw new ApiError(502, 'PROJECT_GENERATION_PROVIDER_INVALID_RESPONSE', 'Gemini returned an invalid response while generating project files.');
     }
     const candidate = payload?.candidates?.[0];
     if (candidate?.finishReason && candidate.finishReason !== 'STOP') {

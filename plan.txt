@@ -944,3 +944,12 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 ### MAX Project Workspace export endpoint CI — 2026-11-24
 - GitHub Actions run #45436275002 passed on the code head that includes the authenticated project source export endpoint: Prisma Client generation, TypeScript typecheck, full Vitest suite, production build, and MAX Voice Engine tests.
 - No schema changes were introduced by the export endpoint; the existing workspace migration remains pending application after the backend PR is merged.
+
+
+MAX PROJECT GENERATION PROVIDER DIAGNOSTICS — 2026-11-24
+- Render logs confirmed authenticated POST /api/v1/projects/:id/generate requests failed with HTTP 502 and PROJECT_GENERATION_PROVIDER_ERROR while project creation itself succeeded (HTTP 201).
+- Root cause of poor observability: src/routes/projects.ts discarded Google's non-2xx response body and replaced it with a generic ApiError, so Render logs could not distinguish invalid model/request, key permissions, quota, or provider-side failures.
+- Added src/services/project-generation.provider.ts to extract only safe Gemini error code/status/message fields, redact API-key/Bearer-like values, strip control characters, and cap message length at 400 characters.
+- Updated the project-generation route to read the provider response once, emit a structured sanitized provider failure log (correlation ID, configured model, HTTP status, provider code/status/message), and reject empty/invalid JSON responses explicitly. User-facing error responses remain generic; no secrets or prompt contents are logged.
+- Added unit tests for extraction, credential redaction, malformed payloads, and message truncation.
+- Branch: fix/project-generation-provider-diagnostics. PR and CI validation pending. No merge or production deployment performed.
