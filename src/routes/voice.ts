@@ -57,8 +57,10 @@ voiceRouter.post('/conversations/:conversationId/respond', audioParser, async (r
     await prisma.message.create({ data: { conversationId: conversation.id, role: 'USER', content: transcript.text, metadata: { input: 'voice', sttProvider: 'elevenlabs', sttModel: env.ELEVENLABS_STT_MODEL } } });
     const turns = turnsFromConversation([...conversation.messages.filter((m) => m.role === 'USER' || m.role === 'ASSISTANT'), { role: 'USER', content: transcript.text }]);
     const generated = await orchestrate({ ...user }, conversation.id, turns, transcript.text);
-    const assistantMessage = await prisma.message.create({ data: { conversationId: conversation.id, role: 'ASSISTANT', content: generated.text, provider: generated.provider, model: generated.model, metadata: { input: 'voice', intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), interactionId: generated.interactionId, ttsProvider: speech.provider, ttsModel: speech.model, ttsVoiceId: speech.voiceId } } });
+    const assistantMetadata = { input: 'voice', intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), interactionId: generated.interactionId };
+    const assistantMessage = await prisma.message.create({ data: { conversationId: conversation.id, role: 'ASSISTANT', content: generated.text, provider: generated.provider, model: generated.model, metadata: assistantMetadata } });
     const speech = await synthesizeVoiceResponse(generated.text);
+    await prisma.message.update({ where: { id: assistantMessage.id }, data: { metadata: { ...assistantMetadata, ttsProvider: speech.provider, ttsModel: speech.model, ttsVoiceId: speech.voiceId } } });
     res.json({ data: { transcript, response: { messageId: assistantMessage.id, text: generated.text, provider: generated.provider, model: generated.model, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations, interactionId: generated.interactionId }, audio: { contentType: speech.contentType, base64: speech.audio.toString('base64'), provider: speech.provider, model: speech.model, voiceId: speech.voiceId, requestId: speech.requestId } } });
   } catch (error) { next(error); }
 });
