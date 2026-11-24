@@ -889,3 +889,15 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Production deployment is confirmed. Real Discord scenario checks (silence for member-to-member replies, explicit mention/name, reply context, Japanese translation, and Webchat source marker) remain to be performed with live test messages.
 - Updated `docs/DISCORD.md` separately because the previous instructions incorrectly described ordinary-message responses and showed outdated channel command syntax.
 - Voice roadmap status: the backend already contains authenticated ElevenLabs STT/TTS endpoints, but the provider-neutral MAX Voice Engine, self-hosted Kokoro runtime, robust failover/telemetry, and Discord voice sessions are not implemented by this merge. Do not claim voice readiness. Continue with a separately reviewed Phase B implementation and benchmark before any paid Render resource or production audio capture.
+
+
+## 2026-11-24 — MAX Voice Engine Phase B2: provider adapter and failover
+- Started branch `feature/max-voice-provider-adapter` from merged Kokoro prototype commit `5db63a8d337c6d8fbe969482b559367f5ce2db3b`.
+- Implementing a backend-owned TTS adapter: ElevenLabs remains preferred when its API key and voice ID are configured; the private Kokoro service is used as fallback when configured. If ElevenLabs is absent, Kokoro can act as primary.
+- Added a short in-process ElevenLabs circuit-breaker cooldown after provider failure, bounded Kokoro request timeout, strict WAV content-type and 15 MB response validation, and safe upstream error messages. The adapter never returns provider response bodies or logs user text/audio.
+- Existing authenticated voice endpoints remain behind MAX Auth. STT continues to use ElevenLabs; this phase changes TTS provider routing only.
+- Added environment configuration for the private voice-engine URL/token, selected Kokoro voice and request timeout. No secret values are committed and no Render environment variables have been changed.
+- Updated voice status and speech response metadata to expose configured providers and the provider/model/voice actually used.
+- Pending: add focused adapter tests, run typecheck, full Vitest suite and production build, review the complete diff, open a PR, then wait for user merge approval. Render service creation and production secret configuration remain blocked on explicit cost approval.
+
+- CI follow-up: the first typecheck run identified that TTS metadata was referenced before synthesis and one test accessed a possibly undefined mocked request argument. Corrected persistence order (assistant text is saved before TTS; TTS metadata is attached only after successful synthesis) and guarded the test mock access. Re-run validation on the latest branch head before merge.
