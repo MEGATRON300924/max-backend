@@ -6,7 +6,8 @@ import type { AuthenticatedRequest } from '../types/auth.js';
 import { ApiError } from '../middleware/errors.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 import { orchestrate } from '../services/orchestrator.service.js';
-import { synthesizeWithElevenLabs, transcribeWithElevenLabs, voiceStatus } from '../services/voice.service.js';
+import { transcribeWithElevenLabs } from '../services/voice.service.js';
+import { getVoiceProviderStatus, synthesizeVoiceResponse } from '../services/voice-provider.service.js';
 import { env } from '../config/env.js';
 
 export const voiceRouter = Router();
@@ -27,7 +28,7 @@ function turnsFromConversation(messages: Array<{ role: string; content: string }
 }
 function jsonMetadata(value: unknown) { return JSON.parse(JSON.stringify(value)); }
 
-voiceRouter.get('/status', (_req, res) => res.json({ data: voiceStatus() }));
+voiceRouter.get('/status', (_req, res) => res.json({ data: getVoiceProviderStatus() }));
 
 voiceRouter.post('/transcribe', audioParser, async (req: AuthenticatedRequest, res, next) => {
   try { res.json({ data: await transcribeWithElevenLabs(getAudio(req), mimeType(req)) }); } catch (error) { next(error); }
@@ -36,9 +37,11 @@ voiceRouter.post('/transcribe', audioParser, async (req: AuthenticatedRequest, r
 voiceRouter.post('/speak', async (req: AuthenticatedRequest, res, next) => {
   try {
     const input = z.object({ text: z.string().trim().min(1).max(10000) }).parse(req.body);
-    const result = await synthesizeWithElevenLabs(input.text);
+    const result = await synthesizeVoiceResponse(input.text);
     res.setHeader('content-type', result.contentType);
     res.setHeader('cache-control', 'no-store');
+    res.setHeader('x-max-voice-provider', result.provider);
+    res.setHeader('x-max-voice-model', result.model);
     if (result.requestId) res.setHeader('x-elevenlabs-request-id', result.requestId);
     res.send(result.audio);
   } catch (error) { next(error); }
@@ -54,8 +57,8 @@ voiceRouter.post('/conversations/:conversationId/respond', audioParser, async (r
     await prisma.message.create({ data: { conversationId: conversation.id, role: 'USER', content: transcript.text, metadata: { input: 'voice', sttProvider: 'elevenlabs', sttModel: env.ELEVENLABS_STT_MODEL } } });
     const turns = turnsFromConversation([...conversation.messages.filter((m) => m.role === 'USER' || m.role === 'ASSISTANT'), { role: 'USER', content: transcript.text }]);
     const generated = await orchestrate({ ...user }, conversation.id, turns, transcript.text);
-    const assistantMessage = await prisma.message.create({ data: { conversationId: conversation.id, role: 'ASSISTANT', content: generated.text, provider: generated.provider, model: generated.model, metadata: { input: 'voice', intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), interactionId: generated.interactionId, ttsProvider: 'elevenlabs', ttsModel: env.ELEVENLABS_TTS_MODEL } } });
-    const speech = await synthesizeWithElevenLabs(generated.text);
-    res.json({ data: { transcript, response: { messageId: assistantMessage.id, text: generated.text, provider: generated.provider, model: generated.model, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations, interactionId: generated.interactionId }, audio: { contentType: speech.contentType, base64: speech.audio.toString('base64'), requestId: speech.requestId } } });
+    const assistantMessage = await prisma.message.create({ data: { conversationId: conversation.id, role: 'ASSISTANT', content: generated.text, provider: generated.provider, model: generated.model, metadata: { input: 'voice', intent: generated.intent, tools: generated.tools, confirmations: jsonMetadata(generated.confirmations), interactionId: generated.interactionId, ttsProvider: speech.provider, ttsModel: speech.model, ttsVoiceId: speech.voiceId } } });
+    const speech = await synthesizeVoiceResponse(generated.text);
+    res.json({ data: { transcript, response: { messageId: assistantMessage.id, text: generated.text, provider: generated.provider, model: generated.model, intent: generated.intent, tools: generated.tools, confirmations: generated.confirmations, interactionId: generated.interactionId }, audio: { contentType: speech.contentType, base64: speech.audio.toString('base64'), provider: speech.provider, model: speech.model, voiceId: speech.voiceId, requestId: speech.requestId } } });
   } catch (error) { next(error); }
 });
