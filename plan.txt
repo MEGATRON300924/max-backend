@@ -899,3 +899,5 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Added environment configuration for the private voice-engine URL/token, selected Kokoro voice and request timeout. No secret values are committed and no Render environment variables have been changed.
 - Updated voice status and speech response metadata to expose configured providers and the provider/model/voice actually used.
 - Pending: add focused adapter tests, run typecheck, full Vitest suite and production build, review the complete diff, open a PR, then wait for user merge approval. Render service creation and production secret configuration remain blocked on explicit cost approval.
+
+- CI follow-up: the first typecheck run identified that TTS metadata was referenced before synthesis and one test accessed a possibly undefined mocked request argument. Corrected persistence order (assistant text is saved before TTS; TTS metadata is attached only after successful synthesis) and guarded the test mock access. Re-run validation on the latest branch head before merge.
