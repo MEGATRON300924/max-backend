@@ -2,7 +2,7 @@ import pino from 'pino';
 import { env } from './env.js';
 
 export const logger = pino({
-  level: env.LOG_LEVEL,
+  level: env.LOG_LEVEL || 'info',
   base: undefined,
   redact: {
     paths: [
