@@ -939,3 +939,8 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 ### MAX Project Workspace source export endpoint — 2026-11-24
 - Added owner-scoped `GET /api/v1/projects/:projectId/export`, returning the selected project's complete text source files in one authenticated response for on-demand archive export.
 - The endpoint refreshes workspace inactivity expiry and refuses empty or expired projects. ZIP construction remains in MAX Chat's existing serverless API layer, which validates paths and creates the downloadable archive only after the user chooses Export.
+
+
+### MAX Project Workspace export endpoint CI — 2026-11-24
+- GitHub Actions run #45436275002 passed on the code head that includes the authenticated project source export endpoint: Prisma Client generation, TypeScript typecheck, full Vitest suite, production build, and MAX Voice Engine tests.
+- No schema changes were introduced by the export endpoint; the existing workspace migration remains pending application after the backend PR is merged.
