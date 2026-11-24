@@ -154,6 +154,23 @@ router.put('/:projectId/files', async (req: AuthenticatedRequest, res, next) => 
   } catch (error) { next(error); }
 });
 
+
+router.get('/:projectId/export', async (req: AuthenticatedRequest, res, next) => {
+  try {
+    const user = await getUser(req);
+    const projectId = projectIdSchema.parse(req.params.projectId);
+    const workspace = await getWorkspaceForUser(projectId, user.id);
+    const files = await prisma.projectFile.findMany({
+      where: { workspaceId: projectId },
+      orderBy: { path: 'asc' },
+      select: { path: true, content: true, mimeType: true, sizeBytes: true }
+    });
+    if (!files.length) throw new ApiError(404, 'PROJECT_EMPTY', 'There are no project files to export yet.');
+    await touchWorkspace(projectId);
+    res.json({ data: { id: workspace.id, name: workspace.name, files } });
+  } catch (error) { next(error); }
+});
+
 router.get('/:projectId/files/:fileId', async (req: AuthenticatedRequest, res, next) => {
   try {
     const user = await getUser(req);
