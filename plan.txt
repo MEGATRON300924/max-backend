@@ -934,3 +934,8 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - GitHub Actions run #45434952132 passed on the exact head: Prisma Client generation, TypeScript typecheck, complete Vitest suite (including the 9 new project path/MIME tests), and production TypeScript build. The separate MAX Voice Engine test job also passed.
 - During the first test run, an existing voice-provider test mocked the environment without `LOG_LEVEL`, which caused Pino logger initialization to fail. Added a safe `info` fallback for a missing log level; the full suite then passed.
 - PR #56 is open and reports a clean merge state. The SQL migration has not been applied to the production database; Render has not deployed this code. Authenticated API and Gemini generation integration tests against a migrated staging/production database remain outstanding.
+
+
+### MAX Project Workspace source export endpoint — 2026-11-24
+- Added owner-scoped `GET /api/v1/projects/:projectId/export`, returning the selected project's complete text source files in one authenticated response for on-demand archive export.
+- The endpoint refreshes workspace inactivity expiry and refuses empty or expired projects. ZIP construction remains in MAX Chat's existing serverless API layer, which validates paths and creates the downloadable archive only after the user chooses Export.
