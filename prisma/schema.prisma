@@ -67,6 +67,8 @@ model EcosystemUser {
   ownedHomes       Home[] @relation("HomeOwner")
   homeMemberships  HomeMember[]
 
+  projectWorkspaces ProjectWorkspace[]
+
   @@index([email])
   @@map("ecosystem_users")
   @@schema("max_backend")
@@ -83,6 +85,8 @@ model Conversation {
   messages    Message[]
   attachments  ConversationAttachment[]
   pendingActions PendingAction[]
+
+  projectWorkspaces ProjectWorkspace[]
 
   @@index([userId, updatedAt])
   @@index([userId, status, updatedAt])
