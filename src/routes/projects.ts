@@ -273,7 +273,7 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
       updates.set(path, { path, content: item.content, sizeBytes, mimeType: mimeTypeForPath(path) });
     }
 
-    const existingByPath = new Map(existingFiles.map(file => [file.path, file]));
+    const existingByPath = new Map<string, (typeof existingFiles)[number]>(existingFiles.map(file => [file.path, file] as const));
     let totalBytes = existingFiles.reduce((sum, file) => sum + file.sizeBytes, 0);
     let newFileCount = existingFiles.length;
     for (const item of updates.values()) {
