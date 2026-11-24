@@ -57,7 +57,9 @@ describe('MAX voice provider adapter', () => {
       headers: expect.objectContaining({ 'X-MAX-Voice-Token': 'kokoro-token' }),
       signal: expect.any(AbortSignal)
     }));
-    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+    const requestInit = fetchMock.mock.calls[0]?.[1];
+    expect(requestInit).toBeDefined();
+    expect(JSON.parse(String(requestInit?.body))).toMatchObject({
       input: 'Fallback speech',
       voice: 'max-test',
       language: 'en-us'
