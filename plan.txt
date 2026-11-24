@@ -901,3 +901,14 @@ MAX AI NATIVE NOTIFICATION DELIVERY — 2026-11-20
 - Pending: add focused adapter tests, run typecheck, full Vitest suite and production build, review the complete diff, open a PR, then wait for user merge approval. Render service creation and production secret configuration remain blocked on explicit cost approval.
 
 - CI follow-up: the first typecheck run identified that TTS metadata was referenced before synthesis and one test accessed a possibly undefined mocked request argument. Corrected persistence order (assistant text is saved before TTS; TTS metadata is attached only after successful synthesis) and guarded the test mock access. Re-run validation on the latest branch head before merge.
+
+
+## 2026-11-24 — MAX Project Workspace backend foundation
+- Started branch `feat/max-project-workspaces` from current `main`.
+- Added authenticated, user-owned project workspaces to MAX Backend, optionally associated with a conversation the same user owns.
+- Added project file create/update, list, read and delete endpoints. File paths are normalized and reject absolute paths, traversal segments and invalid characters.
+- Limits: 20 active workspaces per user, 100 files per workspace, 512 KB per file, 5 MB total source per workspace. Workspaces expire after 24 hours of inactivity; expired rows are purged when the owner lists or creates projects, and expired workspaces cannot be accessed.
+- Files are stored as text in the existing PostgreSQL database; no generated content is written into the MAX Chat deployment filesystem or GitHub repository. Existing ZIP generation remains available as an export path.
+- Added Prisma models and a migration for `project_workspaces` and `project_files`; added `/api/v1/projects` route registration.
+- Security model: every route requires MAX Auth, and all reads/writes scope through the authenticated MAX Backend user ID. Conversation association is validated against that same owner.
+- Pending validation: Prisma Client generation, TypeScript typecheck, Vitest, migration deployment against a staging database, API ownership/expiry/path/size tests, and authenticated integration tests. No Render environment changes, merge or production deployment performed.
