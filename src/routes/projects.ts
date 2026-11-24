@@ -20,7 +20,7 @@ function expiryFromNow() {
   return new Date(Date.now() + RETENTION_HOURS * 60 * 60 * 1000);
 }
 
-function normalizeProjectPath(value: string) {
+export function normalizeProjectPath(value: string) {
   const path = value.trim().replace(/\\/g, '/').replace(/^\.\//, '');
   if (!path || path.length > 240 || path.startsWith('/') || /^[a-z]:/i.test(path)) {
     throw new ApiError(400, 'PROJECT_FILE_PATH_INVALID', 'Use a valid relative file path.');
@@ -32,7 +32,7 @@ function normalizeProjectPath(value: string) {
   return parts.join('/');
 }
 
-function mimeTypeForPath(path: string) {
+export function mimeTypeForPath(path: string) {
   const extension = path.split('.').pop()?.toLowerCase();
   const types: Record<string, string> = {
     html: 'text/html', htm: 'text/html', css: 'text/css', js: 'text/javascript',
