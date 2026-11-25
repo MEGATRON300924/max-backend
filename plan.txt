@@ -993,3 +993,11 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 
 - Validation: GitHub Actions CI run #481 succeeded. Prisma client generation, TypeScript typecheck, backend Jest tests, production build, and MAX Voice Engine API tests all passed.
 - Production behavior remains unverified until this PR is merged/deployed and MAX Chat is retested; no live connector calls were made from this change.
+
+## 2026-11-25 — GitHub repository understanding and live coding activity
+- Started branch `feat/github-live-coding-progress` from current `main`.
+- Added `github.repository.inspect`: validates the selected repository against the connected MAX Auth GitHub account and the configured owner allowlist, then returns repository metadata, default branch, README content (bounded), and a bounded recursive file tree.
+- Strengthened GitHub tool descriptions so MAX resolves exact repository names from `github.repositories`, inspects the selected repository before coding, uses paths discovered from that repository, and never redirects GitHub work into the MAX Project Workspace.
+- Extended streamed activity events with structured GitHub coding state: repository, operation, phase, current file, file list, completion state, and approval state.
+- GitHub tool calls now emit repository-specific activity events; write operations remain behind the existing explicit confirmation gate and branch/PR protections.
+- Pending: add/verify focused tests, TypeScript typecheck, full backend test suite and production build; inspect GitHub Actions on this branch; review PR diff before requesting merge. No merge or Render deployment performed.
