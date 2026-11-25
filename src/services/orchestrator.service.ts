@@ -70,7 +70,66 @@ const capabilities = {
   os: true
 } as const;
 
+const MAX_MENTION_INTENTS: Record<string, string> = {
+  github: 'github',
+  maxhome: 'home',
+  home: 'home',
+  maxmusic: 'music',
+  music: 'music',
+  spotify: 'music',
+  maxcloud: 'cloud',
+  cloud: 'cloud',
+  maxbrowser: 'browser',
+  browser: 'browser',
+  maxsecurity: 'account',
+  security: 'account',
+  maxauth: 'account',
+  auth: 'account',
+  maxstudio: 'studio',
+  studio: 'studio',
+  maxtv: 'tv',
+  tv: 'tv',
+  maxhotels: 'hotels',
+  hotels: 'hotels',
+  google: 'google'
+};
+
+function getExplicitMaxTargets(content: string): string[] {
+  const targets = new Set<string>();
+  const expression = /(^|\s)@([a-z][a-z0-9_-]{1,30})\b/gi;
+  let match: RegExpExecArray | null;
+  while ((match = expression.exec(content))) {
+    const target = match[2].toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(MAX_MENTION_INTENTS, target)) targets.add(target);
+  }
+  return [...targets];
+}
+
+function buildMentionRoutingContext(targets: string[]): string {
+  if (!targets.length) return '';
+  return [
+    '[Explicit MAX integration routing from the user message]',
+    'The user explicitly selected these integration targets: ' + targets.map(target => '@' + target).join(', ') + '.',
+    'Treat these targets as authoritative routing constraints, not decorative text. Prefer the registered tools belonging to the selected target(s), and do not route the request to MAX Project Workspace or answer as if a local project preview is being updated.',
+    'For @github: resolve the exact connected repository with github_repositories, inspect it with github_repository_inspect, read relevant files with github_file_get, and propose repository changes using github_create_pull_request only after the user approves the confirmation.',
+    'For @maxhome: use home_devices_list for live device and home information; use home_execute only after explicit confirmation.',
+    'For @maxmusic or @spotify: use the registered Spotify tools for music-library and playback actions.',
+    'For @maxcloud: use the registered cloud tools for the user\'s MAX Cloud files and storage.',
+    'For @maxbrowser: use browser_search and browser_open for web research.',
+    'For @maxhotels: use the hotels tools and respect the authenticated business scope.',
+    'For @google: use the relevant connected Google tools.',
+    'For @maxstudio: use studio_generate for supported creative generation.',
+    'For @maxtv: use tv_search or tv_assistant as appropriate.',
+    'Never claim an integration is connected, an operation completed, or data retrieved unless a registered tool confirms it.'
+  ].join('\n');
+}
+
 function classifyIntent(content: string) {
+  const explicitTargets = getExplicitMaxTargets(content);
+  if (explicitTargets.length) {
+    const selectedIntent = MAX_MENTION_INTENTS[explicitTargets[0]];
+    if (selectedIntent) return selectedIntent;
+  }
   const value = content.toLowerCase();
   // Named account/product context takes priority over generic nouns such as 'device'.
   if (/\b(max auth|my max account|account devices|devices on my account|logged[- ]in devices|active sessions|login history)\b/.test(value)) return 'account';
@@ -168,7 +227,7 @@ function detectExplicitIntegrationConnect(content: string): IntegrationProvider 
   const value = String(content || '').trim().toLowerCase();
   if (!/\b(connect|link|authorize|reconnect)\b/.test(value)) return null;
   const providers: IntegrationProvider[] = ['google', 'spotify', 'discord', 'microsoft', 'github'];
-  return providers.find((provider) => new RegExp('\\b' + provider + '\\b', 'i').test(value)) ?? null;
+  return providers.find((provider) => new RegExp('\b' + provider + '\b', 'i').test(value)) ?? null;
 }
 
 async function createIntegrationConnectionResult(
@@ -417,6 +476,7 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
   if (explicitConnectionProvider) {
     return createIntegrationConnectionResult(user, explicitConnectionProvider, 'connect');
   }
+  const explicitTargets = getExplicitMaxTargets(latestContent);
   const intent = classifyIntent(latestContent);
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
@@ -537,7 +597,7 @@ export async function orchestrateStream(
   }
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
-  const system = [buildSystemPrompt(user, memories, intent, personalization), additionalSystemContext ?? ''].filter(Boolean).join('\\n\\n');
+  const system = [buildSystemPrompt(user, memories, intent, personalization), buildMentionRoutingContext(explicitTargets), additionalSystemContext ?? ''].filter(Boolean).join('\\n\\n');
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
