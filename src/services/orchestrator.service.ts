@@ -96,7 +96,7 @@ const MAX_MENTION_INTENTS: Record<string, string> = {
 
 function getExplicitMaxTargets(content: string): string[] {
   const targets = new Set<string>();
-  const expression = /(^|\\s)@([a-z][a-z0-9_-]{1,30})\\b/gi;
+  const expression = /(^|\s)@([a-z][a-z0-9_-]{1,30})\b/gi;
   let match: RegExpExecArray | null;
   while ((match = expression.exec(content))) {
     const target = match[2].toLowerCase();
@@ -228,7 +228,7 @@ function detectExplicitIntegrationConnect(content: string): IntegrationProvider 
   const value = String(content || '').trim().toLowerCase();
   if (!/\b(connect|link|authorize|reconnect)\b/.test(value)) return null;
   const providers: IntegrationProvider[] = ['google', 'spotify', 'discord', 'microsoft', 'github'];
-  return providers.find((provider) => new RegExp('\\b' + provider + '\\b', 'i').test(value)) ?? null;
+  return providers.find((provider) => new RegExp('\b' + provider + '\b', 'i').test(value)) ?? null;
 }
 
 async function createIntegrationConnectionResult(
