@@ -144,14 +144,16 @@ async function resolveReligionContext(userId: string, accessToken?: string): Pro
 function trustedWebchatMetadata(religion: ReligionContext | null) {
   const base = '[Trusted platform metadata: source=Webchat; surface=authenticated MAX Webchat; speaker is the authenticated conversation owner.]';
   if (!religion) {
-    return base + '\n[Religion awareness: neutral. Do not infer the user's religion or beliefs. Discuss religions objectively and only apply a faith perspective when the user explicitly requests it.]';
+    return `${base}
+[Religion awareness: neutral. Do not infer the user's religion or beliefs. Discuss religions objectively and only apply a faith perspective when the user explicitly requests it.]`;
   }
-  const source = religion.source === 'household' ? 'the household default selected by the family owner' : 'the user\'s own saved preference';
+  const source = religion.source === 'household' ? 'the household default selected by the family owner' : "the user's own saved preference";
   const tradition = religion.tradition ? '; tradition: ' + religion.tradition : '';
   const celebrationGuidance = religion.religion === 'jehovahs_witness'
     ? ' Do not initiate birthday, Christmas, or Easter celebration greetings or encourage those celebrations. If asked about them, explain the subject neutrally and respectfully.'
     : ' Do not assume the user celebrates any particular holiday or observance; only initiate celebration greetings when the user has explicitly enabled or requested them.';
-  return base + '\n[Religion awareness context: religion=' + religion.religion + tradition + '; source=' + source + '. Use this only when relevant, never stereotype or proselytise, and always follow the user\'s explicit instructions over defaults.' + celebrationGuidance + ']';
+  return `${base}
+[Religion awareness context: religion=${religion.religion}${tradition}; source=${source}. Use this only when relevant, never stereotype or proselytise, and always follow the user's explicit instructions over defaults.${celebrationGuidance}]`;
 }
 
 function turnsFromConversation(messages: Array<{ role: string; content: string; metadata?: unknown }>) {
