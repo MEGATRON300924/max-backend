@@ -239,7 +239,7 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
         : 'CURRENT PROJECT FILES: none. This is the first file-generation request for this project.'
     ].join('\\n\\n');
 
-    let generation;
+    let generation: Awaited<ReturnType<typeof generateGeminiProjectContent>>;
     try {
       generation = await generateGeminiProjectContent(systemInstruction, prompt);
     } catch (error) {
@@ -269,7 +269,8 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
       correlationId: res.locals.correlationId,
       provider: generation.provider,
       model: generation.model,
-      attempts: generation.attempts.length
+      attempts: generation.attempts.length,
+      providerAttempts: generation.attempts
     }, 'Gemini project generation completed');
     const generatedText = generation.text;
     let generated: unknown;
