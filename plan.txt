@@ -1008,3 +1008,11 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 - GitHub Actions CI run #487 passed: Prisma Client generation, TypeScript typecheck, full backend tests, production build, and MAX Voice Engine API tests.
 - PR #63 is open and mergeable. It has not been merged or deployed.
 - Next: review/merge after the companion MAX Chat PR is ready; then verify live repository inspection and GitHub write approval flow.
+
+
+## 2026-11-25 — Unified @integration routing (MAX Backend)
+- Added an allowlisted parser for explicit @integration targets; unknown @handles are ignored rather than treated as executable integrations.
+- Explicit targets now take precedence in backend intent classification (for example, @maxhome → Home, @github → GitHub, @maxmusic → Music, @maxhotels → Hotels).
+- Added trusted orchestration context that instructs Gemini to prioritize the selected registered tool family and describes the required safe GitHub workflow (resolve repository, inspect, read, then request approval before PR creation).
+- Preserved existing tool authorization, capability checks, audit events, and confirmation gates. Mentions do not grant permissions or bypass approvals.
+- Pending: TypeScript/build/tests, CI and end-to-end authenticated tests for each supported target. No merge or production deployment performed.
