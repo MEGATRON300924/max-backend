@@ -304,7 +304,8 @@ async function runToolLoop(user: UserContext, conversationId: string, turns: Cha
 
   if (!interactionId) throw new Error('Gemini did not return an interaction identifier');
 
-  for (let iteration = 0; iteration < 4; iteration += 1) {
+  const maxToolRounds = 4;
+  for (let iteration = 0; iteration < maxToolRounds; iteration += 1) {
     if (!result.functionCalls.length) {
       if (!result.text) throw new Error('AI returned neither text nor a tool call');
       return { ...result, executed, confirmations, connections, interactionId };
@@ -322,7 +323,25 @@ async function runToolLoop(user: UserContext, conversationId: string, turns: Cha
     if (!interactionId) throw new Error('Gemini continuation did not return an interaction identifier');
   }
 
-  throw new Error('MAX tool execution limit reached');
+  // The final continuation may already contain the assistant's answer. Check
+  // it before reporting a limit: the previous loop exited without inspecting
+  // this result and could reject a completed four-round interaction.
+  if (!result.functionCalls.length && result.text) {
+    return { ...result, executed, confirmations, connections, interactionId };
+  }
+
+  const completedTools = executed.length ? executed.join(', ') : 'none';
+  const pendingTools = [...new Set(result.functionCalls.map((call) => call.name))];
+  const pendingSummary = pendingTools.length ? ` Remaining actions were not run: ${pendingTools.join(', ')}.` : '';
+  return {
+    ...result,
+    text: `I completed ${completedTools === 'none' ? 'no connector actions' : 'these actions: ' + completedTools}, but reached the per-turn tool-round limit. I stopped before running further actions. Ask me to continue and I can handle the remaining checks.${pendingSummary}`,
+    functionCalls: [],
+    executed,
+    confirmations,
+    connections,
+    interactionId
+  };
 }
 
 export async function orchestrate(user: UserContext, conversationId: string, turns: ChatTurn[], latestContent: string, additionalSystemContext?: string): Promise<OrchestrationResult> {
