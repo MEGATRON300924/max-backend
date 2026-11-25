@@ -107,7 +107,6 @@ function getExplicitMaxTargets(content: string): string[] {
 
 function buildMentionRoutingContext(targets: string[]): string {
   if (!targets.length) return '';
-  const intents = [...new Set(targets.map(target => MAX_MENTION_INTENTS[target]))];
   return [
     '[Explicit MAX integration routing from the user message]',
     'The user explicitly selected these integration targets: ' + targets.map(target => '@' + target).join(', ') + '.',
@@ -122,7 +121,7 @@ function buildMentionRoutingContext(targets: string[]): string {
     'For @maxstudio: use studio_generate for supported creative generation.',
     'For @maxtv: use tv_search or tv_assistant as appropriate.',
     'Never claim an integration is connected, an operation completed, or data retrieved unless a registered tool confirms it.'
-  ].join('\\n');
+  ].join('\n');
 }
 
 function classifyIntent(content: string) {
