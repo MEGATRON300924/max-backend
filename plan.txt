@@ -981,3 +981,15 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 - The trusted context is attached only to MAX Webchat orchestrator metadata. Jehovah's Witness context prevents unsolicited birthday/Christmas/Easter celebration greetings; other faiths do not trigger assumptions about observance.
 - Added a bounded 60-second per-user in-memory cache and short network timeouts. Auth/Home lookup failures fail closed to neutral context and never fail the chat request.
 - Validation pending: TypeScript build, tests, and integration smoke tests for personal preference, household fallback, neutral override, and provider outages.
+
+## 2026-11-25 — Tool-loop limit response hardening
+- Reviewed the live orchestration loop after the user encountered `MAX tool execution limit reached` while requesting multiple connector checks.
+- Found an off-by-one completion bug: after executing the fourth allowed tool round, the loop immediately threw without inspecting the final Gemini continuation. A valid assistant response returned by that last continuation could therefore be discarded and surfaced as a tool-limit failure.
+- Updated the loop to inspect and return a completed final continuation before enforcing the limit.
+- If Gemini still requests more tools after the four-round cap, the backend now returns an explicit bounded partial-result message, identifies completed tool actions and pending tool names, and stops further execution. It no longer throws a generic error that encourages MAX to invent an explanation.
+- Tool calls remain sequential within each round; the four-round safety cap is retained. No tool permissions, confirmation requirements, or connector credentials were changed.
+- Branch: `fix/tool-loop-limit-response`; commit: `f50d024bf442cfcf504cb49bcca75421b259b3ee`.
+- Validation and PR creation pending.
+
+- Validation: GitHub Actions CI run #481 succeeded. Prisma client generation, TypeScript typecheck, backend Jest tests, production build, and MAX Voice Engine API tests all passed.
+- Production behavior remains unverified until this PR is merged/deployed and MAX Chat is retested; no live connector calls were made from this change.
