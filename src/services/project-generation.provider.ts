@@ -39,10 +39,10 @@ function safeProviderText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const sanitized = value
     .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[REDACTED]')
-    .replace(/\\bBearer\\s+\\S+/gi, 'Bearer [REDACTED]')
-    .replace(/(api[_-]?key|key)\\s*[:=]\\s*["']?[^,\\s"']+/gi, '$1=[REDACTED]')
-    .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
-    .replace(/\\s+/g, ' ')
+    .replace(/\bBearer\s+\S+/gi, 'Bearer [REDACTED]')
+    .replace(/(api[_-]?key|key)\s*[:=]\s*["']?[^,\s"']+/gi, '$1=[REDACTED]')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
   return sanitized ? sanitized.slice(0, 400) : undefined;
 }
@@ -110,7 +110,7 @@ function extractGeneratedText(payload: any): string {
   }
   const text = candidate?.content?.parts?.map((part: { text?: string }) => part.text || '').join('').trim();
   if (!text) throw new Error('The provider returned an empty generation.');
-  const raw = text.replace(/^\\uFEFF/, '').trim().replace(/^\\x60{3}(?:json)?\\s*/i, '').replace(/\\s*\\x60{3}$/, '');
+  const raw = text.replace(/^\uFEFF/, '').trim().replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
   let parsed: any;
   try {
     parsed = JSON.parse(raw);
