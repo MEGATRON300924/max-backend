@@ -953,3 +953,13 @@ MAX PROJECT GENERATION PROVIDER DIAGNOSTICS — 2026-11-24
 - Updated the project-generation route to read the provider response once, emit a structured sanitized provider failure log (correlation ID, configured model, HTTP status, provider code/status/message), and reject empty/invalid JSON responses explicitly. User-facing error responses remain generic; no secrets or prompt contents are logged.
 - Added unit tests for extraction, credential redaction, malformed payloads, and message truncation.
 - Branch: fix/project-generation-provider-diagnostics. PR and CI validation pending. No merge or production deployment performed.
+
+
+GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
+- Added configurable primary, secondary, and tertiary Gemini project-generation providers using GEMINI_API_KEY / GEMINI_MODEL, GEMINI_FALLBACK_API_KEY / GEMINI_FALLBACK_MODEL, and GEMINI_TERTIARY_API_KEY / GEMINI_TERTIARY_MODEL.
+- Secondary defaults in config: gemini-flash-latest. Tertiary default: gemini-3.8-flash. Primary default remains unchanged.
+- Project generation retries transient network/provider failures once with a short delay, then fails over to the next configured key/model. Retries are limited to transient statuses (408, 429, 500, 502, 503, 504) and transport/invalid-generation failures; authentication and invalid-request HTTP errors stop immediately.
+- The provider validates that generated output is JSON with a files array before the route proceeds to the existing full Zod validation and transactional file save.
+- Added sanitized structured logs for provider attempts and successful provider/model selection; API keys and prompt contents are never logged.
+- Updated .env.example. Render environment values were supplied by the user; this code change does not modify Render secrets or trigger a deployment.
+- Pending: add/execute unit tests, TypeScript build, inspect PR checks, and merge only after validation. No production deployment claimed.
