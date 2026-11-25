@@ -49,6 +49,37 @@ export async function listGithubRepositories(authSubject?: string) {
   const allowed = new Set(env.GITHUB_ALLOWED_OWNERS.split(',').map((value) => value.trim().toLowerCase()).filter(Boolean));
   return (data.repositories ?? []).filter((r) => allowed.has(r.owner.login.toLowerCase())).map((r) => ({ name: r.name, fullName: r.full_name, owner: r.owner.login, defaultBranch: r.default_branch, private: r.private, url: r.html_url }));
 }
+export async function inspectGithubRepository(ownerInput: string, repoInput: string, authSubject?: string) {
+  allowedMaxUser(authSubject);
+  const owner = safePart(ownerInput, 'owner');
+  const repo = safePart(repoInput, 'repository');
+  allowedOwner(owner);
+  const prefix = `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`;
+  const metadata = await github<{ full_name: string; description?: string | null; default_branch: string; private: boolean; html_url: string; language?: string | null; updated_at?: string }>(prefix);
+  const branch = await github<{ commit: { sha: string } }>(`${prefix}/branches/${encodeURIComponent(metadata.default_branch)}`);
+  const tree = await github<{ tree: Array<{ path: string; type: string; size?: number }>; truncated?: boolean }>(`${prefix}/git/trees/${encodeURIComponent(branch.commit.sha)}?recursive=1`);
+  const readmeEntry = tree.tree.find((entry) => entry.type === 'blob' && /^README(?:\\.[^/]*)?$/i.test(entry.path));
+  let readme = '';
+  if (readmeEntry) {
+    try {
+      const file = await github<GithubFile>(`${prefix}/contents/${readmeEntry.path.split('/').map(encodeURIComponent).join('/')}?ref=${encodeURIComponent(metadata.default_branch)}`);
+      if (file.encoding === 'base64' && file.content) readme = Buffer.from(file.content.replace(/\\n/g, ''), 'base64').toString('utf8').slice(0, 12000);
+    } catch { /* README is optional; the tree remains useful. */ }
+  }
+  return {
+    success: true,
+    repository: metadata.full_name,
+    description: metadata.description ?? '',
+    defaultBranch: metadata.default_branch,
+    private: metadata.private,
+    language: metadata.language ?? null,
+    updatedAt: metadata.updated_at ?? null,
+    readme,
+    files: tree.tree.filter((entry) => entry.type === 'blob').slice(0, 300).map((entry) => ({ path: entry.path, size: entry.size ?? null })),
+    truncated: Boolean(tree.truncated) || tree.tree.length > 300,
+    url: metadata.html_url
+  };
+}
 export async function getGithubFile(ownerInput: string, repoInput: string, pathInput: string, ref?: string, authSubject?: string) {
   allowedMaxUser(authSubject);
   const owner = safePart(ownerInput, 'owner'); const repo = safePart(repoInput, 'repository'); allowedOwner(owner);
