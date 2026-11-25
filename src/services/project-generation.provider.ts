@@ -37,10 +37,10 @@ function safeProviderText(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined;
   const sanitized = value
     .replace(/AIza[0-9A-Za-z_-]{20,}/g, '[REDACTED]')
-    .replace(/\\bBearer\\s+\\S+/gi, 'Bearer [REDACTED]')
-    .replace(/(api[_-]?key|key)\\s*[:=]\\s*["']?[^,\\s"']+/gi, '$1=[REDACTED]')
-    .replace(/[\\u0000-\\u001f\\u007f]/g, ' ')
-    .replace(/\\s+/g, ' ')
+    .replace(/\bBearer\s+\S+/gi, 'Bearer [REDACTED]')
+    .replace(/(api[_-]?key|key)\s*[:=]\s*["']?[^,\s"']+/gi, '$1=[REDACTED]')
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
   return sanitized ? sanitized.slice(0, 400) : undefined;
 }
@@ -57,7 +57,7 @@ export function extractGeminiProviderError(payload: unknown): GeminiProviderErro
   };
 }
 
-type ProviderConfig = {
+export type ProviderConfig = {
   name: GeminiProjectProviderAttempt['provider'];
   apiKey?: string;
   model: string;
@@ -82,7 +82,7 @@ function extractGeneratedText(payload: any): string {
   }
   const text = candidate?.content?.parts?.map((part: { text?: string }) => part.text || '').join('').trim();
   if (!text) throw new Error('The provider returned an empty generation.');
-  const raw = text.replace(/^\\uFEFF/, '').trim().replace(/^\\x60{3}(?:json)?\\s*/i, '').replace(/\\s*\\x60{3}$/, '');
+  const raw = text.replace(/^\uFEFF/, '').trim().replace(/^\x60{3}(?:json)?\s*/i, '').replace(/\s*\x60{3}$/, '');
   let parsed: any;
   try {
     parsed = JSON.parse(raw);
@@ -97,9 +97,10 @@ function extractGeneratedText(payload: any): string {
 
 export async function generateGeminiProjectContent(
   systemInstruction: string,
-  prompt: string
+  prompt: string,
+  providerConfigs: ProviderConfig[] = providers
 ): Promise<GeminiProjectGenerationResult> {
-  const configured = providers.filter(provider => Boolean(provider.apiKey));
+  const configured = providerConfigs.filter(provider => Boolean(provider.apiKey));
   if (!configured.length) {
     throw new GeminiProjectGenerationError('No Gemini project-generation API keys are configured.', 503, []);
   }
@@ -108,8 +109,7 @@ export async function generateGeminiProjectContent(
   let lastHttpStatus = 503;
 
   for (let providerIndex = 0; providerIndex < configured.length; providerIndex += 1) {
-    const provider = configured[providerIndex];
-    let providerSucceeded = false;
+    const provider = configured[providerIndex]!;
 
     for (let retry = 0; retry <= 1; retry += 1) {
       try {
@@ -143,7 +143,7 @@ export async function generateGeminiProjectContent(
             outcome: canRetry ? 'retry' : hasNext && retryable ? 'fallback' : 'stopped'
           });
           if (canRetry) { await delay(350); continue; }
-          if (retryable && hasNext) break;
+          if ((retryable || response.status === 404) && hasNext) break;
           throw new GeminiProjectGenerationError(
             'Gemini rejected the project-generation request.',
             response.status,
@@ -171,8 +171,7 @@ export async function generateGeminiProjectContent(
         throw new GeminiProjectGenerationError('All configured Gemini providers failed to generate valid project files.', lastHttpStatus, attempts);
       }
     }
-    providerSucceeded = false;
-    if (!providerSucceeded && providerIndex === configured.length - 1) {
+    if (providerIndex === configured.length - 1) {
       throw new GeminiProjectGenerationError('All configured Gemini providers failed to generate valid project files.', lastHttpStatus, attempts);
     }
   }
