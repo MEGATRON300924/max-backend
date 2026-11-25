@@ -7,7 +7,7 @@ import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
 import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
-import { extractGeminiProviderError } from '../services/project-generation.provider.js';
+import { generateGeminiProjectContent, GeminiProjectGenerationError } from '../services/project-generation.provider.js';
 
 const router = Router();
 router.use(requireAuth);
@@ -244,50 +244,45 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
         : 'CURRENT PROJECT FILES: none. This is the first file-generation request for this project.'
     ].join('\\n\\n');
 
-    const response = await fetch(
-      'https://generativelanguage.googleapis.com/v1beta/models/' + encodeURIComponent(env.GEMINI_MODEL) + ':generateContent',
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': env.GEMINI_API_KEY },
-        signal: AbortSignal.timeout(55000),
-        body: JSON.stringify({
-          systemInstruction: { parts: [{ text: systemInstruction }] },
-          contents: [{ role: 'user', parts: [{ text: prompt }] }],
-          generationConfig: { responseMimeType: 'application/json', temperature: 0.2, maxOutputTokens: 12000 }
-        })
-      }
-    );
-    const responseText = await response.text().catch(() => '');
-    let payload: any = {};
+    let generation;
     try {
-      payload = responseText ? JSON.parse(responseText) : {};
+      generation = await generateGeminiProjectContent(systemInstruction, prompt);
+    } catch (error) {
+      if (error instanceof GeminiProjectGenerationError) {
+        for (const attempt of error.attempts) {
+          logger.warn({
+            event: 'project.generation.provider_attempt_failed',
+            correlationId: res.locals.correlationId,
+            provider: attempt.provider,
+            model: attempt.model,
+            providerHttpStatus: attempt.httpStatus,
+            providerCode: attempt.providerCode,
+            providerStatus: attempt.providerStatus,
+            outcome: attempt.outcome
+          }, 'Gemini project-generation provider attempt failed');
+        }
+        const status = error.httpStatus === 429 ? 429 : error.httpStatus === 503 ? 503 : 502;
+        throw new ApiError(status, 'PROJECT_GENERATION_PROVIDER_ERROR',
+          status === 429 ? 'MAX project generation is temporarily rate-limited. Please retry shortly.' :
+          status === 503 ? 'MAX project generation providers are temporarily unavailable. Please retry shortly.' :
+          'MAX could not generate the requested project files.');
+      }
+      throw error;
+    }
+    logger.info({
+      event: 'project.generation.provider_succeeded',
+      correlationId: res.locals.correlationId,
+      provider: generation.provider,
+      model: generation.model,
+      attempts: generation.attempts.length
+    }, 'Gemini project generation completed');
+    const generatedText = generation.text;
+    let generated: unknown;
+    try {
+      generated = JSON.parse(generatedText);
     } catch {
-      payload = {};
+      throw new ApiError(502, 'PROJECT_GENERATION_INVALID', 'MAX returned an invalid project-file response. Please retry.');
     }
-    if (!response.ok) {
-      const providerError = extractGeminiProviderError(payload);
-      logger.error({
-        event: 'project.generation.provider_failed',
-        correlationId: res.locals.correlationId,
-        provider: 'gemini',
-        model: env.GEMINI_MODEL,
-        providerHttpStatus: response.status,
-        providerCode: providerError.code,
-        providerStatus: providerError.status,
-        providerMessage: providerError.message
-      }, 'Gemini rejected MAX project generation');
-      throw new ApiError(response.status === 429 ? 429 : 502, 'PROJECT_GENERATION_PROVIDER_ERROR',
-        response.status === 429 ? 'MAX project generation is temporarily rate-limited. Please retry shortly.' : 'MAX could not generate the requested project files.');
-    }
-    if (!responseText || !Object.keys(payload).length) {
-      throw new ApiError(502, 'PROJECT_GENERATION_PROVIDER_INVALID_RESPONSE', 'Gemini returned an invalid response while generating project files.');
-    }
-    const candidate = payload?.candidates?.[0];
-    if (candidate?.finishReason && candidate.finishReason !== 'STOP') {
-      throw new ApiError(502, 'PROJECT_GENERATION_INCOMPLETE', 'MAX could not complete the project files. Try a smaller change.');
-    }
-    const generatedText = candidate?.content?.parts?.map((part: { text?: string }) => part.text || '').join('').trim();
-    if (!generatedText) throw new ApiError(502, 'PROJECT_GENERATION_EMPTY', 'MAX returned no project files.');
     let generated: unknown;
     try {
       const raw = generatedText.replace(/^\uFEFF/, '').trim().replace(/^\x60{3}(?:json)?\\s*/i, '').replace(/\\s*\x60{3}$/, '');
