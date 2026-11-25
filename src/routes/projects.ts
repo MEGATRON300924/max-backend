@@ -253,6 +253,8 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
             providerHttpStatus: attempt.httpStatus,
             providerCode: attempt.providerCode,
             providerStatus: attempt.providerStatus,
+            providerMessage: attempt.providerMessage,
+            retryDelayMs: attempt.retryDelayMs,
             outcome: attempt.outcome
           }, 'Gemini project-generation provider attempt failed');
         }
