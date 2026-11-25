@@ -140,7 +140,7 @@ export async function generateGeminiProjectContent(
             provider: provider.name, model: provider.model, httpStatus: response.status,
             ...(details.code ? { providerCode: details.code } : {}),
             ...(details.status ? { providerStatus: details.status } : {}),
-            outcome: canRetry ? 'retry' : hasNext && retryable ? 'fallback' : 'stopped'
+            outcome: canRetry ? 'retry' : hasNext && (retryable || response.status === 404) ? 'fallback' : 'stopped'
           });
           if (canRetry) { await delay(350); continue; }
           if ((retryable || response.status === 404) && hasNext) break;
