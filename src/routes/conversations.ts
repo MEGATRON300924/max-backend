@@ -11,6 +11,7 @@ import { generateGeminiResponseWithTools } from '../services/ai.service.js';
 import { createChatImageUploadSignature, cloudinaryImageUrl, deleteCloudinaryImage, getCloudinaryImageDetails, verifyChatImageUpload } from '../services/cloudinary.service.js';
 import { assertDeviceForUser, createEvent } from '../services/event.service.js';
 import { logger } from '../config/logger.js';
+import { env } from '../config/env.js';
 
 const createConversationSchema = z.object({ title: z.string().trim().min(1).max(200).optional() });
 const updateConversationSchema = z.object({ title: z.string().trim().min(1).max(100) });
@@ -59,6 +60,100 @@ async function getConversationForUser(id: string, userId: string) {
       }))
     }))
   };
+}
+
+
+type ReligionContext = {
+  religion: string;
+  tradition?: string | null;
+  source: 'personal' | 'household';
+};
+
+const religionContextCache = new Map<string, { expiresAt: number; value: ReligionContext | null }>();
+const RELIGION_CONTEXT_CACHE_TTL_MS = 60_000;
+
+async function resolveReligionContext(userId: string, accessToken?: string): Promise<ReligionContext | null> {
+  if (!accessToken) return null;
+  const cached = religionContextCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) return cached.value;
+
+  let value: ReligionContext | null = null;
+  try {
+    const authBase = env.MAX_AUTH_API_URL.replace(/\/+$/, '');
+    const authResponse = await fetch(authBase + '/religion-preferences', {
+      headers: { Authorization: 'Bearer ' + accessToken, Accept: 'application/json' },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(1_500)
+    });
+    if (!authResponse.ok) {
+      religionContextCache.set(userId, { expiresAt: Date.now() + 10_000, value: null });
+      return null;
+    }
+    const authPayload = await authResponse.json() as { data?: { preference?: Record<string, unknown> } };
+    const preference = authPayload.data?.preference ?? {};
+    if (preference.onboardingStatus === 'COMPLETED') {
+      if (preference.personalizationEnabled === true
+          && typeof preference.religion === 'string'
+          && preference.religion !== 'prefer_not_to_say') {
+        value = {
+          religion: preference.religion,
+          tradition: typeof preference.tradition === 'string' ? preference.tradition : null,
+          source: 'personal'
+        };
+      }
+      // A completed neutral/cleared profile explicitly overrides household defaults.
+    } else {
+      const homeBase = env.MAX_HOME_API_URL.replace(/\/+$/, '');
+      const homeResponse = await fetch(homeBase + '/homes', {
+        headers: { Authorization: 'Bearer ' + accessToken, Accept: 'application/json' },
+        cache: 'no-store',
+        signal: AbortSignal.timeout(1_500)
+      });
+      if (homeResponse.ok) {
+        const homePayload = await homeResponse.json() as { data?: { homes?: Array<Record<string, unknown>> } };
+        const home = (homePayload.data?.homes ?? []).find(item => typeof item.household_religion === 'string');
+        if (home && typeof home.household_religion === 'string') {
+          value = {
+            religion: home.household_religion,
+            tradition: typeof home.household_religious_tradition === 'string' ? home.household_religious_tradition : null,
+            source: 'household'
+          };
+        }
+      }
+    }
+  } catch {
+    // Religion awareness is optional. Auth/Home outages must never fail a chat response.
+    value = null;
+  }
+
+  religionContextCache.set(userId, { expiresAt: Date.now() + RELIGION_CONTEXT_CACHE_TTL_MS, value });
+  if (religionContextCache.size > 2_000) {
+    const now = Date.now();
+    for (const [key, entry] of religionContextCache) {
+      if (entry.expiresAt <= now) religionContextCache.delete(key);
+    }
+    while (religionContextCache.size > 1_500) {
+      const oldest = religionContextCache.keys().next().value;
+      if (!oldest) break;
+      religionContextCache.delete(oldest);
+    }
+  }
+  return value;
+}
+
+function trustedWebchatMetadata(religion: ReligionContext | null) {
+  const base = '[Trusted platform metadata: source=Webchat; surface=authenticated MAX Webchat; speaker is the authenticated conversation owner.]';
+  if (!religion) {
+    return `${base}
+[Religion awareness: neutral. Do not infer the user's religion or beliefs. Discuss religions objectively and only apply a faith perspective when the user explicitly requests it.]`;
+  }
+  const source = religion.source === 'household' ? 'the household default selected by the family owner' : "the user's own saved preference";
+  const tradition = religion.tradition ? '; tradition: ' + religion.tradition : '';
+  const celebrationGuidance = religion.religion === 'jehovahs_witness'
+    ? ' Do not initiate birthday, Christmas, or Easter celebration greetings or encourage those celebrations. If asked about them, explain the subject neutrally and respectfully.'
+    : ' Do not assume the user celebrates any particular holiday or observance; only initiate celebration greetings when the user has explicitly enabled or requested them.';
+  return `${base}
+[Religion awareness context: religion=${religion.religion}${tradition}; source=${source}. Use this only when relevant, never stereotype or proselytise, and always follow the user's explicit instructions over defaults.${celebrationGuidance}]`;
 }
 
 function turnsFromConversation(messages: Array<{ role: string; content: string; metadata?: unknown }>) {
@@ -517,7 +612,8 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
       { role: 'USER', content: input.content }
     ]);
 
-    const generated = await orchestrate(user, conversation.id, turns, input.content, '[Trusted platform metadata: source=Webchat; surface=authenticated MAX Webchat; speaker is the authenticated conversation owner.]');
+    const religionContext = await resolveReligionContext(user.id, user.authAccessToken);
+    const generated = await orchestrate(user, conversation.id, turns, input.content, trustedWebchatMetadata(religionContext));
     const assistantMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -600,6 +696,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
     res.flushHeaders();
     res.write('event: response_started\ndata: {}\n\n');
 
+    const religionContext = await resolveReligionContext(user.id, user.authAccessToken);
     const generated = await orchestrateStream(
       user,
       conversation.id,
@@ -611,7 +708,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
       (activity) => {
         res.write(`event: activity\ndata: ${JSON.stringify(activity)}\n\n`);
       },
-      '[Trusted platform metadata: source=Webchat; surface=authenticated MAX Webchat; speaker is the authenticated conversation owner.]'
+      trustedWebchatMetadata(religionContext)
     );
 
     const assistantMessage = await prisma.message.create({
