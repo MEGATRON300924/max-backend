@@ -5,7 +5,6 @@ import { requireAuth } from '../middleware/auth.js';
 import { ApiError } from '../middleware/errors.js';
 import type { AuthenticatedRequest } from '../types/auth.js';
 import { resolveEcosystemUser } from '../services/user.service.js';
-import { env } from '../config/env.js';
 import { logger } from '../config/logger.js';
 import { generateGeminiProjectContent, GeminiProjectGenerationError } from '../services/project-generation.provider.js';
 
@@ -209,10 +208,6 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
     const user = await getUser(req);
     const projectId = projectIdSchema.parse(req.params.projectId);
     await getWorkspaceForUser(projectId, user.id);
-    if (!env.GEMINI_API_KEY) {
-      throw new ApiError(503, 'PROJECT_GENERATION_NOT_CONFIGURED', 'MAX project generation is not configured.');
-    }
-
     const existingFiles = await prisma.projectFile.findMany({
       where: { workspaceId: projectId },
       orderBy: { path: 'asc' },
@@ -280,13 +275,6 @@ router.post('/:projectId/generate', async (req: AuthenticatedRequest, res, next)
     let generated: unknown;
     try {
       generated = JSON.parse(generatedText);
-    } catch {
-      throw new ApiError(502, 'PROJECT_GENERATION_INVALID', 'MAX returned an invalid project-file response. Please retry.');
-    }
-    let generated: unknown;
-    try {
-      const raw = generatedText.replace(/^\uFEFF/, '').trim().replace(/^\x60{3}(?:json)?\\s*/i, '').replace(/\\s*\x60{3}$/, '');
-      generated = JSON.parse(raw);
     } catch {
       throw new ApiError(502, 'PROJECT_GENERATION_INVALID', 'MAX returned an invalid project-file response. Please retry.');
     }
