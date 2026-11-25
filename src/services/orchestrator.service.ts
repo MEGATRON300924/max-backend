@@ -99,8 +99,8 @@ function getExplicitMaxTargets(content: string): string[] {
   const expression = /(^|\s)@([a-z][a-z0-9_-]{1,30})\b/gi;
   let match: RegExpExecArray | null;
   while ((match = expression.exec(content))) {
-    const target = match[2].toLowerCase();
-    if (Object.prototype.hasOwnProperty.call(MAX_MENTION_INTENTS, target)) targets.add(target);
+    const target = match[2]?.toLowerCase();
+    if (target && Object.prototype.hasOwnProperty.call(MAX_MENTION_INTENTS, target)) targets.add(target);
   }
   return [...targets];
 }
@@ -126,8 +126,9 @@ function buildMentionRoutingContext(targets: string[]): string {
 
 function classifyIntent(content: string) {
   const explicitTargets = getExplicitMaxTargets(content);
-  if (explicitTargets.length) {
-    const selectedIntent = MAX_MENTION_INTENTS[explicitTargets[0]];
+  const firstTarget = explicitTargets[0];
+  if (firstTarget) {
+    const selectedIntent = MAX_MENTION_INTENTS[firstTarget];
     if (selectedIntent) return selectedIntent;
   }
   const value = content.toLowerCase();
@@ -579,6 +580,7 @@ export async function orchestrateStream(
     onText(connection.text);
     return connection;
   }
+  const explicitTargets = getExplicitMaxTargets(latestContent);
   const intent = classifyIntent(latestContent);
   if (intent === 'home' && capabilities.home) {
     onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
