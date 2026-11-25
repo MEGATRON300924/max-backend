@@ -1016,3 +1016,10 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 - Added trusted orchestration context that instructs Gemini to prioritize the selected registered tool family and describes the required safe GitHub workflow (resolve repository, inspect, read, then request approval before PR creation).
 - Preserved existing tool authorization, capability checks, audit events, and confirmation gates. Mentions do not grant permissions or bypass approvals.
 - Pending: TypeScript/build/tests, CI and end-to-end authenticated tests for each supported target. No merge or production deployment performed.
+
+## 2026-11-25 — Render build repair: explicit @integration routing
+- Investigated the failed Render build for commit 3c975b1ce63f55db8bf1e7b13cef5e9220c25088. The failure was TypeScript compilation in src/services/orchestrator.service.ts, not the GitHub App private key or Render environment variables.
+- Fixed the three reported compiler errors: safely narrow the regex capture before lowercasing it; narrow the first explicit target before indexing MAX_MENTION_INTENTS; and derive explicitTargets in orchestrateStream before building the trusted routing context.
+- The stream path now uses the same explicit @integration target extraction as the non-stream orchestration path. No GitHub authorization rules, secrets, tool permissions, or confirmation gates were changed.
+- Branch: fix/orchestrator-explicit-targets-types. Source commit: 6724cdf772f465ea500d5f098540e9a784b7d05b.
+- Pending: verify the complete TypeScript build and test suite through GitHub Actions, inspect the PR diff/checks, and wait for user review/merge. No production deployment or Render environment change performed.
