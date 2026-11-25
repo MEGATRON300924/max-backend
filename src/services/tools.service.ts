@@ -12,7 +12,7 @@ import { cloudUsage, listCloudFiles, saveCloudFile, deleteCloudFile } from './cl
 import { storeService } from './store.service.js';
 import { generateStudioAsset } from './studio.service.js';
 import { tvSearch, tvAssistant } from './tv.service.js';
-import { getGithubFile, createGithubPullRequest } from './github.service.js';
+import { getGithubFile, inspectGithubRepository, createGithubPullRequest } from './github.service.js';
 import { getHotelOverview, listHotelGuests, listHotelRegistrations, listHotelRequests } from './hotels.service.js';
 
 async function maxAuthUserGet(accessToken: string | undefined, path: string) {
@@ -70,6 +70,7 @@ export type MaxTool = {
 };
 
 const githubFileInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), path: z.string().trim().min(1).max(400), ref: z.string().trim().max(200).optional() });
+const githubRepositoryInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100) });
 const integrationConnectInput = z.object({ provider: z.enum(['google', 'spotify', 'discord', 'microsoft', 'github']) });
 const githubPullRequestInput = z.object({ owner: z.string().trim().min(1).max(100), repo: z.string().trim().min(1).max(100), baseBranch: z.string().trim().min(1).max(200), branchName: z.string().trim().min(1).max(200), title: z.string().trim().min(1).max(250), body: z.string().max(10000).default(''), files: z.array(z.object({ path: z.string().min(1).max(400), content: z.string().max(100000) })).min(1).max(30) });
 
@@ -335,8 +336,9 @@ const tools: MaxTool[] = [
   { name: 'hotels.requests.list', capability: 'hotels', description: 'Read current guest service requests across the authenticated hotel business.', enabled: Boolean(env.MAX_HOTELS_API_URL), requiresConfirmation: false, declaration: { name: 'hotels_requests_list', description: 'List live guest service requests (room service, housekeeping, towels, maintenance, information and other requests). Filter by property workspaceId and/or status. Use returned request records only.', parameters: { type: 'object', properties: { workspaceId: { type: 'string' }, status: { type: 'string', enum: ['pending', 'accepted', 'in_progress', 'completed', 'cancelled'] }, limit: { type: 'number' } } } } },
   { name: 'hotels.guests.list', capability: 'hotels', description: 'Read current checked-in guest sessions for the authenticated hotel business.', enabled: Boolean(env.MAX_HOTELS_API_URL), requiresConfirmation: false, declaration: { name: 'hotels_guests_list', description: 'List current active guest sessions with guest name, property, room, language and stay timestamps. This is not a historical customer CRM. Optionally scope to one property workspaceId.', parameters: { type: 'object', properties: { workspaceId: { type: 'string' }, limit: { type: 'number' } } } } },
   { name: 'hotels.registrations.list', capability: 'hotels', description: 'Read platform hotel sign-up requests for MAX Hotels admin accounts explicitly allowlisted by the platform.', enabled: Boolean(env.MAX_HOTELS_API_URL), requiresConfirmation: false, declaration: { name: 'hotels_registrations_list', description: 'List the latest MAX Hotels property sign-up requests, including contact details, property, room count, setup mode and status. This is restricted by the MAX Hotels platform admin allowlist; ordinary hotel business users must not access other properties’ leads.', parameters: { type: 'object', properties: { limit: { type: 'number' } } } } },
-  { name: 'github.repositories', capability: 'github', description: 'List repositories from the authenticated user\'s GitHub account linked through MAX Auth. If it is not linked, return the MAX Auth connection URL.', enabled: true, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List all repositories in the user\'s GitHub account through MAX Auth. If GitHub is not connected, request its authorization URL instead of failing silently.', parameters: { type: 'object', properties: {} } } },
-  { name: 'github.file.get', capability: 'github', description: 'Read a file from an allowlisted repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
+  { name: 'github.repositories', capability: 'github', description: 'List repositories from the authenticated user\\'s GitHub account linked through MAX Auth. Resolve a repository name mentioned by the user against this exact list; use its fullName/owner/name, never guess an owner or substitute another repository. If multiple matches are plausible, ask which one. GitHub repository tasks must stay in GitHub and must never be redirected to the MAX Project Workspace.', enabled: true, requiresConfirmation: false, declaration: { name: 'github_repositories', description: 'List repositories accessible to the connected GitHub account. Use this first to resolve the exact repository when the user names or describes one. Match names case-insensitively and preserve the exact full repository name. Do not confuse a GitHub repository with a MAX Project Workspace.', parameters: { type: 'object', properties: {} } } },
+  { name: 'github.repository.inspect', capability: 'github', description: 'Inspect a repository before coding: read its README, default branch, language, and file tree. Use the exact repository selected from github.repositories.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_repository_inspect', description: 'Inspect a GitHub repository before making changes. Returns repository metadata, README text, default branch and a bounded file tree. Use this to understand the project structure and identify the correct existing paths before editing.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' } }, required: ['owner','repo'] } } },
+  { name: 'github.file.get', capability: 'github', description: 'Read a file from the exact selected GitHub repository.', enabled: githubEnabled, requiresConfirmation: false, declaration: { name: 'github_file_get', description: 'Read a repository file before editing it. Use the exact owner/repo selected from the connected repository list and a path found in the repository tree. Provide owner, repo, path, and optional branch/ref.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, path: { type: 'string' }, ref: { type: 'string' } }, required: ['owner','repo','path'] } } },
   { name: 'github.create_pull_request', capability: 'github', description: 'Create a branch, commit code changes, and open a pull request.', enabled: githubEnabled, requiresConfirmation: true, declaration: { name: 'github_create_pull_request', description: 'After explicit user confirmation, create a new branch and one commit with proposed files, then open a pull request. Never commit directly to the base branch. Read relevant files first, keep changes minimal, and do not modify GitHub Actions workflows.', parameters: { type: 'object', properties: { owner: { type: 'string' }, repo: { type: 'string' }, baseBranch: { type: 'string' }, branchName: { type: 'string' }, title: { type: 'string' }, body: { type: 'string' }, files: { type: 'array', items: { type: 'object', properties: { path: { type: 'string' }, content: { type: 'string' } }, required: ['path','content'] } } }, required: ['owner','repo','baseBranch','branchName','title','body','files'] } } },
   {
     name: 'google.drive.list', capability: 'google.drive', description: 'Read files the user has authorized MAX to access in Google Drive.', enabled: true, requiresConfirmation: false,
@@ -636,6 +638,7 @@ export function resolveGeminiTool(name: string) {
 export function validateToolInput(name: string, input: unknown) {
   if (name === 'integrations.connect') return integrationConnectInput.parse(input);
   if (name === 'github.file.get') return githubFileInput.parse(input);
+  if (name === 'github.repository.inspect') return githubRepositoryInput.parse(input);
   if (name === 'github.create_pull_request') return githubPullRequestInput.parse(input);
   if (name === 'calendar.events') return calendarInput.parse(input);
   if (name === 'calendar.create') return calendarCreateInput.parse(input);
@@ -770,6 +773,10 @@ export async function executeTool(name: string, context: ToolContext, input: unk
         const data = response.payload?.data ?? response.payload;
         result = { success: true, tool: name, repositories: data?.repos ?? data?.repositories ?? [] };
       }
+    } else if (name === 'github.repository.inspect') {
+      const data = validateToolInput(name, input) as z.infer<typeof githubRepositoryInput>;
+      await ensureGithubRepositoryLinked(context, data.owner, data.repo);
+      result = { tool: name, ...(await inspectGithubRepository(data.owner, data.repo, context.authSubject)) };
     } else if (name === 'github.file.get') {
       const data = validateToolInput(name, input) as z.infer<typeof githubFileInput>;
       await ensureGithubRepositoryLinked(context, data.owner, data.repo);
