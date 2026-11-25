@@ -108,8 +108,9 @@ describe('Gemini project-generation fallback', () => {
     vi.stubGlobal('fetch', fetchMock);
     const result = await generateGeminiProjectContent('system', 'prompt', providers, { sleep: async () => undefined });
     expect(result.provider).toBe('secondary');
-    expect(result.attempts[0].providerMessage).not.toContain('AIzaSyExample');
-    expect(result.attempts[0].providerMessage).toContain('[REDACTED]');
+    const providerMessage = result.attempts[0]?.providerMessage ?? '';
+    expect(providerMessage).not.toContain('AIzaSyExample');
+    expect(providerMessage).toContain('[REDACTED]');
   });
 
   it('does not rotate credentials for authentication failures', async () => {
