@@ -522,7 +522,15 @@ export async function orchestrateStream(
   const intent = classifyIntent(latestContent);
   if (intent === 'home' && capabilities.home) {
     onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
-  } else if (intent === 'coding' || intent === 'github') {
+  } else if (intent === 'github') {
+    onActivity?.({
+      kind: 'github_coding',
+      label: 'Understanding your GitHub request',
+      operation: 'request_analysis',
+      phase: 'understanding_request',
+      status: 'running'
+    });
+  } else if (intent === 'coding') {
     onActivity?.({ kind: 'working', label: 'Working' });
   } else {
     onActivity?.({ kind: 'thinking', label: 'Thinking' });
