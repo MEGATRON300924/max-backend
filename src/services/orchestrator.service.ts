@@ -17,10 +17,17 @@ type UserContext = {
 };
 
 type ActivityUpdate = {
-  kind: 'thinking' | 'working' | 'connecting_to_max_home';
+  kind: 'thinking' | 'working' | 'connecting_to_max_home' | 'github_coding';
   label?: string;
   filename?: string;
   progress?: number;
+  repository?: string;
+  operation?: string;
+  phase?: string;
+  status?: 'running' | 'awaiting_approval' | 'completed' | 'failed';
+  currentFile?: string;
+  filePaths?: string[];
+  completedFiles?: string[];
 };
 
 type Confirmation = {
@@ -216,6 +223,32 @@ async function processToolCalls(
     const filenameValue = [call.args.filename, call.args.fileName, call.args.filePath, call.args.path]
       .find((value): value is string => typeof value === 'string' && value.trim().length > 0);
     const filename = filenameValue?.trim().slice(0, 180);
+    const isGithubTool = tool.name.startsWith('github.');
+    const githubOwner = typeof call.args.owner === 'string' ? call.args.owner.trim() : '';
+    const githubRepo = typeof call.args.repo === 'string' ? call.args.repo.trim() : '';
+    const githubRepository = githubOwner && githubRepo ? `${githubOwner}/${githubRepo}` : undefined;
+    const githubFilePaths = Array.isArray(call.args.files)
+      ? call.args.files.map((file) => file && typeof file === 'object' && typeof (file as Record<string, unknown>).path === 'string' ? String((file as Record<string, unknown>).path).slice(0, 400) : '').filter(Boolean).slice(0, 30)
+      : (typeof call.args.path === 'string' ? [call.args.path.slice(0, 400)] : []);
+    if (isGithubTool) {
+      const operation = tool.name === 'github.repositories' ? 'repository_discovery'
+        : tool.name === 'github.repository.inspect' ? 'repository_inspection'
+        : tool.name === 'github.file.get' ? 'file_read'
+        : 'code_change';
+      onActivity?.({
+        kind: 'github_coding',
+        label: tool.name === 'github.repositories' ? 'Finding your GitHub repositories'
+          : tool.name === 'github.repository.inspect' ? 'Inspecting repository structure'
+          : tool.name === 'github.file.get' ? `Reading ${filename || 'repository file'}`
+          : 'Preparing GitHub changes',
+        ...(githubRepository ? { repository: githubRepository } : {}),
+        operation,
+        phase: 'preparing',
+        status: tool.requiresConfirmation ? 'awaiting_approval' : 'running',
+        ...(githubFilePaths.length ? { filePaths: githubFilePaths, currentFile: githubFilePaths[0] } : {}),
+        ...(filename ? { filename } : {})
+      });
+    }
     if (tool.name.startsWith('home.')) {
       onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
     } else {
@@ -253,6 +286,17 @@ async function processToolCalls(
         interactionId,
         callId: call.id
       });
+      if (isGithubTool) {
+        onActivity?.({
+          kind: 'github_coding',
+          label: 'Review the proposed GitHub changes',
+          ...(githubRepository ? { repository: githubRepository } : {}),
+          operation: 'code_change',
+          phase: 'approval',
+          status: 'awaiting_approval',
+          ...(githubFilePaths.length ? { filePaths: githubFilePaths, currentFile: githubFilePaths[0] } : {})
+        });
+      }
       confirmations.push({
         id: pending.id,
         toolName: pending.toolName,
@@ -284,9 +328,33 @@ async function processToolCalls(
         confirmed: false
       }, call.args);
       executed.push(tool.name);
+      if (isGithubTool) {
+        onActivity?.({
+          kind: 'github_coding',
+          label: tool.name === 'github.repository.inspect' ? 'Repository inspection complete'
+            : tool.name === 'github.file.get' ? 'File read complete'
+            : 'GitHub operation complete',
+          ...(githubRepository ? { repository: githubRepository } : {}),
+          operation: tool.name,
+          phase: 'completed',
+          status: 'completed',
+          ...(githubFilePaths.length ? { filePaths: githubFilePaths, completedFiles: githubFilePaths } : {})
+        });
+      }
       functionResults.push({ name: call.name, callId: call.id, result: output });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Tool execution failed';
+      if (isGithubTool) {
+        onActivity?.({
+          kind: 'github_coding',
+          label: 'GitHub operation failed',
+          ...(githubRepository ? { repository: githubRepository } : {}),
+          operation: tool.name,
+          phase: 'failed',
+          status: 'failed',
+          ...(githubFilePaths.length ? { filePaths: githubFilePaths } : {})
+        });
+      }
       functionResults.push({ name: call.name, callId: call.id, result: { success: false, error: message } });
     }
   }
