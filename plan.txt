@@ -963,3 +963,12 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 - Added sanitized structured logs for provider attempts and successful provider/model selection; API keys and prompt contents are never logged.
 - Updated .env.example. Render environment values were supplied by the user; this code change does not modify Render secrets or trigger a deployment.
 - Pending: add/execute unit tests, TypeScript build, inspect PR checks, and merge only after validation. No production deployment claimed.
+
+
+## 2026-11-25 — MAX Project Generation bounded retry and diagnostics hardening
+- Branch: `fix/project-generation-bounded-retries`, based on current `main`.
+- Replaced the fixed 350 ms retry with bounded exponential backoff plus jitter for transient Gemini HTTP/network/invalid-generation failures. Respects a provider `Retry-After` header (capped at 10 seconds), retries each configured provider at most once, and enforces a 90-second end-to-end generation budget with a 20-second per-request timeout.
+- Authentication and invalid-request failures remain non-retryable; model-not-found (404) continues to the next configured model without retrying the same model.
+- Provider attempt telemetry now carries sanitized/truncated provider error messages and retry delay metadata. The generation route logs those fields without recording prompts, request bodies, API keys, or raw provider payloads.
+- Added focused tests for transient retry/fallback, backoff delay, Retry-After, transport error sanitization, non-retryable 403, 404 model fallback, exhausted total budget, no configured keys, and successful JSON output.
+- Pending: run focused/full Vitest suite, TypeScript typecheck and production build; inspect CI on the PR head. No Render environment changes, merge, or deployment performed. A persistent Google-side 503 across all configured projects can still exhaust the retry budget; retries improve recovery from short overload windows but cannot guarantee upstream capacity.
