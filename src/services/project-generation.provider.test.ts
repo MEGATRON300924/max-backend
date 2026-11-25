@@ -92,10 +92,12 @@ describe('Gemini project-generation fallback', () => {
       .mockResolvedValueOnce(okResponse());
     const sleeps: number[] = [];
     vi.stubGlobal('fetch', fetchMock);
-    await generateGeminiProjectContent('system', 'prompt', [providers[0]!], {
+    const result = await generateGeminiProjectContent('system', 'prompt', [providers[0]!], {
       sleep: async ms => { sleeps.push(ms); }
-    }).catch(error => { expect(error.attempts[0].retryDelayMs).toBe(2000); });
+    });
+    expect(result.provider).toBe('primary');
     expect(sleeps).toEqual([2000]);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it('records a sanitized transport error and falls back after its retry budget', async () => {
@@ -143,6 +145,19 @@ describe('Gemini project-generation fallback', () => {
       sleep: async () => undefined
     })).rejects.toMatchObject({ httpStatus: 503 });
     expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a bounded 503 failure after every configured provider is exhausted', async () => {
+    const fetchMock = vi.fn().mockImplementation(async () => unavailableResponse());
+    vi.stubGlobal('fetch', fetchMock);
+    await expect(generateGeminiProjectContent('system', 'prompt', providers, {
+      sleep: async () => undefined
+    })).rejects.toMatchObject({ httpStatus: 503, attempts: expect.arrayContaining([
+      expect.objectContaining({ provider: 'primary', outcome: 'fallback' }),
+      expect.objectContaining({ provider: 'secondary', outcome: 'fallback' }),
+      expect.objectContaining({ provider: 'tertiary', outcome: 'stopped' })
+    ]) });
+    expect(fetchMock).toHaveBeenCalledTimes(6);
   });
 
   it('rejects requests when no provider key is configured', async () => {
