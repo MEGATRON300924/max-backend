@@ -972,3 +972,12 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 - Provider attempt telemetry now carries sanitized/truncated provider error messages and retry delay metadata. The generation route logs those fields without recording prompts, request bodies, API keys, or raw provider payloads.
 - Added focused tests for transient retry/fallback, backoff delay, Retry-After, transport error sanitization, non-retryable 403, 404 model fallback, exhausted total budget, no configured keys, and successful JSON output.
 - Pending: run focused/full Vitest suite, TypeScript typecheck and production build; inspect CI on the PR head. No Render environment changes, merge, or deployment performed. A persistent Google-side 503 across all configured projects can still exhaust the retry budget; retries improve recovery from short overload windows but cannot guarantee upstream capacity.
+
+
+## 2026-11-25 — Religion-aware MAX Chat context
+- Added a server-side resolver that reads the authenticated user's dedicated MAX Auth religion preference and, only when no personal choice has been completed, falls back to a MAX Home household default.
+- The resolver uses the already authenticated MAX Chat OAuth access token; no new secrets, scopes, or client-supplied religion claims were added.
+- Personal `prefer_not_to_say` or cleared profiles explicitly override household defaults and remain neutral.
+- The trusted context is attached only to MAX Webchat orchestrator metadata. Jehovah's Witness context prevents unsolicited birthday/Christmas/Easter celebration greetings; other faiths do not trigger assumptions about observance.
+- Added a bounded 60-second per-user in-memory cache and short network timeouts. Auth/Home lookup failures fail closed to neutral context and never fail the chat request.
+- Validation pending: TypeScript build, tests, and integration smoke tests for personal preference, household fallback, neutral override, and provider outages.
