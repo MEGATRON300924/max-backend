@@ -129,8 +129,8 @@ function classifyIntent(content: string) {
   const firstTarget = explicitTargets[0];
   if (firstTarget === 'maxhome' || firstTarget === 'home') {
     const value = content.toLowerCase();
-    if (/\\b(tell|message|remind|notify|ask)\\b.{0,100}\\b(family|household|mom|mum|mother|dad|father|brother|sister|wife|husband|son|daughter|parent|child)\\b/.test(value)
-        || /\\b(tell|message|remind|notify|ask)\\s+[a-z][a-z'-]{1,30}\\b.{0,80}\\b(to|that|about)\\b/.test(value)) return 'family';
+    if (/\b(tell|message|remind|notify|ask)\b.{0,100}\b(family|household|mom|mum|mother|dad|father|brother|sister|wife|husband|son|daughter|parent|child)\b/.test(value)
+        || /\b(tell|message|remind|notify|ask)\s+[a-z][a-z'-]{1,30}\b.{0,80}\b(to|that|about)\b/.test(value)) return 'family';
   }
   if (firstTarget) {
     const selectedIntent = MAX_MENTION_INTENTS[firstTarget];
