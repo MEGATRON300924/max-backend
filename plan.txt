@@ -1046,3 +1046,9 @@ MAX HOME FAMILY MESSAGE ROUTING FIX — 2026-11-26
 - Existing Google Contacts functionality remains available for explicit Google Contacts requests and other intents.
 - Existing authenticated household roster and notification membership validation remain in place.
 - Validation: pending CI and focused orchestration/tool tests. No production deployment claimed.
+
+FAMILY ROUTING TYPECHECK HOTFIX — 2026-11-26
+
+- Fixed the TypeScript TS7006 error in sendFamilyMessage by explicitly typing the MAX Home roster member used by the recipient lookup.
+- This is a compile-time annotation only; recipient resolution, authorization checks, message confirmation and delivery behavior are unchanged.
+- CI validation pending on fix/family-roster-typecheck. No merge or new deployment performed.
