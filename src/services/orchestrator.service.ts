@@ -426,7 +426,7 @@ async function processToolCalls(
 }
 
 async function runToolLoop(user: UserContext, conversationId: string, turns: ChatTurn[], system: string) {
-  const tools = getGeminiTools(intent);
+  const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
   const connections: Array<{ provider: string; authorizationUrl: string }> = [];
@@ -540,14 +540,14 @@ export async function continueAfterConfirmation(
   result: unknown
 ): Promise<OrchestrationResult> {
   const memories = await getContext(user);
-  const intent = action.toolName.startsWith('home.') ? 'home' : action.toolName.startsWith('calendar.') ? 'calendar' : action.toolName.startsWith('spotify.') ? 'music' : action.toolName.startsWith('google.') ? 'google' : 'memory';
+  const intent = action.toolName === 'home.family.message' ? 'family' : action.toolName.startsWith('home.') ? 'home' : action.toolName.startsWith('calendar.') ? 'calendar' : action.toolName.startsWith('spotify.') ? 'music' : action.toolName.startsWith('google.') ? 'google' : 'memory';
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = buildSystemPrompt(user, memories, intent, personalization);
   const functionName = action.toolName === 'memory.delete' ? 'memory_delete' : action.toolName === 'home.execute' ? 'home_execute' : action.toolName.replace('.', '_');
   const continued = await continueGeminiInteraction(
     action.interactionId,
     [{ name: functionName, callId: action.callId, result }],
-    getGeminiTools(),
+    getGeminiTools(intent),
     system
   );
 
@@ -603,7 +603,7 @@ export async function orchestrateStream(
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
   const system = [buildSystemPrompt(user, memories, intent, personalization), buildMentionRoutingContext(explicitTargets), intent === 'family' ? '[MAX HOME FAMILY MESSAGING]\nFor every request to tell, message, remind, notify, or ask a person in the user’s family, use ONLY MAX Home household data. First call home_family_members and resolve the recipient using the household member display name, username, and familyRelationship. Google Contacts are not a source for family identity and must not be consulted. If MAX Home is not linked, explain how to link it in MAX Auth Connected Apps; never ask the user to reconnect Google. If no household member matches, say the person is not in the linked MAX Home. If multiple members match, ask the user to choose. Before sending, show the exact recipient and message and obtain explicit confirmation. Send only through home_family_message.' : '', additionalSystemContext ?? ''].filter(Boolean).join('\\n\\n');
-  const tools = getGeminiTools();
+  const tools = getGeminiTools(intent);
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
   const connections: Array<{ provider: string; authorizationUrl: string }> = [];
