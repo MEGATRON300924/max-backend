@@ -138,6 +138,8 @@ function classifyIntent(content: string) {
   if (/\b(code|coding|programming|script|function|bug|debug|refactor|compile|implement|source code)\b/.test(value)
       || /\b(write|create|build|debug|fix|refactor|implement|edit)\b.{0,40}\b(app|website|api|file|software)\b/.test(value)) return 'coding';
   if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
+  if (/\b(tell|message|remind|notify|ask)\b.{0,100}\b(family|household|mom|mum|mother|dad|father|brother|sister|wife|husband|son|daughter|parent|child)\b/.test(value)
+      || /\b(tell|message|remind|notify|ask)\s+[a-z][a-z'-]{1,30}\b.{0,80}\b(to|that|about)\b/.test(value)) return 'home';
   if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds|hotel registration|sign[- ]?up requests?|onboarding leads?)\b/.test(value)) return 'hotels';
   if (/\b(watched|watch history|playback progress|continue watching|stopped at|video progress|last watched)\b/.test(value)) return 'media';
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
