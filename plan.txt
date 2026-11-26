@@ -1036,6 +1036,9 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 
 
 MAX HOME FAMILY MESSAGE ROUTING FIX — 2026-11-26
+
+- Extended the MAX Home-only family routing constraint to both streaming chat and non-stream orchestration (including voice conversations and the confirmation follow-up turn).
+- Family recipient lookup now includes the explicit familyRelationship value returned by MAX Home.
 - Added a dedicated family-message intent so natural-language requests such as “Tell Ruth Opaaje to start cooking” are classified as MAX Home family messaging before the generic Google/contact intent.
 - Family-message turns receive strict routing instructions: resolve recipients only from the authenticated linked MAX Home roster; do not consult Google Contacts; require explicit confirmation before sending.
 - The Google Contacts tool is excluded from the model tool list for family-message turns, making the routing constraint enforceable rather than prompt-only.
