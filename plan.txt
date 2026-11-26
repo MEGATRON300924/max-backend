@@ -1033,3 +1033,12 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 - Added @maxhome routing guidance and natural-language family-message intent detection. Family messaging is explicitly separate from device execution and never uses `home_execute`.
 - Voice messages use the same orchestrator capability and authenticated family notification endpoint; APK files and MAX Home frontend files were not changed.
 - Validation pending: inspect final diff, run TypeScript typecheck, full Vitest suite and production build through CI, then review PR checks. No merge, Render environment change or production deployment performed.
+
+
+MAX HOME FAMILY MESSAGE ROUTING FIX — 2026-11-26
+- Added a dedicated family-message intent so natural-language requests such as “Tell Ruth Opaaje to start cooking” are classified as MAX Home family messaging before the generic Google/contact intent.
+- Family-message turns receive strict routing instructions: resolve recipients only from the authenticated linked MAX Home roster; do not consult Google Contacts; require explicit confirmation before sending.
+- The Google Contacts tool is excluded from the model tool list for family-message turns, making the routing constraint enforceable rather than prompt-only.
+- Existing Google Contacts functionality remains available for explicit Google Contacts requests and other intents.
+- Existing authenticated household roster and notification membership validation remain in place.
+- Validation: pending CI and focused orchestration/tool tests. No production deployment claimed.
