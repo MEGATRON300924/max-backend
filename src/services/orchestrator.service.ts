@@ -484,8 +484,9 @@ export async function orchestrate(user: UserContext, conversationId: string, tur
   const intent = classifyIntent(latestContent);
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
-  const system = [buildSystemPrompt(user, memories, intent, personalization), additionalSystemContext ?? ''].filter(Boolean).join('\n\n');
-  const generated = await runToolLoop(user, conversationId, turns, system);
+  const familyRouting = intent === 'family' ? '[MAX HOME FAMILY MESSAGING]\\nFor every request to tell, message, remind, notify, or ask a person in the user’s family, use ONLY MAX Home household data. First call home_family_members and resolve the recipient using the household member display name, username, and familyRelationship. Google Contacts are not a source for family identity and must not be consulted. If MAX Home is not linked, explain how to link it in MAX Auth Connected Apps; never ask the user to reconnect Google. If no household member matches, say the person is not in the linked MAX Home. If multiple members match, ask the user to choose. Before sending, show the exact recipient and message and obtain explicit confirmation. Send only through home_family_message.' : '';
+  const system = [buildSystemPrompt(user, memories, intent, personalization), familyRouting, additionalSystemContext ?? ''].filter(Boolean).join('\\n\\n');
+  const generated = await runToolLoop(user, conversationId, turns, system, intent);
   return {
     text: generated.text,
     provider: generated.provider,
