@@ -193,7 +193,7 @@ export async function sendFamilyMessage(
     method: 'POST',
     body: {
       recipientUserId: recipient.userId,
-      title: input.title?.trim() || 'Message from ' + 'MAX Chat',
+      title: input.title?.trim() || 'Family message',
       message: input.message,
       source: input.source || 'max_chat'
     }
