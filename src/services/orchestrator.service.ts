@@ -425,8 +425,8 @@ async function processToolCalls(
   return functionResults;
 }
 
-async function runToolLoop(user: UserContext, conversationId: string, turns: ChatTurn[], system: string) {
-  const tools = getGeminiTools();
+async function runToolLoop(user: UserContext, conversationId: string, turns: ChatTurn[], system: string, intent = 'general') {
+  const tools = getGeminiTools(intent);
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
   const connections: Array<{ provider: string; authorizationUrl: string }> = [];
