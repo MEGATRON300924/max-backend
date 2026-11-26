@@ -620,8 +620,7 @@ const tools: MaxTool[] = [
         required: ['action']
       }
     }
-  }
-  ,
+  },
   {
     name: 'home.family.members',
     capability: 'home',
