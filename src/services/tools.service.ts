@@ -661,8 +661,8 @@ export function listTools() {
   return tools.map(({ declaration, ...tool }) => ({ ...tool }));
 }
 
-export function getGeminiTools() {
-  return tools.filter((tool) => tool.enabled).map((tool) => tool.declaration);
+export function getGeminiTools(intent = 'general') {
+  return tools.filter((tool) => tool.enabled && !(intent === 'family' && tool.name === 'google.contacts.list')).map((tool) => tool.declaration);
 }
 
 export function resolveGeminiTool(name: string) {

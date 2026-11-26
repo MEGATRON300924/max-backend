@@ -173,7 +173,8 @@ export async function listFamilyMembers(accessToken: string | undefined, options
         ? member.displayName.trim()
         : typeof member.username === 'string' && member.username.trim() ? member.username.trim() : 'Family member',
       username: typeof member.username === 'string' ? member.username : null,
-      role: typeof member.role === 'string' ? member.role : 'member'
+      role: typeof member.role === 'string' ? member.role : 'member',
+      familyRelationship: typeof member.family_relationship === 'string' ? member.family_relationship : 'other'
     })).filter((member: { userId: string }) => member.userId)
   };
 }
