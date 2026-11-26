@@ -184,7 +184,7 @@ export async function sendFamilyMessage(
   input: { recipientUserId: string; message: string; title?: string; homeId?: string; homeName?: string; source?: 'max_chat' | 'max_voice' }
 ) {
   const roster = await listFamilyMembers(accessToken, { homeId: input.homeId, homeName: input.homeName });
-  const recipient = roster.members.find((member) => member.userId === input.recipientUserId);
+  const recipient = roster.members.find((member: { userId: string; displayName: string; username: string | null; role: string; familyRelationship: string }) => member.userId === input.recipientUserId);
   if (!recipient) {
     throw new ApiError(404, 'FAMILY_RECIPIENT_NOT_FOUND', 'That recipient is not a member of the selected linked MAX Home.');
   }
