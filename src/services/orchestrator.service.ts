@@ -137,9 +137,9 @@ function classifyIntent(content: string) {
   if (/\b(github|git hub|repositories|repository|repos?\b|pull requests?|github actions|codebase)\b/.test(value)) return 'github';
   if (/\b(code|coding|programming|script|function|bug|debug|refactor|compile|implement|source code)\b/.test(value)
       || /\b(write|create|build|debug|fix|refactor|implement|edit)\b.{0,40}\b(app|website|api|file|software)\b/.test(value)) return 'coding';
-  if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
   if (/\b(tell|message|remind|notify|ask)\b.{0,100}\b(family|household|mom|mum|mother|dad|father|brother|sister|wife|husband|son|daughter|parent|child)\b/.test(value)
-      || /\b(tell|message|remind|notify|ask)\s+[a-z][a-z'-]{1,30}\b.{0,80}\b(to|that|about)\b/.test(value)) return 'home';
+      || /\b(tell|message|remind|notify|ask)\s+[a-z][a-z'-]{1,30}\b.{0,80}\b(to|that|about)\b/.test(value)) return 'family';
+  if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
   if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds|hotel registration|sign[- ]?up requests?|onboarding leads?)\b/.test(value)) return 'hotels';
   if (/\b(watched|watch history|playback progress|continue watching|stopped at|video progress|last watched)\b/.test(value)) return 'media';
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
@@ -156,7 +156,7 @@ function classifyIntent(content: string) {
 
 function unavailableCapability(intent: string) {
   if (intent === 'hotels' && !capabilities.hotels) return 'MAX Hotels is not configured for this backend.';
-  if (intent === 'home' && !capabilities.home) return 'MAX Home is not configured for this backend.';
+  if ((intent === 'home' || intent === 'family') && !capabilities.home) return 'MAX Home is not configured for this backend.';
   if (intent === 'calendar' && !capabilities.calendar) return 'Google Calendar is not configured for this backend.';
   if (intent === 'github' && !capabilities.github) return 'MAX GitHub repository editing is not configured for this backend.';
   if (intent === 'google' && !capabilities.google) return 'Google services are not configured for this backend.';
@@ -426,7 +426,7 @@ async function processToolCalls(
 }
 
 async function runToolLoop(user: UserContext, conversationId: string, turns: ChatTurn[], system: string) {
-  const tools = getGeminiTools();
+  const tools = getGeminiTools(intent);
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
   const connections: Array<{ provider: string; authorizationUrl: string }> = [];
@@ -585,7 +585,7 @@ export async function orchestrateStream(
   }
   const explicitTargets = getExplicitMaxTargets(latestContent);
   const intent = classifyIntent(latestContent);
-  if (intent === 'home' && capabilities.home) {
+  if ((intent === 'home' || intent === 'family') && capabilities.home) {
     onActivity?.({ kind: 'connecting_to_max_home', label: 'Connecting to MAX Home' });
   } else if (intent === 'github') {
     onActivity?.({
@@ -602,7 +602,7 @@ export async function orchestrateStream(
   }
   const memories = await getContext(user);
   const personalization = await getPersonalizationContext(user.id, intent).catch(() => ({}));
-  const system = [buildSystemPrompt(user, memories, intent, personalization), buildMentionRoutingContext(explicitTargets), additionalSystemContext ?? ''].filter(Boolean).join('\\n\\n');
+  const system = [buildSystemPrompt(user, memories, intent, personalization), buildMentionRoutingContext(explicitTargets), intent === 'family' ? '[MAX HOME FAMILY MESSAGING]\nFor every request to tell, message, remind, notify, or ask a person in the user’s family, use ONLY MAX Home household data. First call home_family_members and resolve the recipient using the household member display name, username, and familyRelationship. Google Contacts are not a source for family identity and must not be consulted. If MAX Home is not linked, explain how to link it in MAX Auth Connected Apps; never ask the user to reconnect Google. If no household member matches, say the person is not in the linked MAX Home. If multiple members match, ask the user to choose. Before sending, show the exact recipient and message and obtain explicit confirmation. Send only through home_family_message.' : '', additionalSystemContext ?? ''].filter(Boolean).join('\\n\\n');
   const tools = getGeminiTools();
   const executed: string[] = [];
   const confirmations: Confirmation[] = [];
