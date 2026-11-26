@@ -158,6 +158,54 @@ export async function executeHomeAction(
   };
 }
 
+export async function listFamilyMembers(accessToken: string | undefined, options: { homeId?: string; homeName?: string } = {}) {
+  const home = await resolveHome(accessToken, options);
+  const payload = await requestHome<any>({
+    accessToken,
+    path: '/family/homes/' + encodeURIComponent(home.id)
+  });
+  const members = Array.isArray(payload?.members) ? payload.members : [];
+  return {
+    home: { id: home.id, name: home.name },
+    members: members.map((member: any) => ({
+      userId: typeof member.user_id === 'string' ? member.user_id : '',
+      displayName: typeof member.displayName === 'string' && member.displayName.trim()
+        ? member.displayName.trim()
+        : typeof member.username === 'string' && member.username.trim() ? member.username.trim() : 'Family member',
+      username: typeof member.username === 'string' ? member.username : null,
+      role: typeof member.role === 'string' ? member.role : 'member'
+    })).filter((member: { userId: string }) => member.userId)
+  };
+}
+
+export async function sendFamilyMessage(
+  accessToken: string | undefined,
+  input: { recipientUserId: string; message: string; title?: string; homeId?: string; homeName?: string; source?: 'max_chat' | 'max_voice' }
+) {
+  const roster = await listFamilyMembers(accessToken, { homeId: input.homeId, homeName: input.homeName });
+  const recipient = roster.members.find((member) => member.userId === input.recipientUserId);
+  if (!recipient) {
+    throw new ApiError(404, 'FAMILY_RECIPIENT_NOT_FOUND', 'That recipient is not a member of the selected linked MAX Home.');
+  }
+  const payload = await requestHome<any>({
+    accessToken,
+    path: '/homes/' + encodeURIComponent(roster.home.id) + '/family-notifications',
+    method: 'POST',
+    body: {
+      recipientUserId: recipient.userId,
+      title: input.title?.trim() || 'Family message',
+      message: input.message,
+      source: input.source || 'max_chat'
+    }
+  });
+  return {
+    success: true,
+    home: roster.home.name,
+    recipient: { userId: recipient.userId, displayName: recipient.displayName },
+    notification: payload?.notification ?? payload
+  };
+}
+
 export function homeStatus() {
   return {
     configured: Boolean(env.MAX_HOME_API_URL),

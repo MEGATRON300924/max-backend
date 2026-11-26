@@ -112,7 +112,7 @@ function buildMentionRoutingContext(targets: string[]): string {
     'The user explicitly selected these integration targets: ' + targets.map(target => '@' + target).join(', ') + '.',
     'Treat these targets as authoritative routing constraints, not decorative text. Prefer the registered tools belonging to the selected target(s), and do not route the request to MAX Project Workspace or answer as if a local project preview is being updated.',
     'For @github: resolve the exact connected repository with github_repositories, inspect it with github_repository_inspect, read relevant files with github_file_get, and propose repository changes using github_create_pull_request only after the user approves the confirmation.',
-    'For @maxhome: use home_devices_list for live device and home information; use home_execute only after explicit confirmation.',
+    'For @maxhome: use home_devices_list for live device and home information; use home_family_members to resolve household recipients; use home_family_message only after explicit confirmation. Never use home_execute for family messages.',
     'For @maxmusic or @spotify: use the registered Spotify tools for music-library and playback actions.',
     'For @maxcloud: use the registered cloud tools for the user\'s MAX Cloud files and storage.',
     'For @maxbrowser: use browser_search and browser_open for web research.',
@@ -138,6 +138,8 @@ function classifyIntent(content: string) {
   if (/\b(code|coding|programming|script|function|bug|debug|refactor|compile|implement|source code)\b/.test(value)
       || /\b(write|create|build|debug|fix|refactor|implement|edit)\b.{0,40}\b(app|website|api|file|software)\b/.test(value)) return 'coding';
   if (/\b(max home|home devices|devices? (?:in|on) (?:my )?(?:max )?home|(?:online|offline|connected) devices?)\b/.test(value)) return 'home';
+  if (/\b(tell|message|remind|notify|ask)\b.{0,100}\b(family|household|mom|mum|mother|dad|father|brother|sister|wife|husband|son|daughter|parent|child)\b/.test(value)
+      || /\b(tell|message|remind|notify|ask)\s+[a-z][a-z'-]{1,30}\b.{0,80}\b(to|that|about)\b/.test(value)) return 'home';
   if (/\b(max hotels?|hotel|hotels|hotel property|guest requests?|room service|housekeeping|hotel guests?|guest roster|occupancy|check[- ]?in|check[- ]?out|hotel orders?|hotel payments?|hotel revenue|hotel funds|hotel registration|sign[- ]?up requests?|onboarding leads?)\b/.test(value)) return 'hotels';
   if (/\b(watched|watch history|playback progress|continue watching|stopped at|video progress|last watched)\b/.test(value)) return 'media';
   if (/\b(remember|forget|save this|keep in mind|my preference|i prefer|i like|i dislike)\b/.test(value)) return 'memory';
@@ -191,6 +193,7 @@ function buildSystemPrompt(user: UserContext, memories: Array<{ type: string; ke
     'Use registered tools when an actual backend action is required.',
     'When the user asks to connect, link, or authorize Google, Spotify, Discord, Microsoft, or GitHub, call integrations_connect with the matching provider. Never tell the user to go to settings or manually find Connected Accounts. The frontend will present a MAX Auth Continue card. Do not say the account is connected until MAX Auth confirms it.',
     'For questions about MAX Home devices, device counts, online/offline status, or connected devices, always call home.devices.list and base the answer only on its returned device data. Do not guess counts or status.',
+    'Family messaging: when the user asks MAX to tell, remind, or send a message to a household member, use home.family.members to retrieve the authenticated user\'s linked-home roster. Match the recipient against returned display names/usernames; if multiple people match or multiple linked homes exist, ask the user to disambiguate. Never invent a member ID. Use home.family.message only after the user has explicitly confirmed the exact recipient and message. The tool revalidates recipient membership server-side. Do not send household messages through home.execute. Report sent only after the notification API confirms creation.',
     'For MAX Hotels business questions, use hotels.overview for live property, room, device, current guest-session and open-request counts; use hotels.requests.list for request details; use hotels.guests.list for the current guest roster. The tools only return records allowed by the currently authenticated MAX Auth business context.',
     'Never infer a hotel guest count from room capacity. Count only active guest sessions returned by MAX Hotels. State the property and data scope when reporting counts.',
     'For hotel sign-up and onboarding lead questions, use hotels.registrations.list. The MAX Hotels API restricts this platform-wide lead list to explicitly allowlisted platform administrators; if access is denied, explain the restriction and do not infer lead counts.',

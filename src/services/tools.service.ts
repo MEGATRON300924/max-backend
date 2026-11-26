@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { prisma } from '../lib/prisma.js';
 import { ApiError } from '../middleware/errors.js';
-import { listHomeDevices, executeHomeAction } from './home.service.js';
+import { listHomeDevices, executeHomeAction, listFamilyMembers, sendFamilyMessage } from './home.service.js';
 import type { GeminiFunctionDeclaration } from './ai.service.js';
 import { recordAuditEvent } from './audit.service.js';
 import { env } from '../config/env.js';
@@ -620,6 +620,40 @@ const tools: MaxTool[] = [
         required: ['action']
       }
     }
+  },
+  {
+    name: 'home.family.members',
+    capability: 'home',
+    description: 'Read the members of the authenticated user\'s linked MAX Home for recipient selection.',
+    enabled: Boolean(env.MAX_HOME_API_URL),
+    requiresConfirmation: false,
+    declaration: {
+      name: 'home_family_members',
+      description: 'List family members in the user\'s linked MAX Home. Use this to resolve the exact person before sending a family message. If more than one home is linked, ask which home.',
+      parameters: { type: 'object', properties: { homeId: { type: 'string' }, homeName: { type: 'string' } } }
+    }
+  },
+  {
+    name: 'home.family.message',
+    capability: 'home',
+    description: 'Send a message to an authorized member of the authenticated user\'s linked MAX Home.',
+    enabled: Boolean(env.MAX_HOME_API_URL),
+    requiresConfirmation: true,
+    declaration: {
+      name: 'home_family_message',
+      description: 'Send a family notification after explicit user confirmation. First call home_family_members and resolve the intended recipient by exact name. Never invent recipientUserId. If names are ambiguous, ask the user to choose. Message must be the user\'s requested content, not an invented instruction.',
+      parameters: {
+        type: 'object',
+        properties: {
+          recipientUserId: { type: 'string', description: 'Exact userId returned by home_family_members.' },
+          message: { type: 'string', description: 'The message to deliver.' },
+          title: { type: 'string', description: 'Short notification title.' },
+          homeId: { type: 'string', description: 'Optional selected linked home ID returned by the family roster.' },
+          homeName: { type: 'string', description: 'Optional selected linked home name.' }
+        },
+        required: ['recipientUserId', 'message']
+      }
+    }
   }
 ];
 
@@ -661,6 +695,14 @@ export function validateToolInput(name: string, input: unknown) {
   if (name === 'spotify.saved-tracks' || name === 'spotify.playlists') return spotifyPageInput.parse(input);
   if (name === 'spotify.play') return spotifyPlayInput.parse(input);
   if (name === 'home.devices.list') return z.object({ homeId: z.string().uuid().optional(), homeName: z.string().trim().min(1).max(120).optional() }).parse(input);
+  if (name === 'home.family.members') return z.object({ homeId: z.string().uuid().optional(), homeName: z.string().trim().min(1).max(120).optional() }).parse(input);
+  if (name === 'home.family.message') return z.object({
+    recipientUserId: z.string().uuid(),
+    message: z.string().trim().min(1).max(2000),
+    title: z.string().trim().min(1).max(120).optional(),
+    homeId: z.string().uuid().optional(),
+    homeName: z.string().trim().min(1).max(120).optional()
+  }).parse(input);
   if (name === 'hotels.overview') return hotelWorkspaceInput.parse(input);
   if (name === 'hotels.requests.list') return hotelRequestsInput.parse(input);
   if (name === 'hotels.guests.list') return hotelGuestsInput.parse(input);
@@ -953,6 +995,12 @@ export async function executeTool(name: string, context: ToolContext, input: unk
     } else if (name === 'home.devices.list') {
       const data = validateToolInput(name, input) as { homeId?: string; homeName?: string };
       result = { success: true, tool: name, ...(await listHomeDevices(context.authAccessToken, data)) };
+    } else if (name === 'home.family.members') {
+      const data = validateToolInput(name, input) as { homeId?: string; homeName?: string };
+      result = { success: true, tool: name, ...(await listFamilyMembers(context.authAccessToken, data)) };
+    } else if (name === 'home.family.message') {
+      const data = validateToolInput(name, input) as { recipientUserId: string; message: string; title?: string; homeId?: string; homeName?: string };
+      result = { success: true, tool: name, result: await sendFamilyMessage(context.authAccessToken, data) };
     } else if (name === 'home.execute') {
       if (!context.authSubject) throw new ApiError(401, 'AUTH_SUBJECT_REQUIRED', 'MAX Home requires an authenticated MAX identity');
       const data = homeInput.parse(input);

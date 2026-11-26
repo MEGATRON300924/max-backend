@@ -1023,3 +1023,13 @@ GEMINI PROJECT-GENERATION PROVIDER FALLBACK — 2026-11-25
 - The stream path now uses the same explicit @integration target extraction as the non-stream orchestration path. No GitHub authorization rules, secrets, tool permissions, or confirmation gates were changed.
 - Branch: fix/orchestrator-explicit-targets-types. Source commit: 6724cdf772f465ea500d5f098540e9a784b7d05b.
 - Pending: verify the complete TypeScript build and test suite through GitHub Actions, inspect the PR diff/checks, and wait for user review/merge. No production deployment or Render environment change performed.
+
+
+## 2026-11-26 — MAX Home family messaging bridge
+- Started branch `feat/max-family-messaging` from `main`.
+- Added authenticated MAX Home family roster lookup to the MAX Backend using the user's existing MAX Auth OAuth access token and linked-home selection rules.
+- Added a family-message tool that validates the recipient against the live household roster immediately before sending, then calls the existing MAX Home family-notifications API with the same user bearer token. MAX Home remains the authority for household membership; no service-token bypass or client-supplied household authority was introduced.
+- Registered separate read and write tools. Sending requires the existing explicit tool-confirmation workflow; recipient resolution is read-only. Ambiguous linked homes and duplicate recipient names must be clarified before sending.
+- Added @maxhome routing guidance and natural-language family-message intent detection. Family messaging is explicitly separate from device execution and never uses `home_execute`.
+- Voice messages use the same orchestrator capability and authenticated family notification endpoint; APK files and MAX Home frontend files were not changed.
+- Validation pending: inspect final diff, run TypeScript typecheck, full Vitest suite and production build through CI, then review PR checks. No merge, Render environment change or production deployment performed.
