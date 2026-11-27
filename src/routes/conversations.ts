@@ -141,8 +141,29 @@ async function resolveReligionContext(userId: string, accessToken?: string): Pro
   return value;
 }
 
-function trustedWebchatMetadata(religion: ReligionContext | null) {
-  const base = '[Trusted platform metadata: source=Webchat; surface=authenticated MAX Webchat; speaker is the authenticated conversation owner.]';
+type MaxClientPlatform = 'web' | 'desktop' | 'android' | 'ios' | 'unknown';
+
+function clientPlatformFromRequest(req: AuthenticatedRequest) {
+  const requested = String(req.header('x-max-client-platform') || 'web').trim().toLowerCase();
+  const platform: MaxClientPlatform = ['web', 'desktop', 'android', 'ios'].includes(requested)
+    ? requested as MaxClientPlatform
+    : 'unknown';
+  const version = String(req.header('x-max-client-version') || '').trim().slice(0, 32);
+  return { platform, version: version || null };
+}
+
+function clientPlatformMetadata(req: AuthenticatedRequest, religion: ReligionContext | null) {
+  const client = clientPlatformFromRequest(req);
+  const labels: Record<MaxClientPlatform, string> = {
+    web: 'Webchat',
+    desktop: 'Desktop',
+    android: 'Android',
+    ios: 'iOS',
+    unknown: 'Unknown client'
+  };
+  const label = labels[client.platform];
+  const version = client.version ? '; client version=' + client.version : '';
+  const base = '[Client platform metadata: platform=' + client.platform + '; surface=authenticated MAX ' + label + version + '; speaker is the authenticated conversation owner. This is client-reported metadata, not an authorization signal.]';
   if (!religion) {
     return `${base}
 [Religion awareness: neutral. Do not infer the user's religion or beliefs. Discuss religions objectively and only apply a faith perspective when the user explicitly requests it.]`;
@@ -613,7 +634,7 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
     ]);
 
     const religionContext = await resolveReligionContext(user.id, user.authAccessToken);
-    const generated = await orchestrate(user, conversation.id, turns, input.content, trustedWebchatMetadata(religionContext));
+    const generated = await orchestrate(user, conversation.id, turns, input.content, clientPlatformMetadata(req, religionContext));
     const assistantMessage = await prisma.message.create({
       data: {
         conversationId: conversation.id,
@@ -625,7 +646,8 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
           intent: generated.intent,
           tools: generated.tools,
           confirmations: jsonMetadata(generated.confirmations),
-          interactionId: generated.interactionId
+          interactionId: generated.interactionId,
+          clientPlatform: clientPlatformFromRequest(req)
         }
       }
     });
@@ -664,6 +686,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
       throw new ApiError(404, 'CLOUD_FILE_NOT_FOUND', 'One or more attached MAX Cloud files do not belong to this account.');
     }
     const messageMetadata = {
+      clientPlatform: clientPlatformFromRequest(req),
       ...(input.imageContext ? { visionContext: input.imageContext } : {}),
       ...(input.documentContext ? { documentContext: input.documentContext } : {}),
       ...(input.cloudFiles.length ? { cloudFiles: input.cloudFiles } : {})
@@ -708,7 +731,7 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
       (activity) => {
         res.write(`event: activity\ndata: ${JSON.stringify(activity)}\n\n`);
       },
-      trustedWebchatMetadata(religionContext)
+      clientPlatformMetadata(req, religionContext)
     );
 
     const assistantMessage = await prisma.message.create({
