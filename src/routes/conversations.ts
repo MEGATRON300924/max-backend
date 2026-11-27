@@ -529,6 +529,7 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
     const user = await getUser(req);
     const conversationId = conversationIdSchema.parse(req.params.id);
     const conversation = await getConversationForUser(conversationId, user.id);
+    const clientPlatform = clientPlatformFromRequest(req);
 
     const allAttachmentIds = input.messages.flatMap(message => message.attachmentIds || []);
     if (new Set(allAttachmentIds).size !== allAttachmentIds.length) throw new ApiError(400, 'DUPLICATE_ATTACHMENT_REFERENCE', 'An attachment can only be linked once per message batch');
@@ -554,7 +555,7 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
             data: {
               conversationId: conversation.id, role: message.role === 'user' ? 'USER' : 'ASSISTANT',
               content: message.content, provider: message.provider || 'gemini',
-              metadata: jsonMetadata({ ...(message.metadata || {}), ...(message.id ? { clientMessageId: message.id } : {}), source: 'MAX Chat' })
+              metadata: jsonMetadata({ ...(message.metadata || {}), ...(message.id ? { clientMessageId: message.id } : {}), source: 'MAX Chat', clientPlatform })
             },
             include: { attachments: true }
           });
@@ -564,7 +565,7 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
             ? savedMessage.metadata as Record<string, unknown> : {};
           savedMessage = await tx.message.update({
             where: { id: savedMessage.id },
-            data: { metadata: jsonMetadata({ ...existingMetadata, ...message.metadata, clientMessageId: message.id, source: 'MAX Chat' }) },
+            data: { metadata: jsonMetadata({ ...existingMetadata, ...message.metadata, clientMessageId: message.id, source: 'MAX Chat', clientPlatform }) },
             include: { attachments: true }
           });
         }
