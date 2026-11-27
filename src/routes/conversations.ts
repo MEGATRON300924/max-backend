@@ -618,7 +618,12 @@ conversationsRouter.post('/:id/messages', async (req: AuthenticatedRequest, res,
       throw new ApiError(404, 'ATTACHMENT_NOT_FOUND', 'One or more uploaded images do not belong to this conversation.');
     }
     const userMessage = await prisma.message.create({
-      data: { conversationId: conversation.id, role: 'USER', content: input.content },
+      data: {
+        conversationId: conversation.id,
+        role: 'USER',
+        content: input.content,
+        metadata: { clientPlatform: clientPlatformFromRequest(req) }
+      },
       select: { id: true }
     });
     if (input.attachmentIds.length) {
@@ -745,7 +750,8 @@ conversationsRouter.post('/:id/messages/stream', async (req: AuthenticatedReques
           intent: generated.intent,
           tools: generated.tools,
           confirmations: jsonMetadata(generated.confirmations),
-          interactionId: generated.interactionId
+          interactionId: generated.interactionId,
+          clientPlatform: clientPlatformFromRequest(req)
         }
       }
     });
