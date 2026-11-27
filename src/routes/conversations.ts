@@ -146,9 +146,10 @@ type MaxClientPlatform = 'web' | 'desktop' | 'android' | 'ios' | 'mobile' | 'unk
 function clientPlatformFromRequest(req: AuthenticatedRequest) {
   const header = String(req.header('x-max-client-platform') || '').trim().toLowerCase();
   const userAgent = String(req.header('user-agent') || '');
-  const inferred = /Dart\\/|dart:io/i.test(userAgent)
+  const normalizedAgent = userAgent.toLowerCase();
+  const inferred = normalizedAgent.includes('dart/') || normalizedAgent.includes('dart:io')
     ? 'mobile'
-    : /Mozilla\\/|AppleWebKit\\/|Chrome\\/|Firefox\\/|Safari\\//i.test(userAgent)
+    : ['mozilla/', 'applewebkit/', 'chrome/', 'firefox/', 'safari/'].some((marker) => normalizedAgent.includes(marker))
       ? 'web'
       : 'unknown';
   const requested = header || inferred;
