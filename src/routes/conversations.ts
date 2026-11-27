@@ -141,11 +141,19 @@ async function resolveReligionContext(userId: string, accessToken?: string): Pro
   return value;
 }
 
-type MaxClientPlatform = 'web' | 'desktop' | 'android' | 'ios' | 'unknown';
+type MaxClientPlatform = 'web' | 'desktop' | 'android' | 'ios' | 'mobile' | 'unknown';
 
 function clientPlatformFromRequest(req: AuthenticatedRequest) {
-  const requested = String(req.header('x-max-client-platform') || 'web').trim().toLowerCase();
-  const platform: MaxClientPlatform = ['web', 'desktop', 'android', 'ios'].includes(requested)
+  const header = String(req.header('x-max-client-platform') || '').trim().toLowerCase();
+  const userAgent = String(req.header('user-agent') || '');
+  const inferred = /Dart\\/|dart:io/i.test(userAgent)
+    ? 'mobile'
+    : /Mozilla\\/|AppleWebKit\\/|Chrome\\/|Firefox\\/|Safari\\//i.test(userAgent)
+      ? 'web'
+      : 'unknown';
+  const requested = header || inferred;
+  const allowed = ['web', 'desktop', 'android', 'ios', 'mobile', 'unknown'];
+  const platform: MaxClientPlatform = allowed.includes(requested)
     ? requested as MaxClientPlatform
     : 'unknown';
   const version = String(req.header('x-max-client-version') || '').trim().slice(0, 32);
@@ -159,6 +167,7 @@ function clientPlatformMetadata(req: AuthenticatedRequest, religion: ReligionCon
     desktop: 'Desktop',
     android: 'Android',
     ios: 'iOS',
+    mobile: 'Mobile app',
     unknown: 'Unknown client'
   };
   const label = labels[client.platform];
