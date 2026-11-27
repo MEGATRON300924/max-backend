@@ -570,12 +570,12 @@ conversationsRouter.post('/:id/messages/record', async (req: AuthenticatedReques
             include: { attachments: true }
           });
         }
-        else if (message.metadata) {
+        else {
           const existingMetadata: Record<string, unknown> = savedMessage.metadata && typeof savedMessage.metadata === 'object' && !Array.isArray(savedMessage.metadata)
             ? savedMessage.metadata as Record<string, unknown> : {};
           savedMessage = await tx.message.update({
             where: { id: savedMessage.id },
-            data: { metadata: jsonMetadata({ ...existingMetadata, ...message.metadata, clientMessageId: message.id, source: 'MAX Chat', clientPlatform }) },
+            data: { metadata: jsonMetadata({ ...existingMetadata, ...(message.metadata || {}), clientMessageId: message.id, source: 'MAX Chat', clientPlatform }) },
             include: { attachments: true }
           });
         }
