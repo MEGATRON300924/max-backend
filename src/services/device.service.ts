@@ -184,3 +184,79 @@ export async function resolveDeviceEventStreamSession(deviceId: string, sessionK
     roomId: device.roomId
   };
 }
+
+
+export type DeviceTelemetryInput = {
+  batteryPercent?: number;
+  isCharging?: boolean;
+  location?: { latitude: number; longitude: number; accuracyMeters?: number };
+  locationSharingEnabled?: boolean;
+};
+
+export async function updateDeviceTelemetry(
+  principal: AuthPrincipal,
+  deviceId: string,
+  input: DeviceTelemetryInput,
+) {
+  const user = await prisma.ecosystemUser.findUnique({ where: { authSubject: principal.subject } });
+  if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'MAX account is not initialized');
+
+  const device = await prisma.device.findFirst({
+    where: { id: deviceId, userId: user.id, revokedAt: null },
+    select: { id: true, capabilities: true }
+  });
+  if (!device) throw new ApiError(404, 'DEVICE_NOT_FOUND', 'MAX device was not found or revoked');
+
+  const previous = device.capabilities && typeof device.capabilities === 'object' && !Array.isArray(device.capabilities)
+    ? device.capabilities as Record<string, unknown>
+    : {};
+  const previousTelemetry = previous.telemetry && typeof previous.telemetry === 'object' && !Array.isArray(previous.telemetry)
+    ? previous.telemetry as Record<string, unknown>
+    : {};
+
+  const now = new Date().toISOString();
+  const telemetry: Record<string, unknown> = {
+    ...previousTelemetry,
+    ...(input.batteryPercent !== undefined ? { batteryPercent: input.batteryPercent } : {}),
+    ...(input.isCharging !== undefined ? { isCharging: input.isCharging } : {}),
+    updatedAt: now,
+  };
+
+  if (input.locationSharingEnabled === false) {
+    delete telemetry.location;
+    telemetry.locationSharingEnabled = false;
+  } else if (input.locationSharingEnabled === true) {
+    telemetry.locationSharingEnabled = true;
+    if (input.location) telemetry.location = { ...input.location, recordedAt: now };
+  } else if (input.location) {
+    throw new ApiError(400, 'LOCATION_CONSENT_REQUIRED', 'Explicit location-sharing consent is required.');
+  }
+
+  return prisma.device.update({
+    where: { id: device.id },
+    data: {
+      capabilities: { ...previous, telemetry } as Prisma.InputJsonValue,
+      lastSeenAt: new Date(),
+    },
+    select: { id: true, deviceName: true, capabilities: true, lastSeenAt: true }
+  });
+}
+
+export async function getDeviceTelemetry(principal: AuthPrincipal, deviceId: string) {
+  const user = await prisma.ecosystemUser.findUnique({ where: { authSubject: principal.subject } });
+  if (!user) throw new ApiError(404, 'USER_NOT_FOUND', 'MAX account is not initialized');
+  const device = await prisma.device.findFirst({
+    where: { id: deviceId, userId: user.id, revokedAt: null },
+    select: { id: true, deviceName: true, capabilities: true, lastSeenAt: true }
+  });
+  if (!device) throw new ApiError(404, 'DEVICE_NOT_FOUND', 'MAX device was not found or revoked');
+  const capabilities = device.capabilities && typeof device.capabilities === 'object' && !Array.isArray(device.capabilities)
+    ? device.capabilities as Record<string, unknown>
+    : {};
+  return {
+    id: device.id,
+    deviceName: device.deviceName,
+    telemetry: capabilities.telemetry ?? null,
+    lastSeenAt: device.lastSeenAt,
+  };
+}
