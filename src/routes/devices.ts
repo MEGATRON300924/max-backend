@@ -17,7 +17,7 @@ const telemetrySchema = z.object({
     longitude: z.number().min(-180).max(180),
     accuracyMeters: z.number().min(0).max(100000).optional()
   }).optional()
-}).refine((value) => value.locationSharingEnabled !== true || value.location !== undefined || true);
+});
 
 const registration = z.object({
   deviceType: z.enum(['mobile','tablet','tv','desktop','speaker','car','other']),
